@@ -13,6 +13,9 @@ import DeleteConfirmationModal from '../component/Modals/DeleteConfirmationModal
 import AiTemplateModal from '../component/Modals/AiTemplateModal';
 import { RiSparklingFill } from 'react-icons/ri';
 import { useNavigate } from 'react-router-dom';
+import RowActionMenu from '../component/table/RowActionMenu';
+import RecordDetailsModal from '../component/table/RecordDetailsModal';
+import { TableSkeletonRows } from '../component/table/TableSkeleton';
 
 function Template() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -28,6 +31,7 @@ function Template() {
   const [tokens, setTokens] = useState(null);
   const [activeDropdown, setActiveDropdown] = useState(null);
   const [isFilterOpen, setIsFilterOpen] = useState(false);
+  const [detailTemplate, setDetailTemplate] = useState(null);
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [templateToDelete, setTemplateToDelete] = useState(null);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -311,7 +315,7 @@ function Template() {
           setIsMinimized={setIsMinimized}
         />
 
-        <main className={`flex-1 transition-all duration-300 ease-in-out pt-16 overflow-y-auto ${isMinimized ? 'md:pl-20' : 'md:pl-72'}`}>
+        <main className={`flex-1 transition-all duration-300 ease-in-out pt-16 overflow-y-auto ${isMinimized ? 'md:pl-20' : 'md:pl-[260px]'}`}>
           <div className="max-w-8xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
 
             {/* Action Bar */}
@@ -404,7 +408,7 @@ function Template() {
                 <table className="min-w-full divide-y divide-gray-200">
                   <thead className="bg-gray-50">
                     <tr>
-                      {['S.No', 'Name', 'Language', 'Category', 'Status', 'Updated', 'Actions'].map((header) => (
+                      {['#', 'Name', 'Language', 'Category', 'Status', 'Updated', ''].map((header) => (
                         <th key={header} className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
                           {header}
                         </th>
@@ -413,15 +417,7 @@ function Template() {
                   </thead>
                   <tbody className="divide-y divide-gray-200 bg-white">
                     {loading && templates.length === 0 ? (
-                      [...Array(5)].map((_, i) => (
-                        <tr key={i} className="animate-pulse">
-                          {[...Array(7)].map((_, j) => (
-                            <td key={j} className="px-6 py-4">
-                              <div className="h-4 bg-gray-100 rounded"></div>
-                            </td>
-                          ))}
-                        </tr>
-                      ))
+                      <TableSkeletonRows rows={6} cells={['index', 'text', 'short', 'short', 'badge', 'short', 'action']} />
                     ) : (
                       templates.map((template, index) => (
                         <tr key={template.id} className="hover:bg-gray-50 transition-colors">
@@ -460,42 +456,15 @@ function Template() {
                             </div>
                           </td>
                           <td className="px-6 py-4 text-sm text-gray-500">{template.updatedOn}</td>
-                          <td className="px-6 py-4">
-                            <div className="flex justify-end gap-2">
-                              <button
-                                onClick={() => handlePreviewClick(template)}
-                                className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
-                                title="View"
-                              >
-                                <FiEye size={18} />
-                              </button>
-                              {template.status === 'PENDING' ? (
-                                <Tooltip
-                                  content="Can not edit for pending Template"
-                                  disabled={false}
-                                  position="top"
-                                >
-                                  <span className="p-2 text-gray-400 cursor-not-allowed rounded-lg opacity-50">
-                                    <FiEdit size={18} />
-                                  </span>
-                                </Tooltip>
-                              ) : (
-                                <Link
-                                  to={`/template-edit/${template.id}`}
-                                  className="p-2 text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors"
-                                  title="Edit"
-                                >
-                                  <FiEdit size={18} />
-                                </Link>
-                              )}
-                              <button
-                                onClick={() => handleDeleteClick(template)}
-                                className="p-2 text-red-500 hover:bg-red-50 rounded-lg transition-colors"
-                                title="Delete"
-                              >
-                                <FiTrash2 size={18} />
-                              </button>
-                            </div>
+                          <td className="px-3 py-4 text-right">
+                            <RowActionMenu
+                              items={[
+                                { label: 'Details', icon: <FiEye size={15} />, onClick: () => setDetailTemplate(template) },
+                                { label: 'Preview', icon: <FiEye size={15} />, onClick: () => handlePreviewClick(template) },
+                                { label: 'Edit', icon: <FiEdit size={15} />, onClick: () => navigate(`/template-edit/${template.id}`), disabled: template.status === 'PENDING' },
+                                { label: 'Delete', icon: <FiTrash2 size={15} />, onClick: () => handleDeleteClick(template), danger: true },
+                              ]}
+                            />
                           </td>
                         </tr>
                       ))
@@ -643,6 +612,19 @@ function Template() {
         }}
         projectId={tokens?.selected_project_id || tokens?.projects?.[0]?.project_id}
         tokens={tokens}
+      />
+
+      <RecordDetailsModal
+        isOpen={Boolean(detailTemplate)}
+        onClose={() => setDetailTemplate(null)}
+        title={detailTemplate?.name || 'Template'}
+        fields={detailTemplate ? [
+          { label: 'Language', value: detailTemplate.language },
+          { label: 'Category', value: detailTemplate.category },
+          { label: 'Status', value: detailTemplate.status },
+          { label: 'Reject reason', value: detailTemplate.rejectReason },
+          { label: 'Updated', value: detailTemplate.updatedOn },
+        ] : []}
       />
 
       {/* Delete Confirmation Modal */}

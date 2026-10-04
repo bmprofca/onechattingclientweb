@@ -4,6 +4,7 @@ import { parseServerDate, toServerTimestamp } from '../utils/dateTime';
 import { useDispatch } from 'react-redux';
 import { useSelector } from 'react-redux';
 import { fetchProjectInfo } from '../store/projectSlice';
+import SearchableSelect from '../component/SearchableSelect';
 import {
     FiPaperclip,
     FiMic,
@@ -46,6 +47,9 @@ import {
     FiTrash2
 } from 'react-icons/fi';
 import { LuSendHorizontal } from "react-icons/lu";
+import RowActionMenu from '../component/table/RowActionMenu';
+import RecordDetailsModal from '../component/table/RecordDetailsModal';
+import { TableSkeletonRows } from '../component/table/TableSkeleton';
 import axios from 'axios';
 import { motion, AnimatePresence } from 'framer-motion';
 import toast from 'react-hot-toast';
@@ -659,6 +663,7 @@ function Conversation({ activeChat, tokens, onBack, darkMode, dbAvailable, socke
     const [showCaseListModal, setShowCaseListModal] = useState(false);
     const [caseList, setCaseList] = useState([]);
     const [caseListLoading, setCaseListLoading] = useState(false);
+    const [caseDetail, setCaseDetail] = useState(null);
     const [caseListError, setCaseListError] = useState('');
     const [caseListPageNo, setCaseListPageNo] = useState(1);
     const [caseListLimit, setCaseListLimit] = useState(10);
@@ -4207,18 +4212,20 @@ function Conversation({ activeChat, tokens, onBack, darkMode, dbAvailable, socke
                                         onKeyDown={(e) => e.key === 'Enter' && fetchCaseList(1, caseListLimit, { search: caseListSearch, status: caseListStatusFilter })}
                                         className="border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 w-48 sm:w-56"
                                     />
-                                    <select
+                                    <SearchableSelect
                                         value={caseListStatusFilter}
                                         onChange={(e) => {
                                             setCaseListStatusFilter(e.target.value);
                                             fetchCaseList(1, caseListLimit, { search: caseListSearch, status: e.target.value });
                                         }}
-                                        className="border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                                    >
-                                        <option value="">All status</option>
-                                        <option value="open">Open</option>
-                                        <option value="closed">Closed</option>
-                                    </select>
+                                        options={[
+                                            { value: '', label: 'All status' },
+                                            { value: 'open', label: 'Open' },
+                                            { value: 'closed', label: 'Closed' },
+                                        ]}
+                                        placeholder="All status"
+                                        className="border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 min-w-[140px]"
+                                    />
                                     <button
                                         type="button"
                                         onClick={() => fetchCaseList(1, caseListLimit, { search: caseListSearch, status: caseListStatusFilter })}
@@ -4232,9 +4239,10 @@ function Conversation({ activeChat, tokens, onBack, darkMode, dbAvailable, socke
                                         <div className="px-6 py-4 text-sm text-red-600 dark:text-red-400">{caseListError}</div>
                                     )}
                                     {caseListLoading ? (
-                                        <div className="flex items-center justify-center py-16">
-                                            <div className="h-8 w-8 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin" />
-                                        </div>
+                                        <table className="w-full">
+                                            <thead><tr>{['#', 'Name', 'Create date', 'Status', ''].map((label) => <th key={label || 'actions'} className="px-6 py-4 text-left text-xs font-semibold text-gray-500">{label}</th>)}</tr></thead>
+                                            <tbody><TableSkeletonRows rows={6} cells={['index', 'text', 'short', 'badge', 'action']} /></tbody>
+                                        </table>
                                     ) : (
                                         <div className="overflow-x-auto">
                                             <table className="w-full divide-y divide-gray-200 dark:divide-gray-600">
@@ -4243,15 +4251,14 @@ function Conversation({ activeChat, tokens, onBack, darkMode, dbAvailable, socke
                                                         <th className="px-6 py-4 text-center text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider border-r border-gray-200/50 dark:border-gray-600">#</th>
                                                         <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider border-r border-gray-200/50 dark:border-gray-600">Name</th>
                                                         <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider border-r border-gray-200/50 dark:border-gray-600">Create date</th>
-                                                        <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider border-r border-gray-200/50 dark:border-gray-600">Remark</th>
                                                         <th className="px-6 py-4 text-center text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider border-r border-gray-200/50 dark:border-gray-600">Status</th>
-                                                        <th className="px-6 py-4 text-center text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider">Edit</th>
+                                                        <th className="w-16 px-3 py-4 text-right text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider">Actions</th>
                                                     </tr>
                                                 </thead>
                                                 <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-100 dark:divide-gray-700">
                                                     {caseList.length === 0 ? (
                                                         <tr>
-                                                            <td colSpan="6" className="px-6 py-12 text-center">
+                                                            <td colSpan="5" className="px-6 py-12 text-center">
                                                                 <div className="flex flex-col items-center justify-center gap-3">
                                                                     <p className="text-gray-500 dark:text-gray-400 font-medium">No cases found</p>
                                                                     <p className="text-gray-400 dark:text-gray-500 text-sm">Try adjusting filters or search.</p>
@@ -4269,22 +4276,18 @@ function Conversation({ activeChat, tokens, onBack, darkMode, dbAvailable, socke
                                                                     </td>
                                                                     <td className="px-6 py-4 whitespace-nowrap border-r border-gray-100 dark:border-gray-700 text-sm font-medium text-gray-900 dark:text-white">{row.name ?? '—'}</td>
                                                                     <td className="px-6 py-4 whitespace-nowrap border-r border-gray-100 dark:border-gray-700 text-sm text-gray-700 dark:text-gray-300">{createDateStr}</td>
-                                                                    <td className="px-6 py-4 border-r border-gray-100 dark:border-gray-700 text-sm text-gray-700 dark:text-gray-300 max-w-xs truncate" title={row.remark ?? ''}>{row.remark ?? '—'}</td>
                                                                     <td className="px-6 py-4 whitespace-nowrap border-r border-gray-100 dark:border-gray-700 text-center">
                                                                         <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-medium ${row.status === true || row.status === '1' ? 'bg-amber-50 text-amber-700 dark:bg-amber-900/40 dark:text-amber-200' : 'bg-green-50 text-green-700 dark:bg-green-900/40 dark:text-green-200'}`}>
                                                                             {row.status === true || row.status === '1' ? 'Open' : 'Closed'}
                                                                         </span>
                                                                     </td>
-                                                                    <td className="px-6 py-4 whitespace-nowrap text-center">
-                                                                        <button
-                                                                            type="button"
-                                                                            onClick={() => openCaseEditModal(row)}
-                                                                            className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-indigo-50 text-indigo-700 dark:bg-indigo-900/40 dark:text-indigo-200 hover:bg-indigo-100 dark:hover:bg-indigo-900/60 font-medium text-sm transition-colors"
-                                                                            title="Edit case"
-                                                                        >
-                                                                            <FiEdit2 className="w-4 h-4" />
-                                                                            Edit
-                                                                        </button>
+                                                                    <td className="px-3 py-4 text-right">
+                                                                        <RowActionMenu
+                                                                            items={[
+                                                                                { label: 'Details', icon: <FiEye className="w-4 h-4" />, onClick: () => setCaseDetail(row) },
+                                                                                { label: 'Edit', icon: <FiEdit2 className="w-4 h-4" />, onClick: () => openCaseEditModal(row) },
+                                                                            ]}
+                                                                        />
                                                                     </td>
                                                                 </tr>
                                                             );
@@ -4312,6 +4315,17 @@ function Conversation({ activeChat, tokens, onBack, darkMode, dbAvailable, socke
                         </motion.div>
                     )}
                 </AnimatePresence>
+
+                <RecordDetailsModal
+                    isOpen={Boolean(caseDetail)}
+                    onClose={() => setCaseDetail(null)}
+                    title={caseDetail?.name || 'Case'}
+                    fields={caseDetail ? [
+                        { label: 'Remark', value: caseDetail.remark },
+                        { label: 'Status', value: caseDetail.status === true || caseDetail.status === '1' ? 'Open' : 'Closed' },
+                        { label: 'Created', value: caseDetail.created_at || caseDetail.create_date || '' },
+                    ] : []}
+                />
 
                 {/* Edit Case Modal - on top of case list modal, does not close case list */}
                 <AnimatePresence>
@@ -4854,9 +4868,16 @@ function Conversation({ activeChat, tokens, onBack, darkMode, dbAvailable, socke
                                             </div>
                                             <div className="p-5">
                                                 {caseListLoading && caseList.length === 0 ? (
-                                                    <div className="flex items-center justify-center py-10">
-                                                        <div className="h-8 w-8 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin" />
-                                                    </div>
+                                                    <table className="w-full">
+                                                        <thead>
+                                                            <tr className="bg-gray-50 dark:bg-gray-700/50">
+                                                                {['#', 'Name', 'Date', 'Status', ''].map((label) => (
+                                                                    <th key={label || 'actions'} className="px-3 py-2.5 text-left text-xs font-semibold text-gray-500">{label}</th>
+                                                                ))}
+                                                            </tr>
+                                                        </thead>
+                                                        <tbody><TableSkeletonRows rows={4} cells={['index', 'text', 'short', 'badge', 'action']} /></tbody>
+                                                    </table>
                                                 ) : caseList.length === 0 ? (
                                                     <div className="text-center py-8">
                                                         <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">No cases for this chat.</p>
@@ -4886,7 +4907,7 @@ function Conversation({ activeChat, tokens, onBack, darkMode, dbAvailable, socke
                                                                         <th className="px-3 py-2.5 text-left text-xs font-semibold text-gray-500 dark:text-gray-400">Name</th>
                                                                         <th className="px-3 py-2.5 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 hidden sm:table-cell">Date</th>
                                                                         <th className="px-3 py-2.5 text-center text-xs font-semibold text-gray-500 dark:text-gray-400">Status</th>
-                                                                        <th className="px-3 py-2.5 text-right text-xs font-semibold text-gray-500 dark:text-gray-400">Edit</th>
+                                                                        <th className="w-16 px-3 py-2.5 text-right text-xs font-semibold text-gray-500 dark:text-gray-400">Actions</th>
                                                                     </tr>
                                                                 </thead>
                                                                 <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
@@ -4904,9 +4925,12 @@ function Conversation({ activeChat, tokens, onBack, darkMode, dbAvailable, socke
                                                                                     </span>
                                                                                 </td>
                                                                                 <td className="px-3 py-2.5 text-right">
-                                                                                    <button type="button" onClick={() => openCaseEditModal(row)} className="inline-flex items-center gap-1 text-indigo-600 dark:text-indigo-400 hover:underline text-xs font-medium">
-                                                                                        <FiEdit2 className="w-3.5 h-3.5" /> Edit
-                                                                                    </button>
+                                                                                    <RowActionMenu
+                                                                                        items={[
+                                                                                            { label: 'Details', icon: <FiEye className="w-4 h-4" />, onClick: () => setCaseDetail(row) },
+                                                                                            { label: 'Edit', icon: <FiEdit2 className="w-4 h-4" />, onClick: () => openCaseEditModal(row) },
+                                                                                        ]}
+                                                                                    />
                                                                                 </td>
                                                                             </tr>
                                                                         );

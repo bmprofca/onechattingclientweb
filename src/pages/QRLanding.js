@@ -155,9 +155,7 @@ const QRLanding = () => {
             {/* Top Bar / Brand */}
             <header className="max-w-md mx-auto w-full flex items-center justify-between py-3">
                 <div className="flex items-center gap-2">
-                    <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-emerald-500 to-teal-600 flex items-center justify-center font-bold text-white shadow-lg shadow-emerald-500/30">
-                        <WhatsAppIcon size={18} />
-                    </div>
+                    <img src="/logo.png" alt="" className="w-8 h-8 rounded-xl object-cover shadow-lg" />
                     <span className="font-bold text-sm tracking-wide bg-gradient-to-r from-white to-gray-300 bg-clip-text text-transparent">
                         OneChatting
                     </span>

@@ -8,6 +8,7 @@ import { Encrypt } from './encryption/payload-encryption';
 import { dbHelper } from './db';
 import { socketManager } from './socket';
 import GlobalMediaGalleryModal from '../component/Modals/GlobalMediaGalleryModal';
+import SearchableSelect from '../component/SearchableSelect';
 
 const COUNTRY_CODES = [
     { code: '91', country: 'India', dial: '+91' },
@@ -899,15 +900,12 @@ function ChatList({ tokens, onChatSelect, activeChat, darkMode, dbAvailable, soc
                         </div>
                         <div className="p-4 space-y-3">
                             <div className="flex gap-2">
-                                <select
+                                <SearchableSelect
                                     value={directChatCountryCode}
                                     onChange={(e) => setDirectChatCountryCode(e.target.value)}
-                                    className="flex-shrink-0 w-28 px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm focus:ring-2 focus:ring-blue-500"
-                                >
-                                    {COUNTRY_CODES.map((c) => (
-                                        <option key={c.code} value={c.code}>{c.dial} {c.country}</option>
-                                    ))}
-                                </select>
+                                    options={COUNTRY_CODES.map((c) => ({ value: c.code, label: `${c.dial} ${c.country}` }))}
+                                    className="flex-shrink-0 w-36 px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm focus:ring-2 focus:ring-blue-500"
+                                />
                                 <input
                                     ref={directChatInputRef}
                                     type="tel"

@@ -7,7 +7,6 @@ import { useNavigate, useLocation, Link } from 'react-router-dom';
 import { useDispatch } from 'react-redux';
 import { setAuthData, setSelectedProjectId } from '../store/authSlice';
 import { loginUser, sendOtp } from '../api/auth';
-import SwitchProjectModal from '../component/Modals/SwitchProjectModal';
 
 // ---- Design tokens --------------------------------------------------------
 const C = {
@@ -44,10 +43,10 @@ const ORBIT = [
 const Logo = ({ dark }) => (
   <div className="flex items-center gap-2">
     <div
-      className="w-9 h-9 rounded-xl flex items-center justify-center relative shrink-0"
+      className="w-9 h-9 rounded-xl flex items-center justify-center relative shrink-0 overflow-hidden"
       style={{ background: `linear-gradient(135deg, ${C.brand}, ${C.mint})` }}
     >
-      <img src="/Icon JPG & PNG/1Chatting Logo Icon PNG.png" alt="" />
+      <img src="/logo.png" alt="OneChatting" className="h-full w-full object-cover" />
     </div>
     <span className="text-xl font-bold" style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}>
       <span style={{ color: dark ? '#fff' : C.text }}>1</span>
@@ -61,30 +60,9 @@ const OrbitPanel = () => (
     style={{ background: `linear-gradient(160deg, ${C.panelFrom} 0%, ${C.panelVia} 55%, ${C.panelTo} 100%)` }}>
     <style>{`
       @keyframes ringGrow { 0% { transform: scale(1); opacity:.55 } 100% { transform: scale(6.2); opacity:0 } }
-      @keyframes floatDot { 0%,100% { transform: translateY(0) } 50% { transform: translateY(-6px) } }
     `}</style>
 
-    <div className="relative z-10">
-      <span
-        className="inline-flex items-center gap-1.5 text-[11px] uppercase tracking-[0.18em] text-white/60"
-        style={{ fontFamily: "'IBM Plex Mono', monospace" }}
-      >
-        <span className="w-1.5 h-1.5 rounded-full" style={{ background: C.mint, animation: 'floatDot 2.4s ease-in-out infinite' }} />
-        business messaging
-      </span>
-      <h1
-        className="mt-3 text-[30px] leading-[1.15] font-bold text-white"
-        style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}
-      >
-        Reach every customer,
-        <br /> one chat at a time.
-      </h1>
-      <p className="mt-2.5 text-[13px] text-white/60 leading-relaxed max-w-[280px]">
-        Broadcasts, chatbots and a shared team inbox — all on the number your customers already trust.
-      </p>
-    </div>
-
-    <div className="relative flex-1 my-6 flex items-center justify-center">
+    <div className="relative flex-1 flex items-center justify-center">
       <div className="relative w-full max-w-[300px] aspect-square">
         <div className="absolute inset-[6%] rounded-full border border-white/10" />
         <div className="absolute inset-[22%] rounded-full border border-white/10 border-dashed" />
@@ -102,9 +80,9 @@ const OrbitPanel = () => (
             className="relative w-[76px] h-[76px] rounded-full flex items-center justify-center shadow-lg"
             style={{ background: '#fff', boxShadow: '0 12px 30px -8px rgba(108,92,231,0.55)' }}
           >
-            <div className="w-11 h-11 rounded-2xl flex items-center justify-center"
+            <div className="w-11 h-11 rounded-2xl flex items-center justify-center overflow-hidden"
               style={{ background: `linear-gradient(135deg, ${C.brand}, ${C.mint})` }}>
-              <img src="/Icon JPG & PNG/1Chatting Logo Icon PNG.png" alt="" />
+              <img src="/logo.png" alt="" className="h-full w-full object-cover" />
             </div>
           </div>
         </div>
@@ -127,15 +105,6 @@ const OrbitPanel = () => (
         ))}
       </div>
     </div>
-
-    <div className="relative z-10 flex items-center gap-2 text-white/50 text-[12px]">
-      <div className="flex -space-x-1.5">
-        {[C.brand, C.mint, C.amber].map((c) => (
-          <span key={c} className="w-5 h-5 rounded-full border-2" style={{ background: c, borderColor: C.panelTo }} />
-        ))}
-      </div>
-      12,000+ businesses chatting smarter
-    </div>
   </div>
 );
 
@@ -150,9 +119,6 @@ const Login = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [showGlobalError, setShowGlobalError] = useState(false);
   const [toastMsg, setToastMsg] = useState('');
-
-  const [showProjectModal, setShowProjectModal] = useState(false);
-  const [loginProjects, setLoginProjects] = useState([]);
 
   const [turnstileToken, setTurnstileToken] = useState('');
   const turnstileSiteKey = process.env.REACT_APP_TURNSTILE_SITE_KEY || '0x4AAAAAACuMb3QQyxLqxHpe';
@@ -246,35 +212,24 @@ const Login = () => {
         });
 
         if (data.error === false) {
-          const projects = Array.isArray(data.projects) ? data.projects : [];
-          let userDataToStore = { ...data, selected_project_id: null };
-
-          if (projects.length === 0) {
-            localStorage.setItem('userData', JSON.stringify(userDataToStore));
-            dispatch(setAuthData(userDataToStore));
-            showToast('Login successful, but no projects found.');
-            setTimeout(() => navigate('/projects'), 800);
-            return;
-          }
-
-          if (projects.length === 1) {
-            const onlyProjectId = projects[0]?.project_id || null;
-            userDataToStore = { ...userDataToStore, selected_project_id: onlyProjectId };
-
-            localStorage.setItem('userData', JSON.stringify(userDataToStore));
-            dispatch(setAuthData(userDataToStore));
-            if (onlyProjectId) dispatch(setSelectedProjectId(onlyProjectId));
-
-            showToast('Redirecting…');
-            setTimeout(() => navigate('/'), 1200);
-            return;
-          }
+          const projects = Array.isArray(data.projects)
+            ? data.projects
+            : (Array.isArray(data.projects?.list) ? data.projects.list : []);
+          const onlyProjectId = projects.length === 1 ? (projects[0]?.project_id || null) : null;
+          const userDataToStore = { ...data, selected_project_id: onlyProjectId };
 
           localStorage.setItem('userData', JSON.stringify(userDataToStore));
           dispatch(setAuthData(userDataToStore));
-          setLoginProjects(projects);
-          setShowProjectModal(true);
-          showToast('Login successful. Please choose a project.');
+          if (onlyProjectId) {
+            dispatch(setSelectedProjectId(onlyProjectId));
+            sessionStorage.removeItem('showProjectPicker');
+          } else if (projects.length > 1) {
+            sessionStorage.setItem('showProjectPicker', '1');
+          } else {
+            sessionStorage.removeItem('showProjectPicker');
+          }
+
+          navigate('/', { replace: true });
         } else {
           throw new Error(data.error || 'Something went wrong');
         }
@@ -285,29 +240,6 @@ const Login = () => {
     } finally {
       setIsLoading(false);
     }
-  };
-
-  const handleProjectSelect = (project) => {
-    if (!project) return;
-
-    const selectedId = project.project_id || project.id || null;
-    if (!selectedId) return;
-
-    try {
-      const stored = localStorage.getItem('userData');
-      const parsed = stored ? JSON.parse(stored) : {};
-      const updated = { ...parsed, selected_project_id: selectedId };
-
-      localStorage.setItem('userData', JSON.stringify(updated));
-      dispatch(setSelectedProjectId(selectedId));
-      dispatch(setAuthData(updated));
-    } catch (error) {
-      console.error('Failed to set selected project', error);
-    }
-
-    setShowProjectModal(false);
-    showToast('Redirecting…');
-    setTimeout(() => navigate('/'), 500);
   };
 
   const dismissGlobalError = () => {
@@ -438,12 +370,6 @@ const Login = () => {
         </div>
       )}
 
-      <SwitchProjectModal
-        isOpen={showProjectModal}
-        onClose={() => setShowProjectModal(false)}
-        onSelectCompany={handleProjectSelect}
-        companies={loginProjects}
-      />
     </div>
   );
 };

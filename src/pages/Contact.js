@@ -3,6 +3,7 @@ import { API_BASE_URL } from '../config/api';
 import { Header, Sidebar } from '../component/Menu';
 import Tooltip from '../component/Tooltip';
 import Pagination from '../component/Pagination';
+import SearchableSelect from '../component/SearchableSelect';
 import axios from 'axios';
 import { Encrypt } from './encryption/payload-encryption';
 import { useNavigate } from 'react-router-dom';
@@ -11,6 +12,9 @@ import toast from 'react-hot-toast';
 import ExcelUpload from './Campaign/components/AudienceType/ExcelUpload';
 import GoogleSheet from './Campaign/components/AudienceType/GoogleSheet';
 import ContactFormModal from '../component/Modals/ContactFormModal';
+import RowActionMenu from '../component/table/RowActionMenu';
+import RecordDetailsModal from '../component/table/RecordDetailsModal';
+import { TableSkeletonRows } from '../component/table/TableSkeleton';
 import {
   FiPlus,
   FiDownload,
@@ -27,6 +31,7 @@ import {
   FiHome,
   FiFileText,
   FiStar,
+  FiEye,
   FiFilter,
   FiSearch,
   FiCheckCircle
@@ -54,6 +59,7 @@ function Contact() {
   const [bulkGroupId, setBulkGroupId] = useState('');
   const [bulkGroupLoading, setBulkGroupLoading] = useState(false);
   const [showFavoritesOnly, setShowFavoritesOnly] = useState(false);
+  const [detailContact, setDetailContact] = useState(null);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [successMessage, setSuccessMessage] = useState('');
   const [showDeleteModal, setShowDeleteModal] = useState(false);
@@ -1975,7 +1981,7 @@ function Contact() {
           isMinimized={isMinimized}
           setIsMinimized={setIsMinimized}
         />
-        <div className={`pt-16 transition-all duration-300 ease-in-out ${isMinimized ? 'md:pl-20' : 'md:pl-72'
+        <div className={`pt-16 transition-all duration-300 ease-in-out ${isMinimized ? 'md:pl-20' : 'md:pl-[260px]'
           }`}>
           <div className="p-4 sm:p-6 md:p-8">
             <div className="bg-white rounded-lg shadow p-8 text-center">
@@ -2008,7 +2014,7 @@ function Contact() {
         setIsMinimized={setIsMinimized}
       />
 
-      <div className={`pt-16 transition-all duration-300 ease-in-out ${isMinimized ? 'md:pl-20' : 'md:pl-72'
+      <div className={`pt-16 transition-all duration-300 ease-in-out ${isMinimized ? 'md:pl-20' : 'md:pl-[260px]'
         }`}>
         <div className="p-4 sm:p-6 md:p-8">
           {/* Header Section */}
@@ -2139,18 +2145,14 @@ function Contact() {
                       <div className="flex flex-wrap gap-2">
                         {contactGroups.length > 0 && (
                           <>
-                            <select
+                            <SearchableSelect
                               value={bulkGroupId}
                               onChange={(e) => setBulkGroupId(e.target.value)}
                               disabled={bulkGroupLoading}
-                              className="px-3 py-2 rounded-md border border-gray-300 bg-white text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                              aria-label="Select group for selected contacts"
-                            >
-                              <option value="">Add selected to group...</option>
-                              {contactGroups.map((group) => (
-                                <option key={group.id} value={group.id}>{group.name}</option>
-                              ))}
-                            </select>
+                              options={[{ value: '', label: 'Add selected to group...' }, ...contactGroups.map((group) => ({ value: group.id, label: group.name }))]}
+                              placeholder="Add selected to group..."
+                              className="px-3 py-2 rounded-md border border-gray-300 bg-white text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 min-w-[220px]"
+                            />
                             <button
                               type="button"
                               onClick={handleBulkAddToGroup}
@@ -2199,6 +2201,9 @@ function Contact() {
                         <table className="min-w-full divide-y divide-gray-200">
                           <thead className="bg-gray-50 sticky top-0 z-10">
                             <tr>
+                              <th className="w-14 px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                #
+                              </th>
                               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                                 <input
                                   type="checkbox"
@@ -2206,9 +2211,6 @@ function Contact() {
                                   onChange={handleSelectAll}
                                   className="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded"
                                 />
-                              </th>
-                              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                S.No.
                               </th>
                               <th
                                 className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 select-none"
@@ -2279,7 +2281,9 @@ function Contact() {
                             </tr>
                           </thead>
                           <tbody className="bg-white divide-y divide-gray-200">
-                            {sortedContacts.length === 0 && !contactsLoading ? (
+                            {contactsLoading && sortedContacts.length === 0 ? (
+                              <TableSkeletonRows rows={8} cells={['index', 'short', 'avatar', 'text', 'text', 'text', 'action']} />
+                            ) : sortedContacts.length === 0 && !contactsLoading ? (
                               <tr>
                                 <td colSpan="7" className="px-6 py-12 text-center text-gray-500">
                                   {showFavoritesOnly
@@ -2291,6 +2295,9 @@ function Contact() {
                             ) : (
                               sortedContacts.map((contact, idx) => (
                                 <tr key={contact.id} className="hover:bg-gray-50">
+                                  <td className="px-4 py-4 text-center text-sm text-gray-500">
+                                    {scrollWindowStartIndexRef.current + idx + 1}
+                                  </td>
                                   <td className="px-6 py-4 whitespace-nowrap">
                                     <input
                                       type="checkbox"
@@ -2298,9 +2305,6 @@ function Contact() {
                                       onChange={() => handleSelectContact(contact.id)}
                                       className="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded"
                                     />
-                                  </td>
-                                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                                    {scrollWindowStartIndexRef.current + idx + 1}
                                   </td>
                                   <td className="px-6 py-4 whitespace-nowrap">
                                     <div className="flex items-center">
@@ -2327,52 +2331,15 @@ function Contact() {
                                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                                     {contact.firm_name || '-'}
                                   </td>
-                                  <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                                    <div className="flex justify-center items-center space-x-2">
-                                      <Tooltip
-                                        content="Not authorized"
-                                        disabled={permissions && permissions.edit_contact === false}
-                                        position="top"
-                                      >
-                                        <button
-                                          onClick={() => { if (!permissions || permissions.edit_contact) handleOpenEditModal(contact); }}
-                                          disabled={permissions && permissions.edit_contact === false}
-                                          className={`text-indigo-600 hover:text-indigo-900 ${permissions && permissions.edit_contact === false ? 'opacity-50 cursor-not-allowed hover:text-indigo-600' : ''}`}
-                                          title={permissions && permissions.edit_contact === false ? '' : 'Edit contact'}
-                                        >
-                                          <FiEdit className="h-4 w-4" />
-                                        </button>
-                                      </Tooltip>
-
-                                      <button
-                                        onClick={() => handleToggleFavorite(contact)}
-                                        className="ml-2 p-1 rounded-full hover:bg-gray-100 transition-colors"
-                                        title={favoriteContacts.has(contact.id) ? 'Remove from favorites' : 'Add to favorites'}
-                                      >
-                                        <FiStar
-                                          className={`h-4 w-4 ${favoriteContacts.has(contact.id)
-                                            ? 'text-yellow-400 fill-current'
-                                            : 'text-gray-300 hover:text-yellow-400'
-                                            }`}
-                                        />
-                                      </button>
-
-                                      <Tooltip
-                                        content="Not authorized"
-                                        disabled={permissions && permissions.delete_contact === false}
-                                        position="top"
-                                      >
-                                        <button
-                                          className={`text-red-600 hover:text-red-900 ${permissions && permissions.delete_contact === false ? 'opacity-50 cursor-not-allowed hover:text-red-600' : ''}`}
-                                          title={permissions && permissions.delete_contact === false ? '' : 'Delete contact'}
-                                          disabled={permissions && permissions.delete_contact === false}
-                                          onClick={() => handleDeleteContact(contact)}
-                                          style={{ display: permissions && permissions.delete_contact === false ? 'inline-block' : (!permissions || permissions.delete_contact) ? 'inline-block' : 'none' }}
-                                        >
-                                          <FiTrash2 className="h-4 w-4" />
-                                        </button>
-                                      </Tooltip>
-                                    </div>
+                                  <td className="px-3 py-4 text-right">
+                                    <RowActionMenu
+                                      items={[
+                                        { label: 'Details', icon: <FiEye className="h-4 w-4" />, onClick: () => setDetailContact(contact) },
+                                        { label: 'Edit', icon: <FiEdit className="h-4 w-4" />, onClick: () => handleOpenEditModal(contact), disabled: permissions && permissions.edit_contact === false },
+                                        { label: favoriteContacts.has(contact.id) ? 'Remove favorite' : 'Add favorite', icon: <FiStar className="h-4 w-4" />, onClick: () => handleToggleFavorite(contact) },
+                                        { label: 'Delete', icon: <FiTrash2 className="h-4 w-4" />, onClick: () => handleDeleteContact(contact), danger: true, disabled: permissions && permissions.delete_contact === false },
+                                      ]}
+                                    />
                                   </td>
                                 </tr>
                               ))
@@ -2457,6 +2424,21 @@ function Contact() {
           </div>
         </div>
       </div>
+
+      <RecordDetailsModal
+        isOpen={Boolean(detailContact)}
+        onClose={() => setDetailContact(null)}
+        title={detailContact?.name || 'Contact'}
+        subtitle={detailContact?.mobile}
+        fields={detailContact ? [
+          { label: 'Mobile', value: detailContact.mobile },
+          { label: 'Email', value: detailContact.email },
+          { label: 'Company', value: detailContact.firm_name },
+          { label: 'Website', value: detailContact.website },
+          { label: 'Address', value: detailContact.address },
+          { label: 'Notes', value: detailContact.notes || detailContact.remark },
+        ] : []}
+      />
 
       {/* Create Contact Modal */}
       <ContactFormModal

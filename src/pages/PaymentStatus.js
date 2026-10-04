@@ -294,10 +294,10 @@ const PaymentStatus = () => {
           setIsMinimized={setIsMinimized}
         />
         <div
-          className={`transition-all duration-300 mt-16 w-full ${isMinimized ? 'md:ml-[72px]' : 'md:ml-[280px]'}`}
-          style={{ width: windowWidth >= 768 ? (isMinimized ? 'calc(100% - 72px)' : 'calc(100% - 280px)') : '100%' }}
+          className={`transition-all duration-300 mt-16 w-full ${isMinimized ? 'md:ml-20' : 'md:ml-[260px]'}`}
+          style={{ width: windowWidth >= 768 ? (isMinimized ? 'calc(100% - 80px)' : 'calc(100% - 260px)') : '100%' }}
         >
-          <div className="px-4 sm:px-6 lg:px-8 py-8 w-full max-w-6xl mx-auto">
+          <div className="px-4 sm:px-6 lg:px-8 py-8 w-full">
             <div className="bg-white rounded-xl shadow-lg p-8 flex flex-col items-center justify-center min-h-[400px]">
               <motion.div
                 animate={{ rotate: 360 }}
@@ -329,10 +329,10 @@ const PaymentStatus = () => {
           setIsMinimized={setIsMinimized}
         />
         <div
-          className={`transition-all duration-300 mt-16 w-full ${isMinimized ? 'md:ml-[72px]' : 'md:ml-[280px]'}`}
-          style={{ width: windowWidth >= 768 ? (isMinimized ? 'calc(100% - 72px)' : 'calc(100% - 280px)') : '100%' }}
+          className={`transition-all duration-300 mt-16 w-full ${isMinimized ? 'md:ml-20' : 'md:ml-[260px]'}`}
+          style={{ width: windowWidth >= 768 ? (isMinimized ? 'calc(100% - 80px)' : 'calc(100% - 260px)') : '100%' }}
         >
-          <div className="px-4 sm:px-6 lg:px-8 py-8 w-full max-w-6xl mx-auto">
+          <div className="px-4 sm:px-6 lg:px-8 py-8 w-full">
             <div className="bg-white rounded-xl shadow-lg p-8">
               <div className="text-center">
                 <FiXCircle className="mx-auto text-red-600" size={64} />
@@ -370,10 +370,10 @@ const PaymentStatus = () => {
       />
 
       <div
-        className={`transition-all duration-300 mt-16 w-full ${isMinimized ? 'md:ml-[72px]' : 'md:ml-[280px]'}`}
-        style={{ width: windowWidth >= 768 ? (isMinimized ? 'calc(100% - 72px)' : 'calc(100% - 280px)') : '100%' }}
+        className={`transition-all duration-300 mt-16 w-full ${isMinimized ? 'md:ml-20' : 'md:ml-[260px]'}`}
+        style={{ width: windowWidth >= 768 ? (isMinimized ? 'calc(100% - 80px)' : 'calc(100% - 260px)') : '100%' }}
       >
-        <div className="px-4 sm:px-6 lg:px-8 py-8 w-full max-w-6xl mx-auto">
+        <div className="px-4 sm:px-6 lg:px-8 py-8 w-full">
           {/* Back Button */}
           <button
             onClick={() => navigate('/wallet-recharge')}

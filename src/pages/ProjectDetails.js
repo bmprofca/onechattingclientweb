@@ -9,6 +9,7 @@ import {
     FiCheckCircle, FiAlertCircle, FiTrash2, FiPlus, FiCamera, FiExternalLink, FiRefreshCw
 } from 'react-icons/fi';
 import ProjectQRModal from '../component/Modals/ProjectQRModal';
+import SearchableSelect from '../component/SearchableSelect';
 import { LuQrCode } from 'react-icons/lu';
 
 // Business type (vertical) options for WABA profile { name: display text, value: API value }
@@ -975,7 +976,7 @@ const ProjectDetails = () => {
             />
 
             {/* Main content */}
-            <div className={`pt-16 transition-all duration-300 ease-in-out ${isMinimized ? 'md:pl-20' : 'md:pl-72'}`}>
+            <div className={`pt-16 transition-all duration-300 ease-in-out ${isMinimized ? 'md:pl-20' : 'md:pl-[260px]'}`}>
                 <div className="max-w-8xl mx-auto px-4 sm:px-6 md:px-8 py-6">
                     {loading ? (
                         <div className="flex justify-center items-center h-64"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600"></div></div>
@@ -1239,16 +1240,13 @@ const ProjectDetails = () => {
                                                     <div>
                                                         <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Industry / Vertical</label>
                                                         {isEditing ? (
-                                                            <select
+                                                            <SearchableSelect
                                                                 value={editForm.vertical}
                                                                 onChange={(e) => setEditForm({ ...editForm, vertical: e.target.value })}
+                                                                options={[{ value: '', label: 'Select business type' }, ...BUSINESS_VERTICALS.map((item) => ({ value: item.value, label: item.name }))]}
+                                                                placeholder="Select business type"
                                                                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
-                                                            >
-                                                                <option value="">Select business type</option>
-                                                                {BUSINESS_VERTICALS.map((item) => (
-                                                                    <option key={item.value} value={item.value}>{item.name}</option>
-                                                                ))}
-                                                            </select>
+                                                            />
                                                         ) : (
                                                             <div className="p-2.5 bg-gray-50 dark:bg-gray-700/50 rounded-lg text-gray-800 dark:text-gray-200">{formatVerticalLabel(data.profile?.vertical) || '-'}</div>
                                                         )}

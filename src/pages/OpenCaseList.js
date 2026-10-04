@@ -6,8 +6,12 @@ import toast from 'react-hot-toast';
 import { Header, Sidebar } from '../component/Menu';
 import { Encrypt } from './encryption/payload-encryption';
 import Pagination from '../component/Pagination';
+import SearchableSelect from '../component/SearchableSelect';
 import { FiAlertCircle, FiHash, FiPhone, FiFileText, FiUser, FiSearch, FiFilter, FiEye, FiEdit2, FiX, FiPlus, FiClock, FiCalendar, FiCheckSquare } from 'react-icons/fi';
 import { parseServerDate } from '../utils/dateTime';
+import RowActionMenu from '../component/table/RowActionMenu';
+import RecordDetailsModal from '../component/table/RecordDetailsModal';
+import { TableSkeletonRows } from '../component/table/TableSkeleton';
 import defaultCaseNames from '../data/caseNames.json';
 
 const CUSTOM_CASE_NAMES_STORAGE_KEY = 'openCaseCustomNames';
@@ -48,6 +52,8 @@ function OpenCaseList() {
     const [caseModalNumber, setCaseModalNumber] = useState(null);
     const [caseModalContact, setCaseModalContact] = useState(null);
     const [caseList, setCaseList] = useState([]);
+    const [caseDetail, setCaseDetail] = useState(null);
+    const [numberDetail, setNumberDetail] = useState(null);
     const [caseListLoading, setCaseListLoading] = useState(false);
     const [caseListError, setCaseListError] = useState('');
     const [caseListPageNo, setCaseListPageNo] = useState(1);
@@ -735,7 +741,7 @@ function OpenCaseList() {
                             </div>
                             <label className="flex items-center gap-2 shrink-0 text-sm text-slate-600">
                                 <FiFilter className="h-4 w-4 text-slate-400" />
-                                <select
+                                <SearchableSelect
                                     value={caseNameFilter}
                                     onChange={(e) => {
                                         const value = e.target.value;
@@ -743,15 +749,14 @@ function OpenCaseList() {
                                         setPageNo(1);
                                         fetchOpenCases(1, { caseNameFilter: value });
                                     }}
-                                    className="max-w-[190px] rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                                    aria-label="Filter by case name"
-                                >
-                                    <option value="">All case names</option>
-                                    {(Array.isArray(defaultCaseNames) ? defaultCaseNames : []).map((name) => (
-                                        <option key={name} value={name}>{name}</option>
-                                    ))}
-                                    <option value="others">Others</option>
-                                </select>
+                                    options={[
+                                        { value: '', label: 'All case names' },
+                                        ...(Array.isArray(defaultCaseNames) ? defaultCaseNames : []).map((name) => ({ value: name, label: name })),
+                                        { value: 'others', label: 'Others' },
+                                    ]}
+                                    placeholder="All case names"
+                                    className="max-w-[220px] rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                                />
                             </label>
                         </div>
                     </div>
@@ -769,15 +774,12 @@ function OpenCaseList() {
                             <table className="w-full divide-y divide-gray-200 dark:divide-gray-800">
                                 <thead className="bg-gradient-to-r from-gray-50 to-gray-100/50 dark:from-gray-900 dark:to-gray-800">
                                     <tr>
+                                        <th className="px-3 py-2.5 text-center text-xs font-semibold text-gray-700 dark:text-gray-200 uppercase tracking-wider border-r border-gray-200/50 dark:border-gray-700/60 w-12">
+                                            #
+                                        </th>
                                         <th className="px-3 py-2.5 text-center text-xs font-semibold text-gray-700 dark:text-gray-200 uppercase tracking-wider border-r border-gray-200/50 dark:border-gray-700/60 w-10">
                                             <input type="checkbox" checked={allOnPageSelected} onChange={toggleAllOnPage}
                                                 className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500 h-3.5 w-3.5 cursor-pointer" title="Select all on page" />
-                                        </th>
-                                        <th className="px-3 py-2.5 text-center text-xs font-semibold text-gray-700 dark:text-gray-200 uppercase tracking-wider border-r border-gray-200/50 dark:border-gray-700/60 w-12">
-                                            <div className="flex flex-col items-center justify-center gap-0.5">
-                                                <FiHash className="w-3 h-3 text-gray-400" />
-                                                <div>S.No</div>
-                                            </div>
                                         </th>
                                         <th className="px-3 py-2.5 text-left text-xs font-semibold text-gray-700 dark:text-gray-200 uppercase tracking-wider border-r border-gray-200/50 dark:border-gray-700/60">
                                             <div className="flex items-center gap-1.5">
@@ -801,14 +803,7 @@ function OpenCaseList() {
                                 </thead>
                                 <tbody className="bg-white dark:bg-gray-900 divide-y divide-gray-100 dark:divide-gray-800">
                                     {loading ? (
-                                        <tr>
-                                            <td colSpan={5} className="px-6 py-8 text-center">
-                                                <div className="flex flex-col items-center justify-center gap-3">
-                                                    <div className="w-10 h-10 rounded-full border-2 border-dashed border-gray-300 dark:border-gray-700 animate-spin border-t-transparent"></div>
-                                                    <p className="text-sm text-gray-500 dark:text-gray-400">Loading open cases...</p>
-                                                </div>
-                                            </td>
-                                        </tr>
+                                        <TableSkeletonRows rows={8} cells={['index', 'short', 'text', 'text', 'action']} />
                                     ) : casesByNumber.length === 0 ? (
                                         <tr>
                                             <td colSpan={5} className="px-6 py-10 text-center">
@@ -840,16 +835,12 @@ function OpenCaseList() {
                                                     key={item.number || index}
                                                     className={`hover:bg-gray-50/80 dark:hover:bg-gray-800/80 transition-all duration-150 group ${isChecked ? 'bg-indigo-50/60 dark:bg-indigo-900/10' : ''}`}
                                                 >
+                                                    <td className="px-3 py-2 border-r border-gray-100 dark:border-gray-800 text-center align-middle text-sm text-gray-600">
+                                                        {(pageNo - 1) * limit + index + 1}
+                                                    </td>
                                                     <td className="px-3 py-2 border-r border-gray-100 dark:border-gray-800 text-center align-middle">
                                                         <input type="checkbox" checked={isChecked} onChange={() => toggleNumber(item.number)}
                                                             className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500 h-3.5 w-3.5 cursor-pointer" />
-                                                    </td>
-                                                    <td className="px-3 py-2 border-r border-gray-100 dark:border-gray-800 text-center align-middle">
-                                                        <div className="flex items-center justify-center">
-                                                            <div className="flex items-center justify-center w-6 h-6 rounded-full bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-100 text-xs font-semibold">
-                                                                {(pageNo - 1) * limit + index + 1}
-                                                            </div>
-                                                        </div>
                                                     </td>
                                                     <td className="px-3 py-2 whitespace-nowrap border-r border-gray-100 dark:border-gray-800 align-middle">
                                                         <button
@@ -874,7 +865,6 @@ function OpenCaseList() {
                                                             <div className="mb-2 rounded-lg border border-emerald-200/70 dark:border-emerald-900/50 bg-emerald-50/60 dark:bg-emerald-900/20 px-2.5 py-1.5">
                                                                 <div className="text-[10px] font-bold uppercase tracking-wide text-emerald-700 dark:text-emerald-300">Latest case</div>
                                                                 <div className="text-xs font-semibold text-gray-900 dark:text-gray-100 truncate">{latestCase.name || 'Untitled Case'}</div>
-                                                                {latestCase.remark ? <div className="text-[11px] text-gray-600 dark:text-gray-300 truncate">{latestCase.remark}</div> : null}
                                                                 <div className="text-[10px] text-gray-500 dark:text-gray-400">{formatShortDateTime(latestCase.modify_date || latestCase.create_date)}</div>
                                                             </div>
                                                         ) : sortedCases.length === 0 ? (
@@ -913,15 +903,21 @@ function OpenCaseList() {
                                                             </div>
                                                         )}
                                                     </td>
-                                                    <td className="px-3 py-2 whitespace-nowrap text-center align-middle">
-                                                        <button
-                                                            type="button"
-                                                            onClick={() => openCaseModal(item)}
-                                                            className="inline-flex items-center gap-1 rounded-full border border-indigo-200 dark:border-indigo-700 px-2.5 py-1 text-xs font-semibold text-indigo-600 dark:text-indigo-300 bg-indigo-50/60 dark:bg-indigo-900/40 hover:bg-indigo-100 hover:border-indigo-300 dark:hover:bg-indigo-900/70 transition-colors"
-                                                        >
-                                                            <FiEye className="w-3 h-3" />
-                                                            <span>View Cases</span>
-                                                        </button>
+                                                    <td className="px-3 py-2 whitespace-nowrap text-right align-middle">
+                                                        <RowActionMenu
+                                                            items={[
+                                                                {
+                                                                    label: 'Details',
+                                                                    icon: <FiEye className="w-4 h-4" />,
+                                                                    onClick: () => setNumberDetail(item),
+                                                                },
+                                                                {
+                                                                    label: 'View cases',
+                                                                    icon: <FiFileText className="w-4 h-4" />,
+                                                                    onClick: () => openCaseModal(item),
+                                                                },
+                                                            ]}
+                                                        />
                                                     </td>
                                                 </tr>
                                             );
@@ -975,7 +971,6 @@ function OpenCaseList() {
                                                 <div className="rounded-lg border border-emerald-200/70 dark:border-emerald-900/50 bg-emerald-50/60 dark:bg-emerald-900/20 px-3 py-2">
                                                     <div className="text-[10px] font-bold uppercase tracking-wide text-emerald-700 dark:text-emerald-300">Latest case</div>
                                                     <div className="text-sm font-semibold text-gray-900 dark:text-gray-100 truncate">{latestCase.name || 'Untitled Case'}</div>
-                                                    {latestCase.remark ? <div className="text-xs text-gray-600 dark:text-gray-300 truncate">{latestCase.remark}</div> : null}
                                                     <div className="text-[11px] text-gray-500 dark:text-gray-400">{formatShortDateTime(latestCase.modify_date || latestCase.create_date)}</div>
                                                 </div>
                                             ) : null}
@@ -1185,17 +1180,18 @@ function OpenCaseList() {
                                     )}
                                     <div>
                                         <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Name</label>
-                                        <select
+                                        <SearchableSelect
                                             value={caseCreateCustomNameMode ? CUSTOM_CASE_NAME_VALUE : caseCreateName}
                                             onChange={(e) => handleCaseNameSelect(e.target.value, setCaseCreateName, setCaseCreateCustomNameMode)}
-                                            className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                                            options={[
+                                                { value: '', label: 'Select a case name' },
+                                                ...caseNameOptions.map((name) => ({ value: name, label: name })),
+                                                { value: CUSTOM_CASE_NAME_VALUE, label: '＋ Create new case name' },
+                                            ]}
+                                            placeholder="Select a case name"
                                             disabled={caseCreateLoading}
-                                            required
-                                        >
-                                            <option value="">Select a case name</option>
-                                            {caseNameOptions.map((name) => <option key={name} value={name}>{name}</option>)}
-                                            <option value={CUSTOM_CASE_NAME_VALUE}>＋ Create new case name</option>
-                                        </select>
+                                            className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                                        />
                                         {caseCreateCustomNameMode && (
                                             <div className="mt-2 flex gap-2">
                                                 <input
@@ -1325,18 +1321,20 @@ function OpenCaseList() {
                                     onKeyDown={(e) => e.key === 'Enter' && fetchCaseListForNumber(caseModalNumber, 1, { search: caseListSearch, status: caseListStatusFilter })}
                                     className="border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-1.5 text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 w-44 sm:w-52"
                                 />
-                                <select
+                                <SearchableSelect
                                     value={caseListStatusFilter}
                                     onChange={(e) => {
                                         setCaseListStatusFilter(e.target.value);
                                         fetchCaseListForNumber(caseModalNumber, 1, { search: caseListSearch, status: e.target.value });
                                     }}
-                                    className="border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-1.5 text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                                >
-                                    <option value="">All status</option>
-                                    <option value="open">Open</option>
-                                    <option value="closed">Closed</option>
-                                </select>
+                                    options={[
+                                        { value: '', label: 'All status' },
+                                        { value: 'open', label: 'Open' },
+                                        { value: 'closed', label: 'Closed' },
+                                    ]}
+                                    placeholder="All status"
+                                    className="border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-1.5 text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 min-w-[140px]"
+                                />
                                 <button
                                     type="button"
                                     onClick={() => fetchCaseListForNumber(caseModalNumber, 1, { search: caseListSearch, status: caseListStatusFilter })}
@@ -1362,14 +1360,15 @@ function OpenCaseList() {
                                     <div className="px-6 py-4 text-sm text-red-600 dark:text-red-400">{caseListError}</div>
                                 )}
                                 {caseListLoading ? (
-                                    <div className="flex items-center justify-center py-16">
-                                        <div className="h-8 w-8 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin" />
-                                    </div>
+                                    <table className="w-full">
+                                        <tbody><TableSkeletonRows rows={6} cells={['index', 'short', 'text', 'short', 'badge', 'action']} /></tbody>
+                                    </table>
                                 ) : (
                                     <div className="overflow-x-auto">
                                         <table className="w-full divide-y divide-gray-200 dark:divide-gray-600">
                                             <thead className="bg-gradient-to-r from-gray-50 to-gray-100/50 dark:from-gray-700/50 dark:to-gray-700/30">
                                                 <tr>
+                                                    <th className="px-3 py-2.5 text-center text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider border-r border-gray-200/50 dark:border-gray-600 w-10">#</th>
                                                     <th className="px-3 py-2.5 text-center text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider border-r border-gray-200/50 dark:border-gray-600 w-10">
                                                         <input type="checkbox"
                                                             checked={caseList.filter(r => r.status === true || r.status === '1').length > 0 && caseList.filter(r => r.status === true || r.status === '1').every(r => selectedCaseIds.has(r.case_id ?? r.id))}
@@ -1382,18 +1381,16 @@ function OpenCaseList() {
                                                             disabled={caseList.filter(r => r.status === true || r.status === '1').length === 0}
                                                             className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500 h-3.5 w-3.5 cursor-pointer" />
                                                     </th>
-                                                    <th className="px-3 py-2.5 text-center text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider border-r border-gray-200/50 dark:border-gray-600 w-10">#</th>
                                                     <th className="px-3 py-2.5 text-left text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider border-r border-gray-200/50 dark:border-gray-600">Name</th>
                                                     <th className="px-3 py-2.5 text-left text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider border-r border-gray-200/50 dark:border-gray-600">Create date</th>
-                                                    <th className="px-3 py-2.5 text-left text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider border-r border-gray-200/50 dark:border-gray-600">Remark</th>
                                                     <th className="px-3 py-2.5 text-center text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider border-r border-gray-200/50 dark:border-gray-600">Status</th>
-                                                    <th className="px-3 py-2.5 text-center text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider">Edit</th>
+                                                    <th className="w-16 px-3 py-2.5 text-right text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider">Actions</th>
                                                 </tr>
                                             </thead>
                                             <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-100 dark:divide-gray-700">
                                                 {caseList.length === 0 ? (
                                                     <tr>
-                                                        <td colSpan="7" className="px-6 py-8 text-center">
+                                                        <td colSpan="6" className="px-6 py-8 text-center">
                                                             <div className="flex flex-col items-center justify-center gap-3">
                                                                 <p className="text-gray-500 dark:text-gray-400 font-medium">No cases found</p>
                                                                 <p className="text-gray-400 dark:text-gray-500 text-sm">Try adjusting filters or search.</p>
@@ -1415,14 +1412,14 @@ function OpenCaseList() {
                                                         const isRowChecked = isOpen && selectedCaseIds.has(rowId);
                                                         return (
                                                             <tr key={rowId ?? index} className={`hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors ${isRowChecked ? 'bg-indigo-50/60 dark:bg-indigo-900/10' : ''}`}>
+                                                                <td className="px-3 py-2 whitespace-nowrap border-r border-gray-100 dark:border-gray-700 text-center text-sm text-gray-700 dark:text-gray-300">
+                                                                    {(caseListPageNo - 1) * caseListLimit + index + 1}
+                                                                </td>
                                                                 <td className="px-3 py-2 border-r border-gray-100 dark:border-gray-700 text-center">
                                                                     {isOpen ? (
                                                                         <input type="checkbox" checked={isRowChecked} onChange={() => toggleCaseId(rowId)}
                                                                             className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500 h-3.5 w-3.5 cursor-pointer" />
                                                                     ) : <span className="block h-3.5 w-3.5" />}
-                                                                </td>
-                                                                <td className="px-3 py-2 whitespace-nowrap border-r border-gray-100 dark:border-gray-700 text-center text-sm text-gray-700 dark:text-gray-300">
-                                                                    {(caseListPageNo - 1) * caseListLimit + index + 1}
                                                                 </td>
                                                                 <td className="px-3 py-2 whitespace-nowrap border-r border-gray-100 dark:border-gray-700 text-sm font-medium text-gray-900 dark:text-white">
                                                                     {row.name ?? '—'}
@@ -1430,24 +1427,18 @@ function OpenCaseList() {
                                                                 <td className="px-3 py-2 whitespace-nowrap border-r border-gray-100 dark:border-gray-700 text-sm text-gray-700 dark:text-gray-300">
                                                                     {createDateStr}
                                                                 </td>
-                                                                <td className="px-3 py-2 border-r border-gray-100 dark:border-gray-700 text-sm text-gray-700 dark:text-gray-300 max-w-xs truncate" title={row.remark ?? ''}>
-                                                                    {row.remark ?? '—'}
-                                                                </td>
                                                                 <td className="px-3 py-2 whitespace-nowrap border-r border-gray-100 dark:border-gray-700 text-center">
                                                                     <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${isOpen ? 'bg-amber-50 text-amber-700 dark:bg-amber-900/40 dark:text-amber-200' : 'bg-green-50 text-green-700 dark:bg-green-900/40 dark:text-green-200'}`}>
                                                                         {isOpen ? 'Open' : 'Closed'}
                                                                     </span>
                                                                 </td>
-                                                                <td className="px-3 py-2 whitespace-nowrap text-center">
-                                                                    <button
-                                                                        type="button"
-                                                                        onClick={() => openCaseEditModal(row)}
-                                                                        className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-indigo-50 text-indigo-700 dark:bg-indigo-900/40 dark:text-indigo-200 hover:bg-indigo-100 dark:hover:bg-indigo-900/60 font-medium text-xs transition-colors"
-                                                                        title="Edit case"
-                                                                    >
-                                                                        <FiEdit2 className="w-3.5 h-3.5" />
-                                                                        Edit
-                                                                    </button>
+                                                                <td className="px-3 py-2 text-right">
+                                                                    <RowActionMenu
+                                                                        items={[
+                                                                            { label: 'Details', icon: <FiEye className="w-4 h-4" />, onClick: () => setCaseDetail(row) },
+                                                                            { label: 'Edit', icon: <FiEdit2 className="w-4 h-4" />, onClick: () => openCaseEditModal(row) },
+                                                                        ]}
+                                                                    />
                                                                 </td>
                                                             </tr>
                                                         );
@@ -1502,16 +1493,17 @@ function OpenCaseList() {
                                     <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                                         Name
                                     </label>
-                                    <select
+                                    <SearchableSelect
                                         value={caseEditCustomNameMode ? CUSTOM_CASE_NAME_VALUE : caseEditName}
                                         onChange={(e) => handleCaseNameSelect(e.target.value, setCaseEditName, setCaseEditCustomNameMode)}
+                                        options={[
+                                            { value: '', label: 'Select a case name' },
+                                            ...caseNameOptions.map((name) => ({ value: name, label: name })),
+                                            { value: CUSTOM_CASE_NAME_VALUE, label: '＋ Create new case name' },
+                                        ]}
+                                        placeholder="Select a case name"
                                         className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                                        required
-                                    >
-                                        <option value="">Select a case name</option>
-                                        {caseNameOptions.map((name) => <option key={name} value={name}>{name}</option>)}
-                                        <option value={CUSTOM_CASE_NAME_VALUE}>＋ Create new case name</option>
-                                    </select>
+                                    />
                                     {caseEditCustomNameMode && (
                                         <div className="mt-2 flex gap-2">
                                             <input
@@ -1596,6 +1588,29 @@ function OpenCaseList() {
                         </div>
                     </div>
                 )}
+                <RecordDetailsModal
+                    isOpen={Boolean(caseDetail)}
+                    onClose={() => setCaseDetail(null)}
+                    title={caseDetail?.name || 'Case'}
+                    fields={caseDetail ? [
+                        { label: 'Remark', value: caseDetail.remark },
+                        { label: 'Status', value: caseDetail.status === true || caseDetail.status === '1' ? 'Open' : 'Closed' },
+                        { label: 'Created', value: caseDetail.created_at || caseDetail.create_date || '' },
+                    ] : []}
+                />
+                <RecordDetailsModal
+                    isOpen={Boolean(numberDetail)}
+                    onClose={() => setNumberDetail(null)}
+                    title={numberDetail?.contact?.name || numberDetail?.number || 'Contact'}
+                    subtitle={numberDetail?.contact?.name ? numberDetail.number : ''}
+                    fields={numberDetail ? [
+                        { label: 'Number', value: numberDetail.number },
+                        { label: 'Contact', value: numberDetail.contact?.name },
+                        { label: 'Open cases', value: Array.isArray(numberDetail.cases) ? numberDetail.cases.length : 0 },
+                        { label: 'Latest case', value: numberDetail.latest_case?.name },
+                        { label: 'Latest remark', value: numberDetail.latest_case?.remark },
+                    ] : []}
+                />
             </main>
         </div>
     );

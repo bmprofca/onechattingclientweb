@@ -70,7 +70,10 @@ export const fetchProjectInfo = createAsyncThunk(
         raw: response?.data,
         walletBalance,
         permissions,
-        owned
+        owned,
+        subscriptionEndDate: root.project?.subscription_end_date || null,
+        projectName: root.project?.name || '',
+        projectId
       };
     } catch (err) {
       return rejectWithValue(err?.message || 'Network error');
@@ -84,7 +87,10 @@ const initialState = {
   error: null,
   info: null,
   permissions: null,
-  owned: true
+  owned: true,
+  subscriptionEndDate: null,
+  projectName: '',
+  projectId: ''
 };
 
 const projectSlice = createSlice({
@@ -106,6 +112,9 @@ const projectSlice = createSlice({
         state.info = action.payload.raw;
         state.permissions = action.payload.permissions;
         state.owned = action.payload.owned;
+        state.subscriptionEndDate = action.payload.subscriptionEndDate;
+        state.projectName = action.payload.projectName;
+        state.projectId = action.payload.projectId;
       })
       .addCase(fetchProjectInfo.rejected, (state, action) => {
         state.status = 'failed';

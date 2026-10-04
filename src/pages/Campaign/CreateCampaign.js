@@ -80,7 +80,7 @@ export default function CampaignBuilder() {
         setIsMinimized={setIsMinimized}
       />
 
-      <div className={`flex-1 flex flex-col overflow-hidden transition-all duration-300 ${isMinimized ? 'lg:ml-16' : 'lg:ml-64'}`}>
+      <div className={`flex-1 flex flex-col overflow-hidden transition-all duration-300 ${isMinimized ? 'md:ml-20' : 'md:ml-[260px]'}`}>
         <Header
           mobileMenuOpen={mobileMenuOpen}
           setMobileMenuOpen={setMobileMenuOpen}

@@ -45,10 +45,10 @@ const ORBIT = [
 const Logo = () => (
   <div className="flex items-center gap-2">
     <div
-      className="w-9 h-9 rounded-xl flex items-center justify-center relative shrink-0"
+      className="w-9 h-9 rounded-xl flex items-center justify-center relative shrink-0 overflow-hidden"
       style={{ background: `linear-gradient(135deg, ${C.brand}, ${C.mint})` }}
     >
-      <img src="/Icon JPG & PNG\1Chatting Logo Icon PNG.png" alt="" />
+      <img src="/logo.png" alt="OneChatting" className="h-full w-full object-cover" />
     </div>
     <span className="text-xl font-bold" style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}>
       <span style={{ color: C.text }}>One</span>
@@ -57,32 +57,14 @@ const Logo = () => (
   </div>
 );
 
-const OrbitPanel = ({ step }) => (
+const OrbitPanel = () => (
   <div className="hidden md:flex md:w-[56%] relative flex-col justify-between p-8 overflow-hidden"
     style={{ background: `linear-gradient(160deg, ${C.panelFrom} 0%, ${C.panelVia} 55%, ${C.panelTo} 100%)` }}>
     <style>{`
       @keyframes ringGrow { 0% { transform: scale(1); opacity:.55 } 100% { transform: scale(6.2); opacity:0 } }
-      @keyframes floatDot { 0%,100% { transform: translateY(0) } 50% { transform: translateY(-6px) } }
     `}</style>
 
-    <div className="relative z-10">
-      <span
-        className="inline-flex items-center gap-1.5 text-[11px] uppercase tracking-[0.18em] text-white/60"
-        style={{ fontFamily: "'IBM Plex Mono', monospace" }}
-      >
-        <span className="w-1.5 h-1.5 rounded-full" style={{ background: C.mint, animation: 'floatDot 2.4s ease-in-out infinite' }} />
-        new workspace
-      </span>
-      <h1 className="mt-3 text-[28px] leading-[1.18] font-bold text-white" style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}>
-        Set up your team's
-        <br /> shared inbox.
-      </h1>
-      <p className="mt-2.5 text-[13px] text-white/60 leading-relaxed max-w-[280px]">
-        A few details, then a code to confirm your number. Live in under a minute.
-      </p>
-    </div>
-
-    <div className="relative flex-1 my-6 flex items-center justify-center">
+    <div className="relative flex-1 flex items-center justify-center">
       <div className="relative w-full max-w-[280px] aspect-square">
         <div className="absolute inset-[6%] rounded-full border border-white/10" />
         <div className="absolute inset-[22%] rounded-full border border-white/10 border-dashed" />
@@ -90,8 +72,8 @@ const OrbitPanel = ({ step }) => (
           <span className="absolute w-16 h-16 rounded-full border" style={{ borderColor: 'rgba(108,92,231,0.45)', animation: 'ringGrow 3.2s ease-out infinite' }} />
           <span className="absolute w-16 h-16 rounded-full border" style={{ borderColor: 'rgba(47,230,184,0.35)', animation: 'ringGrow 3.2s ease-out infinite 1.1s' }} />
           <div className="relative w-[76px] h-[76px] rounded-full flex items-center justify-center" style={{ background: '#fff', boxShadow: '0 12px 30px -8px rgba(108,92,231,0.55)' }}>
-            <div className="w-11 h-11 rounded-2xl flex items-center justify-center" style={{ background: `linear-gradient(135deg, ${C.brand}, ${C.mint})` }}>
-              <img src="/Icon JPG & PNG\1Chatting Logo Icon PNG.png" alt="" />
+            <div className="w-11 h-11 rounded-2xl flex items-center justify-center overflow-hidden" style={{ background: `linear-gradient(135deg, ${C.brand}, ${C.mint})` }}>
+              <img src="/logo.png" alt="" className="h-full w-full object-cover" />
             </div>
           </div>
         </div>
@@ -107,26 +89,6 @@ const OrbitPanel = ({ step }) => (
           </div>
         ))}
       </div>
-    </div>
-
-    <div className="relative z-10 flex items-center gap-2">
-      {[1, 2].map((i) => (
-        <div key={i} className="flex items-center gap-2">
-          <div
-            className="w-6 h-6 rounded-full flex items-center justify-center text-[11px] font-medium transition-colors"
-            style={{
-              background: step >= i ? C.brand : 'rgba(255,255,255,0.08)',
-              color: step >= i ? '#fff' : 'rgba(255,255,255,0.5)',
-              border: step >= i ? 'none' : '1px solid rgba(255,255,255,0.15)',
-              fontFamily: "'IBM Plex Mono', monospace",
-            }}
-          >
-            {i}
-          </div>
-          {i < 2 && <div className="w-8 h-px" style={{ background: step > i ? C.brand : 'rgba(255,255,255,0.15)' }} />}
-        </div>
-      ))}
-      <span className="text-[12px] text-white/50 ml-1">{step === 1 ? 'Your details' : 'Verify number'}</span>
     </div>
   </div>
 );
@@ -169,10 +131,10 @@ const Register = () => {
       if (!formData.mobile.trim()) { next.mobile = 'Enter a phone number'; ok = false; }
       else if (!/^\d{10}$/.test(formData.mobile)) { next.mobile = 'Enter a valid 10-digit number'; ok = false; }
       else next.mobile = '';
-      if (!formData.email.trim()) { next.email = 'Enter a work email'; ok = false; }
-      else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) { next.email = 'Enter a valid email'; ok = false; }
+      const email = formData.email.trim();
+      if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { next.email = 'Enter a valid email'; ok = false; }
       else next.email = '';
-      if (!formData.businessName.trim()) { next.businessName = 'Enter your business name'; ok = false; } else next.businessName = '';
+      next.businessName = '';
     } else {
       if (!formData.otp.trim()) { next.otp = 'Enter the code we sent you'; ok = false; } else next.otp = '';
     }
@@ -209,43 +171,43 @@ const Register = () => {
     e.preventDefault();
     if (!validateStep(2)) return;
 
-    setIsLoading(true);
+      setIsLoading(true);
 
-    const payload = {
-      email: formData.email,
+      const payload = {
+        email: formData.email,
       otp: formData.otp,
-      name: formData.name,
+        name: formData.name,
       firm_name: formData.businessName,
-      mobile: formData.mobile,
-      country_code: '+91',
-    };
+        mobile: formData.mobile,
+        country_code: '+91',
+      };
 
-    const { data, key } = Encrypt(payload);
+      const { data, key } = Encrypt(payload);
     const data_pass = JSON.stringify({ data, key });
 
     const config = {
-      method: 'post',
-      maxBodyLength: Infinity,
+        method: 'post',
+        maxBodyLength: Infinity,
       url: `${API_BASE_URL}/account/register`,
       headers: { 'Content-Type': 'application/json' },
       data: data_pass,
-    };
+      };
 
-    axios.request(config)
-      .then((response) => {
+      axios.request(config)
+        .then((response) => {
         const resData = response.data;
         if (resData.error === false) {
           localStorage.setItem('userData', JSON.stringify(resData));
           showToast('Workspace created — redirecting…');
           setTimeout(() => navigate('/'), 1200);
-        } else {
+          } else {
           throw new Error(resData.error || 'Something went wrong');
-        }
-      })
-      .catch((error) => {
+          }
+        })
+        .catch((error) => {
         setErrors((prev) => ({ ...prev, global: error.message || 'An error occurred during registration' }));
-        setShowGlobalError(true);
-      })
+          setShowGlobalError(true);
+        })
       .finally(() => setIsLoading(false));
   };
 
@@ -260,7 +222,7 @@ const Register = () => {
   });
 
   return (
-    <div className="h-screen w-screen overflow-hidden flex items-center justify-center p-4" style={{ background: C.surfaceSoft }}>
+    <div className="h-dvh w-screen overflow-hidden flex items-center justify-center p-3" style={{ background: C.surfaceSoft }}>
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@500;600;700;800&family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@500;600&display=swap');
         @keyframes stepIn { from { opacity:0; transform: translateX(10px) } to { opacity:1; transform: translateX(0) } }
@@ -268,24 +230,24 @@ const Register = () => {
       `}</style>
 
       <div
-        className="w-full max-w-[1200px] h-[min(640px,94vh)] rounded-2xl overflow-hidden flex flex-col md:flex-row"
+        className="w-full max-w-[1200px] h-[min(680px,calc(100dvh-1.5rem))] rounded-2xl overflow-hidden flex flex-col md:flex-row"
         style={{ background: '#fff', border: `1px solid ${C.border}`, boxShadow: '0 30px 80px -24px rgba(18,15,38,0.18)', fontFamily: "'Inter', sans-serif" }}
       >
-        <OrbitPanel step={step} />
+        <OrbitPanel />
 
-        <div className="w-full md:w-[44%] flex flex-col bg-white p-6 md:p-8 min-h-0 overflow-hidden">
-          <div className="mb-5"><Logo /></div>
+        <div className="w-full md:w-[44%] flex flex-col bg-white px-5 py-4 md:px-6 md:py-5 min-h-0 overflow-hidden">
+          <div className="mb-3"><Logo /></div>
 
-          <div className="flex gap-1.5 mb-5">
-            {[1, 2].map((i) => (
+          <div className="flex gap-1.5 mb-3">
+              {[1, 2].map((i) => (
               <div key={i} className="h-[3px] flex-1 rounded-full overflow-hidden" style={{ background: C.border }}>
                 <div className="h-full transition-all duration-300" style={{ width: step >= i ? '100%' : '0%', background: C.brand }} />
-              </div>
-            ))}
-          </div>
+                </div>
+              ))}
+        </div>
 
-          <div className="mb-4">
-            <h1 className="text-xl font-bold" style={{ color: C.text, fontFamily: "'Plus Jakarta Sans', sans-serif" }}>
+          <div className="mb-3">
+            <h1 className="text-lg font-bold" style={{ color: C.text, fontFamily: "'Plus Jakarta Sans', sans-serif" }}>
               Create your workspace
             </h1>
             <p className="text-[13px] mt-0.5" style={{ color: C.muted }}>
@@ -293,70 +255,70 @@ const Register = () => {
             </p>
           </div>
 
-          {showGlobalError && errors.global && (
+            {showGlobalError && errors.global && (
             <div className="mb-3 flex items-center justify-between rounded-lg px-3.5 py-2 text-[13px] step-in"
               style={{ background: C.dangerBg, border: `1px solid ${C.dangerBorder}`, color: C.danger }}>
-              <span>{errors.global}</span>
+                <span>{errors.global}</span>
               <button onClick={dismissGlobalError}><X className="w-4 h-4" /></button>
-            </div>
+              </div>
           )}
 
-          <form onSubmit={step === 2 ? handleSubmit : (e) => e.preventDefault()} className="flex flex-col flex-1 min-h-0">
-            <div className="flex-1 min-h-0 overflow-y-auto pr-0.5">
+          <form onSubmit={step === 2 ? handleSubmit : (e) => e.preventDefault()} className="flex flex-col flex-1 min-h-0 justify-between">
+            <div>
               {step === 1 ? (
-                <div key="s1" className="space-y-3 step-in">
+                <div key="s1" className="space-y-2 step-in">
                   <div>
-                    <label htmlFor="name" className="block text-xs font-medium mb-1.5" style={{ color: C.text }}>Full name</label>
+                    <label htmlFor="name" className="block text-xs font-medium mb-1" style={{ color: C.text }}>Full name</label>
                     <div className="relative">
                       <User className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4" style={{ color: C.muted }} />
                       <input type="text" id="name" name="name" autoFocus value={formData.name} onChange={handleChange} {...F('name')}
-                        placeholder="Your full name" className="w-full pl-10 pr-3.5 py-2.5 rounded-lg text-sm focus:outline-none transition-all"
+                        placeholder="Your full name" className="w-full pl-10 pr-3.5 py-2 rounded-lg text-sm focus:outline-none transition-all"
                         style={fieldStyle(errors.name, focusField === 'name')} />
                     </div>
                     {errors.name && <p className="text-xs mt-1" style={{ color: C.danger }}>{errors.name}</p>}
                   </div>
 
                   <div>
-                    <label htmlFor="mobile" className="block text-xs font-medium mb-1.5" style={{ color: C.text }}>Phone number</label>
+                    <label htmlFor="mobile" className="block text-xs font-medium mb-1" style={{ color: C.text }}>Phone number</label>
                     <div className="relative">
                       <Phone className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4" style={{ color: C.muted }} />
                       <input type="tel" id="mobile" name="mobile" value={formData.mobile} onChange={handleChange} {...F('mobile')}
-                        placeholder="10-digit mobile number" maxLength={10} className="w-full pl-10 pr-3.5 py-2.5 rounded-lg text-sm focus:outline-none transition-all"
+                        placeholder="10-digit mobile number" maxLength={10} className="w-full pl-10 pr-3.5 py-2 rounded-lg text-sm focus:outline-none transition-all"
                         style={fieldStyle(errors.mobile, focusField === 'mobile')} />
                     </div>
                     {errors.mobile && <p className="text-xs mt-1" style={{ color: C.danger }}>{errors.mobile}</p>}
                   </div>
 
                   <div>
-                    <label htmlFor="email" className="block text-xs font-medium mb-1.5" style={{ color: C.text }}>Work email</label>
+                    <label htmlFor="email" className="block text-xs font-medium mb-1" style={{ color: C.text }}>Work email <span style={{ color: C.muted }}>(optional)</span></label>
                     <div className="relative">
                       <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4" style={{ color: C.muted }} />
                       <input type="email" id="email" name="email" value={formData.email} onChange={handleChange} {...F('email')}
-                        placeholder="you@company.com" className="w-full pl-10 pr-3.5 py-2.5 rounded-lg text-sm focus:outline-none transition-all"
+                        placeholder="you@company.com" className="w-full pl-10 pr-3.5 py-2 rounded-lg text-sm focus:outline-none transition-all"
                         style={fieldStyle(errors.email, focusField === 'email')} />
                     </div>
                     {errors.email && <p className="text-xs mt-1" style={{ color: C.danger }}>{errors.email}</p>}
                   </div>
 
                   <div>
-                    <label htmlFor="businessName" className="block text-xs font-medium mb-1.5" style={{ color: C.text }}>Business name</label>
+                    <label htmlFor="businessName" className="block text-xs font-medium mb-1" style={{ color: C.text }}>Business name <span style={{ color: C.muted }}>(optional)</span></label>
                     <div className="relative">
                       <Building2 className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4" style={{ color: C.muted }} />
                       <input type="text" id="businessName" name="businessName" value={formData.businessName} onChange={handleChange} {...F('businessName')}
-                        placeholder="Your business name" className="w-full pl-10 pr-3.5 py-2.5 rounded-lg text-sm focus:outline-none transition-all"
+                        placeholder="Your business name" className="w-full pl-10 pr-3.5 py-2 rounded-lg text-sm focus:outline-none transition-all"
                         style={fieldStyle(errors.businessName, focusField === 'businessName')} />
                     </div>
                     {errors.businessName && <p className="text-xs mt-1" style={{ color: C.danger }}>{errors.businessName}</p>}
                   </div>
                 </div>
               ) : (
-                <div key="s2" className="space-y-3 step-in">
+                <div key="s2" className="space-y-2 step-in">
                   <div>
-                    <label htmlFor="otp" className="block text-xs font-medium mb-1.5" style={{ color: C.text }}>One-time code</label>
+                    <label htmlFor="otp" className="block text-xs font-medium mb-1" style={{ color: C.text }}>One-time code</label>
                     <div className="relative">
                       <ShieldCheck className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4" style={{ color: C.muted }} />
                       <input type="text" id="otp" name="otp" autoFocus inputMode="numeric" value={formData.otp} onChange={handleChange} {...F('otp')}
-                        placeholder="000000" maxLength={6} className="w-full pl-10 pr-3.5 py-2.5 rounded-lg text-sm tracking-[0.4em] focus:outline-none transition-all"
+                        placeholder="000000" maxLength={6} className="w-full pl-10 pr-3.5 py-2 rounded-lg text-sm tracking-[0.4em] focus:outline-none transition-all"
                         style={{ ...fieldStyle(errors.otp, focusField === 'otp'), fontFamily: "'IBM Plex Mono', monospace" }} />
                     </div>
                     {errors.otp && <p className="text-xs mt-1" style={{ color: C.danger }}>{errors.otp}</p>}
@@ -368,11 +330,11 @@ const Register = () => {
                     and{' '}
                     <a href={websiteUrl('/privacy-policy')} target="_blank" rel="noopener noreferrer" className="font-medium" style={{ color: C.brand }}>Privacy Policy</a>.
                   </p>
-                </div>
+                    </div>
               )}
             </div>
 
-            <div className="mt-4 flex justify-between items-center gap-3 shrink-0">
+            <div className="mt-3 flex justify-between items-center gap-3 shrink-0">
               {step > 1 ? (
                 <button type="button" onClick={prevStep}
                   className="px-4 py-2.5 rounded-lg text-sm font-medium transition-all flex items-center gap-1.5"
@@ -397,7 +359,7 @@ const Register = () => {
             </div>
           </form>
 
-          <div className="mt-3 text-center shrink-0">
+          <div className="mt-2 text-center shrink-0">
             <p className="text-xs" style={{ color: C.muted }}>
               Already chatting with us?{' '}
               <Link to="/login" className="font-medium" style={{ color: C.brand }}>

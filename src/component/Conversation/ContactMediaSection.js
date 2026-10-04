@@ -22,6 +22,9 @@ import { Encrypt } from '../../pages/encryption/payload-encryption';
 import { parseServerDate } from '../../utils/dateTime';
 import MediaModal from '../Modals/Conversation/MediaModal';
 import Pagination from '../Pagination';
+import RowActionMenu from '../table/RowActionMenu';
+import RecordDetailsModal from '../table/RecordDetailsModal';
+import { TableSkeletonRows } from '../table/TableSkeleton';
 
 const MEDIA_TABS = [
     { id: 'all', label: 'All', icon: FiLayers },
@@ -244,6 +247,7 @@ function ContactMediaSection({ number, tokens }) {
     const [totalPages, setTotalPages] = useState(1);
     const [downloadingId, setDownloadingId] = useState(null);
     const [previewItem, setPreviewItem] = useState(null);
+    const [mediaDetail, setMediaDetail] = useState(null);
 
     const fetchMedia = useCallback(async ({ page = 1, filter = 'all', limit = 10 } = {}) => {
         if (!tokens?.token || !tokens?.username || !number) return;
@@ -444,35 +448,13 @@ function ContactMediaSection({ number, tokens }) {
                     <DirectionBadge direction={item.direction} />
                 </td>
                 <td className="px-3 py-2.5 text-right whitespace-nowrap">
-                    <div className="flex items-center justify-end gap-1">
-                        {showPreview && (
-                            <button
-                                type="button"
-                                onClick={(e) => handlePreview(e, item)}
-                                className="p-1.5 rounded-lg text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 transition-colors"
-                                title="Preview"
-                                aria-label="Preview"
-                            >
-                                <FiEye className="w-4 h-4" />
-                            </button>
-                        )}
-                        {canDownload && (
-                            <button
-                                type="button"
-                                onClick={(e) => handleDownload(e, item)}
-                                disabled={isDownloading}
-                                className="p-1.5 rounded-lg text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600 disabled:opacity-60 transition-colors"
-                                title={item.message_type === 'location' ? 'Open location' : 'Download'}
-                                aria-label={item.message_type === 'location' ? 'Open location' : 'Download file'}
-                            >
-                                {isDownloading ? (
-                                    <span className="block h-4 w-4 border-2 border-current border-t-transparent rounded-full animate-spin" />
-                                ) : (
-                                    <FiDownload className="w-4 h-4" />
-                                )}
-                            </button>
-                        )}
-                    </div>
+                    <RowActionMenu
+                        items={[
+                            { label: 'Details', icon: <FiEye className="w-4 h-4" />, onClick: () => setMediaDetail(item) },
+                            { label: 'Preview', icon: <FiEye className="w-4 h-4" />, onClick: () => handlePreview({ stopPropagation() {} }, item), hidden: !showPreview },
+                            { label: item.message_type === 'location' ? 'Open location' : 'Download', icon: <FiDownload className="w-4 h-4" />, onClick: () => handleDownload({ stopPropagation() {} }, item), hidden: !canDownload, disabled: isDownloading },
+                        ]}
+                    />
                 </td>
             </tr>
         );
@@ -526,9 +508,18 @@ function ContactMediaSection({ number, tokens }) {
 
                 <div className="p-4">
                     {loading && items.length === 0 ? (
-                        <div className="flex items-center justify-center py-10">
-                            <div className="h-8 w-8 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin" />
-                        </div>
+                        <table className="w-full text-sm">
+                            <thead>
+                                <tr>
+                                    {['#', 'Preview', 'Name', 'Type', 'Date', 'Dir.', ''].map((label, index) => (
+                                        <th key={`${label}-${index}`} className="px-3 py-2.5 text-left text-xs font-semibold text-gray-500">{label}</th>
+                                    ))}
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <TableSkeletonRows rows={4} cells={['index', 'short', 'text', 'short', 'short', 'badge', 'action']} />
+                            </tbody>
+                        </table>
                     ) : error ? (
                         <div className="text-center py-8">
                             <p className="text-sm text-red-500 dark:text-red-400 mb-3">{error}</p>
@@ -562,11 +553,7 @@ function ContactMediaSection({ number, tokens }) {
                                     </thead>
                                     <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
                                         {loading ? (
-                                            <tr>
-                                                <td colSpan={7} className="px-3 py-10 text-center">
-                                                    <div className="h-8 w-8 mx-auto border-2 border-indigo-500 border-t-transparent rounded-full animate-spin" />
-                                                </td>
-                                            </tr>
+                                            <TableSkeletonRows rows={4} cells={['index', 'short', 'text', 'short', 'short', 'badge', 'action']} />
                                         ) : (
                                             items.map(renderMediaTableRow)
                                         )}
@@ -623,6 +610,17 @@ function ContactMediaSection({ number, tokens }) {
                     />
                 ) : null
             )}
+            <RecordDetailsModal
+                isOpen={Boolean(mediaDetail)}
+                onClose={() => setMediaDetail(null)}
+                title={mediaDetail ? resolveFileName(mediaDetail) : 'Media'}
+                fields={mediaDetail ? [
+                    { label: 'Type', value: TYPE_LABELS[mediaDetail.message_type] || mediaDetail.message_type },
+                    { label: 'Date', value: formatMediaDate(mediaDetail.create_date) },
+                    { label: 'Direction', value: mediaDetail.direction },
+                    { label: 'Voice note', value: mediaDetail.is_voice ? 'Yes' : '' },
+                ] : []}
+            />
         </>
     );
 }

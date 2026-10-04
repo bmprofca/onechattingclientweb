@@ -20,6 +20,9 @@ import {
     FiAlertTriangle,
 } from 'react-icons/fi';
 import toast from 'react-hot-toast';
+import RowActionMenu from '../component/table/RowActionMenu';
+import RecordDetailsModal from '../component/table/RecordDetailsModal';
+import { TableSkeletonRows } from '../component/table/TableSkeleton';
 
 const DEVELOPER_API_DOCS_URL = 'https://docs.onechatting.com';
 
@@ -274,6 +277,7 @@ function DeveloperAccess() {
 
     const [projectId, setProjectId] = useState('');
     const [loading, setLoading] = useState(true);
+    const [userDetail, setUserDetail] = useState(null);
     const [developerAccess, setDeveloperAccess] = useState(false);
     const [accessLoading, setAccessLoading] = useState(false);
     const [projectToken, setProjectToken] = useState('');
@@ -548,7 +552,7 @@ function DeveloperAccess() {
             <div className="min-h-screen bg-slate-50">
                 <Header mobileMenuOpen={mobileMenuOpen} setMobileMenuOpen={setMobileMenuOpen} isMinimized={isMinimized} setIsMinimized={setIsMinimized} />
                 <Sidebar mobileMenuOpen={mobileMenuOpen} setMobileMenuOpen={setMobileMenuOpen} isMinimized={isMinimized} setIsMinimized={setIsMinimized} />
-                <div className={`pt-16 transition-all duration-300 ease-in-out ${isMinimized ? 'md:pl-20' : 'md:pl-72'}`}>
+                <div className={`pt-16 transition-all duration-300 ease-in-out ${isMinimized ? 'md:pl-20' : 'md:pl-[260px]'}`}>
                     <div className="max-w-8xl mx-auto px-4 sm:px-6 md:px-8 py-8">
                         <div className="max-w-2xl mx-auto mt-12 rounded-xl border border-slate-200 bg-white p-8 shadow-sm text-center">
                             <FiLock className="w-14 h-14 mx-auto text-slate-300 mb-4" />
@@ -572,7 +576,7 @@ function DeveloperAccess() {
         <div className="min-h-screen bg-slate-50">
             <Header mobileMenuOpen={mobileMenuOpen} setMobileMenuOpen={setMobileMenuOpen} isMinimized={isMinimized} setIsMinimized={setIsMinimized} />
             <Sidebar mobileMenuOpen={mobileMenuOpen} setMobileMenuOpen={setMobileMenuOpen} isMinimized={isMinimized} setIsMinimized={setIsMinimized} />
-            <div className={`pt-16 transition-all duration-300 ease-in-out ${isMinimized ? 'md:pl-20' : 'md:pl-72'}`}>
+            <div className={`pt-16 transition-all duration-300 ease-in-out ${isMinimized ? 'md:pl-20' : 'md:pl-[260px]'}`}>
                 <div className="max-w-8xl mx-auto px-4 sm:px-6 md:px-8 py-8">
                     <div className="mb-8 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
                         <h1 className="text-2xl font-bold text-slate-800 flex items-center gap-2">
@@ -591,9 +595,25 @@ function DeveloperAccess() {
                     </div>
 
                     {loading ? (
-                        <div className="rounded-xl border border-slate-200 bg-white p-10 shadow-sm flex items-center justify-center gap-3 text-slate-500">
-                            <span className="inline-block h-6 w-6 border-2 border-slate-300 border-t-transparent rounded-full animate-spin" />
-                            Loading developer access settings...
+                        <div className="space-y-6">
+                            <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm animate-pulse">
+                                <div className="h-5 w-56 bg-slate-200 rounded" />
+                                <div className="mt-3 h-4 w-80 bg-slate-100 rounded" />
+                            </div>
+                            <div className="rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden">
+                                <table className="min-w-full">
+                                    <thead className="bg-slate-50">
+                                        <tr>
+                                            {['#', 'Name', 'Email', 'Role', 'Developer Token', ''].map((label, index) => (
+                                                <th key={`${label}-${index}`} className="px-6 py-3 text-left text-xs font-semibold text-slate-500 uppercase">{label}</th>
+                                            ))}
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <TableSkeletonRows rows={5} cells={['index', 'text', 'text', 'badge', 'short', 'action']} />
+                                    </tbody>
+                                </table>
+                            </div>
                         </div>
                     ) : (
                         <div className="space-y-6">
@@ -676,6 +696,7 @@ function DeveloperAccess() {
                                                         loading={Boolean(userTokenLoading[user.unique_id])}
                                                         onRegenerate={() => requestUserTokenRegenerate(user)}
                                                         onViewToken={() => openTokenViewModal(user)}
+                                                        onDetails={() => setUserDetail(user)}
                                                     />
                                                 ))
                                             )}
@@ -698,6 +719,18 @@ function DeveloperAccess() {
                 onClose={closeConfirmModal}
             />
 
+            <RecordDetailsModal
+                isOpen={Boolean(userDetail)}
+                onClose={() => setUserDetail(null)}
+                title={userDetail?.name || 'User'}
+                subtitle={userDetail?.email}
+                fields={userDetail ? [
+                    { label: 'Email', value: userDetail.email },
+                    { label: 'Role', value: userDetail.type === 'admin' ? 'Owner' : 'Agent' },
+                    { label: 'Developer token', value: userDetail.developer_token ? 'Generated' : 'Not generated' },
+                ] : []}
+            />
+
             <TokenViewModal
                 isOpen={tokenViewModal.open}
                 userName={tokenViewModal.userName}
@@ -709,7 +742,7 @@ function DeveloperAccess() {
     );
 }
 
-function UserTokenRow({ serialNo, user, loading, onRegenerate, onViewToken }) {
+function UserTokenRow({ serialNo, user, loading, onRegenerate, onViewToken, onDetails }) {
     const token = user.developer_token || '';
 
     return (
@@ -724,33 +757,19 @@ function UserTokenRow({ serialNo, user, loading, onRegenerate, onViewToken }) {
             </td>
             <td className="px-6 py-4 text-sm">
                 {token ? (
-                    <button
-                        type="button"
-                        onClick={onViewToken}
-                        className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg border border-slate-200 bg-white text-slate-700 text-sm font-medium hover:bg-indigo-50 hover:text-indigo-700 hover:border-indigo-200 transition-colors"
-                        title="View developer token"
-                    >
-                        <FiEye className="w-4 h-4" />
-                        View Token
-                    </button>
+                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-emerald-50 text-emerald-700">Generated</span>
                 ) : (
                     <span className="text-slate-400 italic">Not generated</span>
                 )}
             </td>
             <td className="px-6 py-4 whitespace-nowrap text-right">
-                <button
-                    type="button"
-                    onClick={onRegenerate}
-                    disabled={loading}
-                    className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-indigo-600 text-white text-sm font-medium hover:bg-indigo-700 disabled:opacity-60 disabled:cursor-not-allowed transition-colors"
-                >
-                    {loading ? (
-                        <span className="inline-block h-4 w-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                    ) : (
-                        <FiRefreshCw className="w-4 h-4" />
-                    )}
-                    {token ? 'Regenerate' : 'Generate'}
-                </button>
+                <RowActionMenu
+                    items={[
+                        { label: 'Details', icon: <FiEye className="w-4 h-4" />, onClick: onDetails },
+                        { label: 'View token', icon: <FiEye className="w-4 h-4" />, onClick: onViewToken, hidden: !token },
+                        { label: token ? 'Regenerate' : 'Generate', icon: <FiRefreshCw className="w-4 h-4" />, onClick: onRegenerate, disabled: loading },
+                    ]}
+                />
             </td>
         </tr>
     );

@@ -1,10 +1,10 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { API_BASE_URL } from '../config/api';
 import { Header, Sidebar } from '../component/Menu';
+import SearchableSelect from '../component/SearchableSelect';
 import { useParams, useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import {
-  FiChevronDown,
   FiX,
   FiPlus,
   FiPaperclip,
@@ -918,7 +918,7 @@ function TemplateEdit() {
           isMinimized={isMinimized}
           setIsMinimized={setIsMinimized}
         />
-        <div className={`pt-16 transition-all duration-300 ease-in-out ${isMinimized ? 'md:pl-20' : 'md:pl-72'
+        <div className={`pt-16 transition-all duration-300 ease-in-out ${isMinimized ? 'md:pl-20' : 'md:pl-[260px]'
           }`}>
           <div className="max-w-8xl mx-auto px-4 sm:px-6 md:px-8 py-6">
             <div className="flex items-center justify-center h-64">
@@ -947,7 +947,7 @@ function TemplateEdit() {
       />
 
       {/* Main content */}
-      <div className={`pt-16 transition-all duration-300 ease-in-out ${isMinimized ? 'md:pl-20' : 'md:pl-72'
+      <div className={`pt-16 transition-all duration-300 ease-in-out ${isMinimized ? 'md:pl-20' : 'md:pl-[260px]'
         }`}>
         <div className="max-w-8xl mx-auto px-4 sm:px-6 md:px-8 py-6">
           {/* Page header */}
@@ -994,21 +994,14 @@ function TemplateEdit() {
                   <label className="block text-sm font-medium text-gray-700 mb-1">
                     Category *
                   </label>
-                  <div className="relative">
-                    <select
-                      name="category"
-                      value={formData.category}
-                      onChange={handleInputChange}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 appearance-none"
-                      required
-                    >
-                      <option value="">Select a category</option>
-                      {categories.map(cat => (
-                        <option key={cat.code} value={cat.code}>{cat.name}</option>
-                      ))}
-                    </select>
-                    <FiChevronDown className="absolute right-3 top-3 text-gray-400" />
-                  </div>
+                  <SearchableSelect
+                    name="category"
+                    value={formData.category}
+                    onChange={handleInputChange}
+                    options={[{ value: '', label: 'Select a category' }, ...categories.map((cat) => ({ value: cat.code, label: cat.name }))]}
+                    placeholder="Select a category"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  />
                 </div>
 
                 {/* Language - Read Only */}

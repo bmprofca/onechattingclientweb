@@ -18,8 +18,12 @@ import {
   FiCheckCircle,
   FiArrowLeft,
   FiUsers,
-  FiMessageCircle
+  FiMessageCircle,
+  FiEye
 } from 'react-icons/fi';
+import RowActionMenu from '../component/table/RowActionMenu';
+import RecordDetailsModal from '../component/table/RecordDetailsModal';
+import { TableSkeletonRows } from '../component/table/TableSkeleton';
 
 
 function ContactGroupList() {
@@ -28,6 +32,7 @@ function ContactGroupList() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [groupContacts, setGroupContacts] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [detailContact, setDetailContact] = useState(null);
   const [tokens, setTokens] = useState(null);
   const [pageNo, setPageNo] = useState(1);
   const [pageSize, setPageSize] = useState(20); // Default 20 items per page
@@ -984,7 +989,7 @@ function ContactGroupList() {
           isMinimized={isMinimized}
           setIsMinimized={setIsMinimized}
         />
-        <div className={`pt-16 transition-all duration-300 ease-in-out ${isMinimized ? 'md:pl-20' : 'md:pl-72'}`}>
+        <div className={`pt-16 transition-all duration-300 ease-in-out ${isMinimized ? 'md:pl-20' : 'md:pl-[260px]'}`}>
           <div className="p-4 sm:p-6 md:p-8">
             <div className="bg-white rounded-lg shadow p-8 text-center">
               <h2 className="text-lg font-semibold text-gray-900">Access Denied</h2>
@@ -1011,7 +1016,7 @@ function ContactGroupList() {
         setIsMinimized={setIsMinimized}
       />
 
-      <div className={`pt-16 transition-all duration-300 ease-in-out ${isMinimized ? 'md:pl-20' : 'md:pl-72'}`}>
+      <div className={`pt-16 transition-all duration-300 ease-in-out ${isMinimized ? 'md:pl-20' : 'md:pl-[260px]'}`}>
         <div className="p-4 sm:p-6 md:p-8">
           {/* Header Section */}
           <div className="mb-8">
@@ -1088,9 +1093,19 @@ function ContactGroupList() {
           <div className="bg-white shadow-sm rounded-xl overflow-hidden border border-gray-100">
             <div className="px-4 py-4 sm:p-6">
               {loading ? (
-                <div className="flex justify-center items-center py-12">
-                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600"></div>
-                  <span className="ml-2 text-gray-600">Loading group contacts...</span>
+                <div className="overflow-x-auto">
+                  <table className="min-w-full">
+                    <thead className="bg-gray-50/60">
+                      <tr>
+                        {['#', '', 'Contact', 'Mobile', ''].map((label, index) => (
+                          <th key={`${label}-${index}`} className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">{label}</th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <TableSkeletonRows rows={6} cells={['index', 'short', 'avatar', 'text', 'action']} />
+                    </tbody>
+                  </table>
                 </div>
               ) : (
                 <>
@@ -1099,6 +1114,7 @@ function ContactGroupList() {
                     <table className="min-w-full divide-y divide-gray-100">
                       <thead className="bg-gray-50/60">
                         <tr>
+                          <th className="px-6 py-3 text-center text-xs font-semibold text-gray-600 uppercase tracking-wider w-14">#</th>
                           <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider w-14">
                             <CustomCheckbox
                               checked={isAllSelected}
@@ -1129,8 +1145,11 @@ function ContactGroupList() {
                             </td>
                           </tr>
                         ) : (
-                          filteredGroupContacts.map((contact) => (
+                          filteredGroupContacts.map((contact, index) => (
                             <tr key={contact.id} className="hover:bg-gray-50/70">
+                              <td className="px-6 py-4 whitespace-nowrap text-center text-sm text-gray-500">
+                                {(contactsMeta.page_no - 1) * pageSize + index + 1}
+                              </td>
                               <td className="px-6 py-4 whitespace-nowrap">
                                 <CustomCheckbox
                                   checked={selectedContacts.includes(contact.id)}
@@ -1164,30 +1183,30 @@ function ContactGroupList() {
                                 </div>
                               </td>
                               <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                                <div className="flex items-center justify-end gap-2">
-                                  <button
-                                    onClick={() => {
-                                      const number = contact?.mobile || '';
-                                      if (!number) {
-                                        toast.error('Mobile number not found');
-                                        return;
-                                      }
-                                      navigate(`/live-chat/${encodeURIComponent(number)}`);
-                                    }}
-                                    className="inline-flex items-center justify-center h-9 w-9 rounded-lg border border-gray-200 bg-white text-indigo-600 hover:bg-indigo-50 hover:border-indigo-200"
-                                    title="Open chat"
-                                  >
-                                    <FiMessageCircle className="h-4 w-4" />
-                                  </button>
-                                  <button
-                                    onClick={() => handleOpenRemoveModal(contact)}
-                                    disabled={deleteLoading || deleteAllLoading}
-                                    className={`inline-flex items-center justify-center h-9 w-9 rounded-lg border border-gray-200 bg-white text-red-600 hover:bg-red-50 hover:border-red-200 ${deleteLoading || deleteAllLoading ? 'opacity-60 cursor-not-allowed' : ''}`}
-                                    title="Remove from group"
-                                  >
-                                    <FiTrash2 className="h-4 w-4" />
-                                  </button>
-                                </div>
+                                <RowActionMenu
+                                  items={[
+                                    { label: 'Details', icon: <FiEye className="w-4 h-4" />, onClick: () => setDetailContact(contact) },
+                                    {
+                                      label: 'Open chat',
+                                      icon: <FiMessageCircle className="w-4 h-4" />,
+                                      onClick: () => {
+                                        const number = contact?.mobile || '';
+                                        if (!number) {
+                                          toast.error('Mobile number not found');
+                                          return;
+                                        }
+                                        navigate(`/live-chat/${encodeURIComponent(number)}`);
+                                      },
+                                    },
+                                    {
+                                      label: 'Remove',
+                                      icon: <FiTrash2 className="w-4 h-4" />,
+                                      danger: true,
+                                      disabled: deleteLoading || deleteAllLoading,
+                                      onClick: () => handleOpenRemoveModal(contact),
+                                    },
+                                  ]}
+                                />
                               </td>
                             </tr>
                           ))
@@ -1410,6 +1429,19 @@ function ContactGroupList() {
         </div>
       )}
 
+      <RecordDetailsModal
+        isOpen={Boolean(detailContact)}
+        onClose={() => setDetailContact(null)}
+        title={detailContact?.name || 'Contact'}
+        fields={detailContact ? [
+          { label: 'Mobile', value: detailContact.mobile },
+          { label: 'Email', value: detailContact.email },
+          { label: 'Company', value: detailContact.firm_name },
+          { label: 'Website', value: detailContact.website },
+          { label: 'Address', value: detailContact.address },
+          { label: 'Notes', value: detailContact.notes || detailContact.remark },
+        ] : []}
+      />
     </div>
   );
 }

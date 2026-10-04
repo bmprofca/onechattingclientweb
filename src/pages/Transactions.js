@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { API_BASE_URL } from '../config/api';
 import { Header, Sidebar } from '../component/Menu';
+import SearchableSelect from '../component/SearchableSelect';
 import {
   FiDownload, FiFileText, FiCalendar, FiDollarSign,
   FiRefreshCw, FiX, FiUser, FiCreditCard, FiHash,
@@ -14,10 +15,9 @@ import autoTable from 'jspdf-autotable';
 import axios from 'axios';
 import { Encrypt } from './encryption/payload-encryption';
 import Pagination from '../component/Pagination';
+import RowActionMenu from '../component/table/RowActionMenu';
 import DateRangePicker from '../component/DateRangePicker';
 import MultiSelect from '../component/MultiSelect';
-// import logo from "../../public/logo-main.png";
-
 const formatMoment = (value, format) => {
   const date = parseServerDate(value);
   return date ? moment(date).format(format) : 'N/A';
@@ -220,7 +220,7 @@ const Transactions = () => {
       return new Promise((resolve) => {
         const controller = new AbortController();
         const timeout = setTimeout(() => controller.abort(), 0); // abort immediately if not cached
-        const logoUrl = `${window.location.origin}/1Chatting%20Logo%20PNG.png`;
+        const logoUrl = `${window.location.origin}/logo.png`;
         fetch(logoUrl, { signal: controller.signal, cache: 'force-cache' })
           .then(res => res.blob())
           .then(blob => {
@@ -249,8 +249,8 @@ const Transactions = () => {
     doc.text('support@1chat.com  |  www.1chat.com', 15, 32);
 
     if (logoBase64) {
-      const logoWidth = 55;
-      const logoHeight = 20;
+      const logoWidth = 16;
+      const logoHeight = 16;
       doc.addImage(logoBase64, 'PNG', 195 - logoWidth, 6, logoWidth, logoHeight);
     }
 
@@ -521,7 +521,7 @@ const Transactions = () => {
       <table className="w-full">
         <thead className="bg-gray-50">
           <tr>
-            {[1, 2, 3, 4, 5, 6, 7, 8].map((col) => (
+            {[1, 2, 3, 4, 5, 6].map((col) => (
               <th key={col} className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                 <div className="h-4 bg-gray-200 rounded animate-pulse"></div>
               </th>
@@ -531,7 +531,7 @@ const Transactions = () => {
         <tbody className="bg-white divide-y divide-gray-200">
           {Array.from({ length: pageSize }).map((_, rowIndex) => (
             <tr key={rowIndex} className="hover:bg-gray-50">
-              {Array.from({ length: 8 }).map((_, colIndex) => (
+              {Array.from({ length: 6 }).map((_, colIndex) => (
                 <td key={colIndex} className="px-6 py-4 whitespace-nowrap">
                   <div className={`h-4 bg-gray-100 rounded animate-pulse ${colIndex === 5 ? 'w-3/4' : 'w-full'
                     }`}></div>
@@ -827,7 +827,7 @@ const Transactions = () => {
       />
 
       {/* Main content */}
-      <div className={`pt-16 transition-all duration-300 ease-in-out ${isMinimized ? 'md:pl-20' : 'md:pl-72'}`}>
+      <div className={`pt-16 transition-all duration-300 ease-in-out ${isMinimized ? 'md:pl-20' : 'md:pl-[260px]'}`}>
         <div className="max-w-8xl mx-auto px-4 sm:px-6 md:px-8 py-6">
           {/* Header Section */}
           <div className="mb-6">
@@ -918,63 +918,33 @@ const Transactions = () => {
                 {/* Transaction Type Dropdown - with Project Create */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">Transaction Type</label>
-                  <div className="relative group">
-                    <select
-                      value={transactionType}
-                      onChange={(e) => setTransactionType(e.target.value)}
-                      className="w-full px-4 py-2.5 pl-10 pr-10 border border-gray-300 rounded-lg 
-                                bg-white focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 
-                                hover:border-indigo-400 hover:shadow-sm transition-all duration-200
-                                cursor-pointer appearance-none shadow-sm
-                                text-sm text-gray-800 font-medium"
-                    >
-                      <option value="all">All</option>
-                      <option value="template send">Template Send</option>
-                      <option value="wallet topup">Wallet Topup</option>
-                      <option value="project renewal">Project Renewal</option>
-                      <option value="project create">Project Create</option>
-                    </select>
-                    <div className="absolute left-3 top-1/2 transform -translate-y-1/2 pointer-events-none">
-                      <svg className="w-4 h-4 text-gray-400 group-hover:text-indigo-500 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
-                      </svg>
-                    </div>
-                    <div className="absolute right-3 top-1/2 transform -translate-y-1/2 pointer-events-none">
-                      <svg className="w-4 h-4 text-gray-400 group-hover:text-indigo-500 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                      </svg>
-                    </div>
-                  </div>
+                  <SearchableSelect
+                    value={transactionType}
+                    onChange={(e) => setTransactionType(e.target.value)}
+                    options={[
+                      { value: 'all', label: 'All' },
+                      { value: 'template send', label: 'Template Send' },
+                      { value: 'wallet topup', label: 'Wallet Topup' },
+                      { value: 'project renewal', label: 'Project Renewal' },
+                      { value: 'project create', label: 'Project Create' },
+                    ]}
+                    className="w-full px-4 py-2.5 border border-gray-300 rounded-lg bg-white focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-sm text-gray-800 font-medium"
+                  />
                 </div>
 
                 {/* Entry Type Dropdown - Premium */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">Entry Type</label>
-                  <div className="relative group">
-                    <select
-                      value={entryType}
-                      onChange={(e) => setEntryType(e.target.value)}
-                      className="w-full px-4 py-2.5 pl-10 pr-10 border border-gray-300 rounded-lg 
-                                bg-white focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 
-                                hover:border-indigo-400 hover:shadow-sm transition-all duration-200
-                                cursor-pointer appearance-none shadow-sm
-                                text-sm text-gray-800 font-medium"
-                    >
-                      <option value="all">All</option>
-                      <option value="1">Credit</option>
-                      <option value="0">Debit</option>
-                    </select>
-                    <div className="absolute left-3 top-1/2 transform -translate-y-1/2 pointer-events-none">
-                      <svg className="w-4 h-4 text-gray-400 group-hover:text-indigo-500 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                      </svg>
-                    </div>
-                    <div className="absolute right-3 top-1/2 transform -translate-y-1/2 pointer-events-none">
-                      <svg className="w-4 h-4 text-gray-400 group-hover:text-indigo-500 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                      </svg>
-                    </div>
-                  </div>
+                  <SearchableSelect
+                    value={entryType}
+                    onChange={(e) => setEntryType(e.target.value)}
+                    options={[
+                      { value: 'all', label: 'All' },
+                      { value: '1', label: 'Credit' },
+                      { value: '0', label: 'Debit' },
+                    ]}
+                    className="w-full px-4 py-2.5 border border-gray-300 rounded-lg bg-white focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-sm text-gray-800 font-medium"
+                  />
                 </div>
 
                 {/* Multi-Select Projects */}
@@ -1073,29 +1043,15 @@ const Transactions = () => {
                             <div>Amount</div>
                           </div>
                         </th>
-                        <th className="px-6 py-4 text-center text-xs font-semibold text-gray-700 uppercase tracking-wider border-r border-gray-200/50">
-                          <div className="flex flex-col items-center justify-center gap-1">
-                            <svg className="w-3.5 h-3.5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                            </svg>
-                            <div>Receipt</div>
-                          </div>
-                        </th>
-                        <th className="px-6 py-4 text-center text-xs font-semibold text-gray-700 uppercase tracking-wider">
-                          <div className="flex flex-col items-center justify-center gap-1">
-                            <svg className="w-3.5 h-3.5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-                            </svg>
-                            <div>Details</div>
-                          </div>
+                        <th className="w-16 px-3 py-4 text-right text-xs font-semibold text-gray-700 uppercase tracking-wider">
+                          Actions
                         </th>
                       </tr>
                     </thead>
                     <tbody className="bg-white divide-y divide-gray-100">
                       {transformedTransactions.length === 0 ? (
                         <tr>
-                          <td colSpan="8" className="px-6 py-12 text-center">
+                          <td colSpan="6" className="px-6 py-12 text-center">
                             <div className="flex flex-col items-center justify-center gap-3">
                               <svg className="w-12 h-12 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M9 12h3.75M9 15h3.75M9 18h3.75m3 .75H18a2.25 2.25 0 002.25-2.25V6.108c0-1.135-.845-2.098-1.976-2.192a48.424 48.424 0 00-1.123-.08m-5.801 0c-.065.21-.1.433-.1.664 0 .414.336.75.75.75h4.5a.75.75 0 00.75-.75 2.25 2.25 0 00-.1-.664m-5.8 0A2.251 2.251 0 0113.5 2.25H15c1.012 0 1.867.668 2.15 1.586m-5.8 0c-.376.023-.75.05-1.124.08C9.095 4.01 8.25 4.973 8.25 6.108V8.25m0 0H4.875c-.621 0-1.125.504-1.125 1.125v11.25c0 .621.504 1.125 1.125 1.125h9.75c.621 0 1.125-.504 1.125-1.125V9.375c0-.621-.504-1.125-1.125-1.125H8.25zM6.75 12h.008v.008H6.75V12zm0 3h.008v.008H6.75V15zm0 3h.008v.008H6.75V18z" />
@@ -1163,28 +1119,13 @@ const Transactions = () => {
                                 <span>{transaction.type === 'Credit' ? '+' : '-'}₹{transaction.amount.toFixed(2)}</span>
                               </div>
                             </td>
-                            <td className="px-6 py-4 whitespace-nowrap border-r border-gray-100 text-center align-middle">
-                              <button
-                                onClick={() => generatePDF(transaction)}
-                                className="group/btn inline-flex items-center justify-center gap-2 px-4 py-2 bg-gradient-to-r from-indigo-50 to-indigo-50/50 hover:from-indigo-100 hover:to-indigo-100/80 text-indigo-700 hover:text-indigo-800 font-semibold text-sm rounded-lg border border-indigo-200 hover:border-indigo-300 transition-all duration-200 shadow-sm hover:shadow mx-auto"
-                              >
-                                <svg className="w-4 h-4 group-hover/btn:-translate-y-0.5 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                                </svg>
-                                Receipt
-                              </button>
-                            </td>
-                            <td className="px-6 py-4 whitespace-nowrap text-center align-middle">
-                              <button
-                                onClick={() => openDetailsModal(transaction)}
-                                className="group/btn inline-flex items-center justify-center gap-2 px-4 py-2 bg-gradient-to-r from-indigo-50 to-indigo-50/50 hover:from-indigo-100 hover:to-indigo-100/80 text-indigo-700 hover:text-indigo-800 font-semibold text-sm rounded-lg border border-indigo-200 hover:border-indigo-300 transition-all duration-200 shadow-sm hover:shadow mx-auto"
-                              >
-                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-                                </svg>
-                                View
-                              </button>
+                            <td className="px-3 py-4 text-right align-middle">
+                              <RowActionMenu
+                                items={[
+                                  { label: 'Details', icon: <FiFileText size={15} />, onClick: () => openDetailsModal(transaction) },
+                                  { label: 'Receipt', icon: <FiDownload size={15} />, onClick: () => generatePDF(transaction) },
+                                ]}
+                              />
                             </td>
                           </tr>
                         ))

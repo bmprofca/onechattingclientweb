@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { API_BASE_URL } from '../../config/api';
 import { Header, Sidebar } from '../../component/Menu';
+import SearchableSelect from '../../component/SearchableSelect';
 import { useNavigate, useParams } from 'react-router-dom';
 import {
   FiArrowLeft,
@@ -26,6 +27,9 @@ import moment from 'moment';
 import { parseServerDate } from '../../utils/dateTime';
 import axios from 'axios';
 import toast from 'react-hot-toast';
+import RowActionMenu from '../../component/table/RowActionMenu';
+import RecordDetailsModal from '../../component/table/RecordDetailsModal';
+import { TableSkeletonRows } from '../../component/table/TableSkeleton';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Encrypt } from '../encryption/payload-encryption';
 import DateTimePicker from './components/DateTimePicker';
@@ -103,6 +107,7 @@ const CampaignDetails = () => {
 
   const [loadingDetails, setLoadingDetails] = useState(true);
   const [loadingMessages, setLoadingMessages] = useState(true);
+  const [detailRecipient, setDetailRecipient] = useState(null);
   const [detailsError, setDetailsError] = useState(null);
   const [messagesError, setMessagesError] = useState(null);
 
@@ -523,7 +528,7 @@ const CampaignDetails = () => {
         setIsMinimized={setIsMinimized}
       />
 
-      <div className={`pt-16 transition-all duration-300 ease-in-out ${isMinimized ? 'md:pl-20' : 'md:pl-72'}`}>
+      <div className={`pt-16 transition-all duration-300 ease-in-out ${isMinimized ? 'md:pl-20' : 'md:pl-[260px]'}`}>
         <div className="max-w-8xl mx-auto px-4 sm:px-6 md:px-8 py-6">
           <div className="mb-6">
             <button
@@ -715,18 +720,19 @@ const CampaignDetails = () => {
                     className="block w-full sm:w-64 pl-9 pr-3 py-1.5 border border-gray-300 dark:border-gray-600 rounded-md text-sm bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-white focus:ring-indigo-500 focus:border-indigo-500"
                   />
                 </div>
-                <select
+                <SearchableSelect
                   value={statusFilter}
                   onChange={(e) => setStatusFilter(e.target.value)}
-                  className="block w-full sm:w-40 px-3 py-1.5 border border-gray-300 dark:border-gray-600 rounded-md text-sm bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-white focus:ring-indigo-500 focus:border-indigo-500"
-                >
-                  <option value="all">All Status</option>
-                  <option value="pending">Pending</option>
-                  <option value="sent">Sent</option>
-                  <option value="delivered">Delivered</option>
-                  <option value="read">Read</option>
-                  <option value="failed">Failed</option>
-                </select>
+                  options={[
+                    { value: 'all', label: 'All Status' },
+                    { value: 'pending', label: 'Pending' },
+                    { value: 'sent', label: 'Sent' },
+                    { value: 'delivered', label: 'Delivered' },
+                    { value: 'read', label: 'Read' },
+                    { value: 'failed', label: 'Failed' },
+                  ]}
+                  className="block w-full sm:w-44 px-3 py-1.5 border border-gray-300 dark:border-gray-600 rounded-md text-sm bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-white focus:ring-indigo-500 focus:border-indigo-500"
+                />
               </div>
             </div>
 
@@ -739,10 +745,18 @@ const CampaignDetails = () => {
             <div className="flex-1 overflow-hidden relative">
               <div className="absolute inset-0 overflow-y-auto">
                 {loadingMessages ? (
-                  <div className="flex flex-col items-center justify-center h-full text-gray-500 dark:text-gray-400">
-                    <FiLoader className="animate-spin mb-2" size={32} />
-                    <p>Loading recipients...</p>
-                  </div>
+                  <table className="min-w-full">
+                    <thead className="bg-gray-50 dark:bg-gray-700">
+                      <tr>
+                        {['#', 'Phone', 'Status', 'Date', ''].map((label) => (
+                          <th key={label || 'actions'} className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase">{label}</th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <TableSkeletonRows rows={8} cells={['index', 'text', 'badge', 'text', 'action']} />
+                    </tbody>
+                  </table>
                 ) : (
                   <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
                     <thead className="bg-gray-50 dark:bg-gray-700 sticky top-0 z-10 shadow-sm">
@@ -750,6 +764,9 @@ const CampaignDetails = () => {
                         {/* <th scope="col" className="px-6 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-300 uppercase tracking-wider bg-gray-50 dark:bg-gray-700">
                           Name / Template
                         </th> */}
+                        <th scope="col" className="w-14 px-4 py-3 text-center text-xs font-semibold text-gray-500 dark:text-gray-300 uppercase tracking-wider bg-gray-50 dark:bg-gray-700">
+                          #
+                        </th>
                         <th scope="col" className="px-6 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-300 uppercase tracking-wider bg-gray-50 dark:bg-gray-700">
                           Phone
                         </th>
@@ -759,17 +776,15 @@ const CampaignDetails = () => {
                         <th scope="col" className="px-6 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-300 uppercase tracking-wider bg-gray-50 dark:bg-gray-700">
                           Date
                         </th>
-                        {showFailedReasonColumn && (
-                          <th scope="col" className="px-6 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-300 uppercase tracking-wider bg-gray-50 dark:bg-gray-700">
-                            Error Details
-                          </th>
-                        )}
+                        <th scope="col" className="w-16 px-3 py-3 text-right text-xs font-semibold text-gray-500 dark:text-gray-300 uppercase tracking-wider bg-gray-50 dark:bg-gray-700">
+                          Actions
+                        </th>
                       </tr>
                     </thead>
                     <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
                       {paginatedRecipients.length === 0 ? (
                         <tr>
-                          <td colSpan={showFailedReasonColumn ? 5 : 4} className="px-6 py-12 text-center text-gray-500 dark:text-gray-400">
+                          <td colSpan={5} className="px-6 py-12 text-center text-gray-500 dark:text-gray-400">
                             <div className="flex flex-col items-center justify-center">
                               <FiUsers className="w-12 h-12 text-gray-300 dark:text-gray-600 mb-3" />
                               <p className="text-base font-medium">No recipients found</p>
@@ -778,7 +793,7 @@ const CampaignDetails = () => {
                           </td>
                         </tr>
                       ) : (
-                        paginatedRecipients.map((recipient) => (
+                        paginatedRecipients.map((recipient, index) => (
                           <tr key={recipient.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors duration-150">
                             {/* <td className="px-6 py-4 whitespace-nowrap">
                               <div className="flex flex-col">
@@ -788,6 +803,7 @@ const CampaignDetails = () => {
                                 )}
                               </div>
                             </td> */}
+                            <td className="px-4 py-4 text-center text-sm text-gray-500">{(currentPage - 1) * itemsPerPage + index + 1}</td>
                             <td className="px-6 py-4 whitespace-nowrap">
                               <div className="flex items-center text-sm text-gray-500 dark:text-gray-300">
                                 <FiPhone className="mr-2 text-gray-400" size={14} />
@@ -803,17 +819,11 @@ const CampaignDetails = () => {
                                 <span className="text-xs text-gray-400">{moment(parseServerDate(recipient.date)).format('hh:mm A')}</span>
                               </div>
                             </td>
-                            {showFailedReasonColumn && (
-                              <td className="px-6 py-4 text-sm text-red-600 dark:text-red-400 max-w-xs truncate">
-                                {recipient.failedReason ? (
-                                  <span title={recipient.failedReason}>
-                                    {recipient.failedReason}
-                                  </span>
-                                ) : (
-                                  <span className="text-gray-300 dark:text-gray-600">-</span>
-                                )}
-                              </td>
-                            )}
+                            <td className="px-3 py-4 text-right">
+                              <RowActionMenu
+                                items={[{ label: 'Details', icon: <FiEye size={15} />, onClick: () => setDetailRecipient(recipient) }]}
+                              />
+                            </td>
                           </tr>
                         ))
                       )}
@@ -830,17 +840,18 @@ const CampaignDetails = () => {
               </div>
 
               <div className="flex items-center gap-2">
-                <select
-                  value={itemsPerPage}
+                <SearchableSelect
+                  value={String(itemsPerPage)}
                   onChange={(e) => setItemsPerPage(Number(e.target.value))}
-                  className="block w-20 px-2 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 focus:ring-indigo-500 focus:border-indigo-500"
-                >
-                  <option value="10">10 / pg</option>
-                  <option value="20">20 / pg</option>
-                  <option value="25">25 / pg</option>
-                  <option value="50">50 / pg</option>
-                  <option value="100">100 / pg</option>
-                </select>
+                  options={[
+                    { value: '10', label: '10 / pg' },
+                    { value: '20', label: '20 / pg' },
+                    { value: '25', label: '25 / pg' },
+                    { value: '50', label: '50 / pg' },
+                    { value: '100', label: '100 / pg' },
+                  ]}
+                  className="block w-28 px-2 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 focus:ring-indigo-500 focus:border-indigo-500"
+                />
 
                 <nav className="isolate inline-flex -space-x-px rounded-md shadow-sm" aria-label="Pagination">
                   <button
@@ -1035,6 +1046,19 @@ const CampaignDetails = () => {
           </div>
         )}
       </AnimatePresence>
+      <RecordDetailsModal
+        isOpen={Boolean(detailRecipient)}
+        onClose={() => setDetailRecipient(null)}
+        title={detailRecipient?.phone || 'Recipient'}
+        fields={detailRecipient ? [
+          { label: 'Name', value: detailRecipient.name },
+          { label: 'Phone', value: detailRecipient.phone },
+          { label: 'Status', value: detailRecipient.status },
+          { label: 'Date', value: detailRecipient.date ? moment(parseServerDate(detailRecipient.date)).format('MMM DD, YYYY hh:mm A') : '' },
+          { label: 'Error details', value: detailRecipient.failedReason },
+          { label: 'Template', value: detailRecipient.templateName },
+        ] : []}
+      />
     </div>
   );
 };

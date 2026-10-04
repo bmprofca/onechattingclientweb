@@ -4,6 +4,7 @@ import { Upload, Phone, User, CheckCircle, AlertCircle, FileText, Download, Chev
 import axios from 'axios';
 import { parseExcelFile, extractContacts } from '../../utils/excelParser';
 import { uploadFile } from '../../../../utils/uploadFile';
+import SearchableSelect from '../../../../component/SearchableSelect';
 
 export default function ExcelUpload({
   excelMapping,
@@ -228,36 +229,26 @@ export default function ExcelUpload({
                 <Phone className="w-4 h-4 inline mr-2" />
                 Phone Number Column
               </label>
-              <select
+              <SearchableSelect
                 value={excelMapping.phone}
                 onChange={(e) => handleColumnMappingChange('phone', e.target.value)}
+                options={[{ value: '', label: 'Select a column...' }, ...headers.map((header) => ({ value: header, label: header }))]}
+                placeholder="Select a column..."
                 className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 bg-white"
-              >
-                <option value="">Select a column...</option>
-                {headers.map((header, index) => (
-                  <option key={index} value={header}>
-                    {header}
-                  </option>
-                ))}
-              </select>
+              />
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 <User className="w-4 h-4 inline mr-2" />
                 Name Column
               </label>
-              <select
+              <SearchableSelect
                 value={excelMapping.name}
                 onChange={(e) => handleColumnMappingChange('name', e.target.value)}
+                options={[{ value: '', label: 'Select a column...' }, ...headers.map((header) => ({ value: header, label: header }))]}
+                placeholder="Select a column..."
                 className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 bg-white"
-              >
-                <option value="">Select a column...</option>
-                {headers.map((header, index) => (
-                  <option key={index} value={header}>
-                    {header}
-                  </option>
-                ))}
-              </select>
+              />
             </div>
           </div>
         </div>

@@ -4,10 +4,14 @@ import { useNavigate } from 'react-router-dom';
 import { useSelector, useDispatch } from 'react-redux';
 import axios from 'axios';
 import { Header, Sidebar } from '../component/Menu';
+import SearchableSelect from '../component/SearchableSelect';
 import { fetchProjectInfo } from '../store/projectSlice';
 import { Encrypt } from './encryption/payload-encryption';
-import { FiArrowLeft, FiShield, FiLock, FiTrash2, FiPlus } from 'react-icons/fi';
+import { FiArrowLeft, FiShield, FiLock, FiTrash2, FiPlus, FiEye } from 'react-icons/fi';
 import toast from 'react-hot-toast';
+import RowActionMenu from '../component/table/RowActionMenu';
+import RecordDetailsModal from '../component/table/RecordDetailsModal';
+import { TableSkeletonRows } from '../component/table/TableSkeleton';
 
 function AgentConfig() {
     const navigate = useNavigate();
@@ -30,6 +34,7 @@ function AgentConfig() {
     // would break that invariant.
     const [agentUsePersonalKey, setAgentUsePersonalKey] = useState(true);
     const [apiKeys, setApiKeys] = useState([]);
+    const [keyDetail, setKeyDetail] = useState(null);
 
     // selectedTab = purely local UI state for which panel is shown.
     // Clicking a tab does NOT necessarily persist anything to the backend
@@ -278,7 +283,7 @@ function AgentConfig() {
             <div className="min-h-screen bg-slate-50">
                 <Header mobileMenuOpen={mobileMenuOpen} setMobileMenuOpen={setMobileMenuOpen} isMinimized={isMinimized} setIsMinimized={setIsMinimized} />
                 <Sidebar mobileMenuOpen={mobileMenuOpen} setMobileMenuOpen={setMobileMenuOpen} isMinimized={isMinimized} setIsMinimized={setIsMinimized} />
-                <div className={`pt-16 transition-all duration-300 ease-in-out ${isMinimized ? 'md:pl-20' : 'md:pl-72'}`}>
+                <div className={`pt-16 transition-all duration-300 ease-in-out ${isMinimized ? 'md:pl-20' : 'md:pl-[260px]'}`}>
                     <div className="max-w-8xl mx-auto px-4 sm:px-6 md:px-8 py-8">
                         <div className="max-w-2xl mx-auto mt-12 rounded-xl border border-slate-200 bg-white p-8 shadow-sm text-center">
                             <FiLock className="w-14 h-14 mx-auto text-slate-300 mb-4" />
@@ -304,7 +309,7 @@ function AgentConfig() {
         <div className="min-h-screen bg-slate-50">
             <Header mobileMenuOpen={mobileMenuOpen} setMobileMenuOpen={setMobileMenuOpen} isMinimized={isMinimized} setIsMinimized={setIsMinimized} />
             <Sidebar mobileMenuOpen={mobileMenuOpen} setMobileMenuOpen={setMobileMenuOpen} isMinimized={isMinimized} setIsMinimized={setIsMinimized} />
-            <div className={`pt-16 transition-all duration-300 ease-in-out ${isMinimized ? 'md:pl-20' : 'md:pl-72'}`}>
+            <div className={`pt-16 transition-all duration-300 ease-in-out ${isMinimized ? 'md:pl-20' : 'md:pl-[260px]'}`}>
                 <div className="max-w-8xl mx-auto px-4 sm:px-6 md:px-8 py-8">
                     <div className="mb-8 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
                         <div>
@@ -382,7 +387,22 @@ function AgentConfig() {
                                         </p>
                                     )}
 
-                                    {apiKeys.length === 0 ? (
+                                    {isLoading ? (
+                                        <div className="mb-8 overflow-hidden rounded-xl border border-slate-200">
+                                            <table className="min-w-full">
+                                                <thead className="bg-slate-50">
+                                                    <tr>
+                                                        {['#', 'Provider', 'API Key', 'Status', ''].map((label, index) => (
+                                                            <th key={`${label}-${index}`} className="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase">{label}</th>
+                                                        ))}
+                                                    </tr>
+                                                </thead>
+                                                <tbody>
+                                                    <TableSkeletonRows rows={3} cells={['index', 'text', 'text', 'badge', 'action']} />
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    ) : apiKeys.length === 0 ? (
                                         <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-600 mb-6 text-center">
                                             No personal API keys saved. Add one below to get started.
                                         </div>
@@ -391,15 +411,17 @@ function AgentConfig() {
                                             <table className="min-w-full divide-y divide-slate-200">
                                                 <thead className="bg-slate-50">
                                                     <tr>
+                                                        <th className="px-4 py-3 text-center text-xs font-medium text-slate-500 uppercase tracking-wider w-14">#</th>
                                                         <th className="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Provider</th>
                                                         <th className="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">API Key</th>
                                                         <th className="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Status</th>
-                                                        <th className="px-4 py-3 text-right text-xs font-medium text-slate-500 uppercase tracking-wider">Action</th>
+                                                        <th className="w-16 px-4 py-3 text-right text-xs font-medium text-slate-500 uppercase tracking-wider">Actions</th>
                                                     </tr>
                                                 </thead>
                                                 <tbody className="bg-white divide-y divide-slate-200">
-                                                    {apiKeys.map((keyObj) => (
+                                                    {apiKeys.map((keyObj, index) => (
                                                         <tr key={keyObj.unique_id} className={keyObj.is_active ? 'bg-emerald-50/60 hover:bg-emerald-50' : 'hover:bg-slate-50'}>
+                                                            <td className="px-4 py-3 whitespace-nowrap text-center text-sm text-slate-500">{index + 1}</td>
                                                             <td className="px-4 py-3 whitespace-nowrap text-sm font-medium text-slate-800 capitalize">
                                                                 {keyObj.api_provider}
                                                             </td>
@@ -423,13 +445,12 @@ function AgentConfig() {
                                                                 )}
                                                             </td>
                                                             <td className="px-4 py-3 whitespace-nowrap text-right text-sm font-medium">
-                                                                <button
-                                                                    onClick={() => handleDeleteApiKey(keyObj.unique_id)}
-                                                                    className="text-red-500 hover:text-red-700 transition p-1"
-                                                                    title="Delete Key"
-                                                                >
-                                                                    <FiTrash2 className="w-4 h-4" />
-                                                                </button>
+                                                                <RowActionMenu
+                                                                    items={[
+                                                                        { label: 'Details', icon: <FiEye className="w-4 h-4" />, onClick: () => setKeyDetail(keyObj) },
+                                                                        { label: 'Delete', icon: <FiTrash2 className="w-4 h-4" />, danger: true, onClick: () => handleDeleteApiKey(keyObj.unique_id) },
+                                                                    ]}
+                                                                />
                                                             </td>
                                                         </tr>
                                                     ))}
@@ -444,15 +465,12 @@ function AgentConfig() {
                                     <div className="grid gap-6 md:grid-cols-2">
                                         <div>
                                             <label className="block text-sm font-medium text-slate-700">Provider</label>
-                                            <select
+                                            <SearchableSelect
                                                 value={agentProvider}
                                                 onChange={(e) => setAgentProvider(e.target.value)}
+                                                options={availableAgentProviders.map((p) => ({ value: p.value, label: p.label }))}
                                                 className="mt-2 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-800 focus:border-violet-400 focus:outline-none focus:ring-2 focus:ring-violet-100"
-                                            >
-                                                {availableAgentProviders.map((p) => (
-                                                    <option key={p.value} value={p.value}>{p.label}</option>
-                                                ))}
-                                            </select>
+                                            />
                                         </div>
 
                                         <div>
@@ -487,6 +505,16 @@ function AgentConfig() {
                     </div>
                 </div>
             </div>
+            <RecordDetailsModal
+                isOpen={Boolean(keyDetail)}
+                onClose={() => setKeyDetail(null)}
+                title={keyDetail?.api_provider || 'API key'}
+                fields={keyDetail ? [
+                    { label: 'Provider', value: keyDetail.api_provider },
+                    { label: 'API key', value: keyDetail.api_key_masked },
+                    { label: 'Status', value: keyDetail.is_active ? 'Active' : 'Inactive' },
+                ] : []}
+            />
         </div>
     );
 }

@@ -13,10 +13,11 @@ import {
 // Adjust these import paths if necessary
 import { fetchProjectInfo } from '../store/projectSlice';
 import { setSelectedProjectId, setAuthData } from '../store/authSlice';
-import { fetchUserProfile, getTotalUnreadCount, logoutUser } from '../api/auth';
+import { fetchUserProfile, getTotalUnreadCount, listAgentInvitations, logoutUser } from '../api/auth';
 import SwitchProjectModal from './Modals/SwitchProjectModal';
 import ProjectQRModal from './Modals/ProjectQRModal';
 import { LuQrCode } from 'react-icons/lu';
+import SubscriptionAlert from './SubscriptionAlert';
 import { dbHelper } from '../pages/db';
 import { socketManager } from '../pages/socket';
 
@@ -39,14 +40,6 @@ const getUserData = () => {
     const userData = localStorage.getItem('userData');
     return userData ? JSON.parse(userData) : null;
   } catch (error) { return null; }
-};
-
-const requiresProject = (item) => {
-  const protectedPaths = ['/live-chat', '/open-cases', '/template', '/campaigns', '/contact', '/contact-group', '/auto-reply', '/flow', '/agent-management', '/permission-list', '/project-config', '/developer-access'];
-  const protectedKeys = ['contact', 'automation', 'management'];
-  return protectedPaths.includes(item.path) ||
-    protectedKeys.includes(item.key) ||
-    (item.submenus && item.submenus.some(submenu => protectedPaths.includes(submenu.path)));
 };
 
 const isItemActive = (item, currentPath) => {
@@ -73,7 +66,8 @@ const isSubmenuItemActive = (submenuPath, currentPath) => {
 // ==========================================
 const NavItem = React.memo(({ item, isMobile, isMinimized, isHovered, currentPath, openSubmenus, toggleSubmenu, setHoveredMenu, hoveredMenu, setMobileMenuOpen, hasProjects, unreadCount, navigate }) => {
   const isActive = isItemActive(item, currentPath);
-  const isDisabled = requiresProject(item) && !hasProjects;
+  const isDashboard = item.key === 'dashboard' || item.path === '/';
+  const isDisabled = !hasProjects && !isDashboard;
   const hasSubmenu = item.submenus && item.submenus.length > 0;
   const isOpen = isMobile ? openSubmenus[`mobile-${item.key}`] : openSubmenus[item.key];
   const isMini = !isMobile && isMinimized && !isHovered;
@@ -239,6 +233,7 @@ export const Header = ({ mobileMenuOpen, setMobileMenuOpen, isMinimized, setIsMi
   const [userProfile, setUserProfile] = useState({ name: '', email: '' });
   const [walletBalance, setWalletBalance] = useState(0);
   const [isBrowserFullscreen, setIsBrowserFullscreen] = useState(false);
+  const [pendingInviteCount, setPendingInviteCount] = useState(0);
   const profileDropdownRef = React.useRef(null);
 
   const dispatch = useDispatch();
@@ -267,6 +262,23 @@ export const Header = ({ mobileMenuOpen, setMobileMenuOpen, isMinimized, setIsMi
     const pInfo = getSelectedProjectInfo();
     setActiveProjectId(pInfo.id);
     setSelectedProjectName(pInfo.name);
+  }, [switchProjectModalOpen]);
+
+  useEffect(() => {
+    let active = true;
+    const loadInvitations = () => {
+      listAgentInvitations()
+        .then((res) => {
+          if (active) setPendingInviteCount(Array.isArray(res?.list) ? res.list.length : 0);
+        })
+        .catch(() => {});
+    };
+    loadInvitations();
+    window.addEventListener('projects-updated', loadInvitations);
+    return () => {
+      active = false;
+      window.removeEventListener('projects-updated', loadInvitations);
+    };
   }, [switchProjectModalOpen]);
 
   const toggleSidebar = () => {
@@ -325,6 +337,7 @@ export const Header = ({ mobileMenuOpen, setMobileMenuOpen, isMinimized, setIsMi
       const selectedId = company.project_id || company.id || null;
       const updatedUserData = { ...parsed, selected_project_id: selectedId };
       localStorage.setItem('userData', JSON.stringify(updatedUserData));
+      sessionStorage.removeItem('showProjectPicker');
       if (selectedId) dispatch(setSelectedProjectId(selectedId));
       dispatch(setAuthData(updatedUserData));
     } catch (error) { console.error('Failed to update selected project', error); }
@@ -451,6 +464,7 @@ export const Header = ({ mobileMenuOpen, setMobileMenuOpen, isMinimized, setIsMi
 
   return (
     <>
+      <SubscriptionAlert isMinimized={isMinimized} isFullScreen={isFullScreen} />
       <header className={`fixed top-0 inset-x-0 z-50 h-16 border-b border-indigo-100 bg-white/90 backdrop-blur-md transition-all duration-300 ease-in-out ${isFullScreen ? '-translate-y-full opacity-0 pointer-events-none' : 'translate-y-0 opacity-100'
         }`}>
         <div className="flex h-full items-center justify-between px-4 sm:px-6">
@@ -462,8 +476,11 @@ export const Header = ({ mobileMenuOpen, setMobileMenuOpen, isMinimized, setIsMi
             >
               <FiMenu size={22} />
             </button>
-            <div className="flex items-center gap-2 cursor-pointer" onClick={() => navigate('/')}>
-              <img src="/logo-main.png" alt="logo" className="h-8" />
+            <div className="flex items-center gap-2 cursor-pointer" onClick={() => navigate('/')} aria-label="OneChatting home">
+              <img src="/logo.png" alt="" className="h-9 w-9 rounded-lg object-cover" />
+              <span className="text-lg font-bold tracking-tight text-slate-800 whitespace-nowrap">
+                One<span className="text-indigo-600">Chatting</span>
+              </span>
             </div>
           </div>
 
@@ -481,11 +498,30 @@ export const Header = ({ mobileMenuOpen, setMobileMenuOpen, isMinimized, setIsMi
 
             <button
               onClick={() => setSwitchProjectModalOpen(true)}
-              className="hidden md:flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-sm font-medium text-slate-700 hover:border-indigo-300 hover:text-indigo-600 hover:shadow-sm transition-all duration-200 group"
+              className={`relative flex items-center gap-2 rounded-lg border bg-white px-2.5 md:px-3 py-1.5 text-sm font-medium hover:shadow-sm transition-all duration-200 group ${pendingInviteCount > 0 ? 'border-indigo-400 text-indigo-700' : 'border-slate-200 text-slate-700 hover:border-indigo-300 hover:text-indigo-600'}`}
             >
-              <FiBriefcase size={16} className="text-slate-400 group-hover:text-indigo-500 transition-colors" />
-              <span className="max-w-[120px] truncate">{selectedProjectName || selectedCompany?.name || 'Select Project'}</span>
-              <FiChevronDown size={14} className="text-slate-400" />
+              {pendingInviteCount > 0 && (
+                <motion.span
+                  aria-hidden="true"
+                  className="pointer-events-none absolute -inset-1 rounded-xl"
+                  animate={{
+                    boxShadow: [
+                      '0 0 0 0 rgba(99,102,241,0.55)',
+                      '0 0 12px 4px rgba(99,102,241,0.35)',
+                      '0 0 0 0 rgba(99,102,241,0)'
+                    ]
+                  }}
+                  transition={{ duration: 1.8, repeat: Infinity, ease: 'easeOut' }}
+                />
+              )}
+              <FiBriefcase size={16} className={`transition-colors ${pendingInviteCount > 0 ? 'text-indigo-500' : 'text-slate-400 group-hover:text-indigo-500'}`} />
+              <span className="hidden md:inline max-w-[120px] truncate">{selectedProjectName || selectedCompany?.name || 'Select Project'}</span>
+              <FiChevronDown size={14} className="hidden md:inline text-slate-400" />
+              {pendingInviteCount > 0 && (
+                <span className="absolute -top-1.5 -right-1.5 flex h-4 min-w-[16px] items-center justify-center rounded-full bg-amber-500 px-1 text-[10px] font-bold text-white shadow">
+                  {pendingInviteCount}
+                </span>
+              )}
             </button>
 
             {activeProjectId && (
@@ -529,8 +565,13 @@ export const Header = ({ mobileMenuOpen, setMobileMenuOpen, isMinimized, setIsMi
                       <p className="text-sm font-semibold text-slate-900">{userProfile.name || 'User'}</p>
                       <p className="text-xs text-slate-500 truncate">{userProfile.email || ''}</p>
                     </div>
-                    <button className="md:hidden flex w-full items-center gap-2 rounded-md px-3 py-2 text-sm text-slate-600 hover:bg-indigo-50 hover:text-indigo-600 transition-colors" onClick={() => { setProfileDropdownOpen(false); setSwitchProjectModalOpen(true); }}>
+                    <button className={`md:hidden relative flex w-full items-center gap-2 rounded-md px-3 py-2 text-sm transition-colors ${pendingInviteCount > 0 ? 'text-indigo-700 bg-indigo-50' : 'text-slate-600 hover:bg-indigo-50 hover:text-indigo-600'}`} onClick={() => { setProfileDropdownOpen(false); setSwitchProjectModalOpen(true); }}>
                       <FiBriefcase size={16} /> Switch Project
+                      {pendingInviteCount > 0 && (
+                        <span className="ml-auto flex h-4 min-w-[16px] items-center justify-center rounded-full bg-amber-500 px-1 text-[10px] font-bold text-white animate-pulse">
+                          {pendingInviteCount}
+                        </span>
+                      )}
                     </button>
                     {activeProjectId && (
                       <div
@@ -571,6 +612,7 @@ export const Header = ({ mobileMenuOpen, setMobileMenuOpen, isMinimized, setIsMi
         isOpen={switchProjectModalOpen}
         onClose={() => setSwitchProjectModalOpen(false)}
         onSelectCompany={handleSelectCompany}
+        onInvitationsChange={(list) => setPendingInviteCount(Array.isArray(list) ? list.length : 0)}
       />
 
       {projectQrModalOpen && activeProjectId && (
@@ -674,9 +716,17 @@ export const Sidebar = ({ mobileMenuOpen, setMobileMenuOpen, isMinimized, setIsM
   // Check if user is the owner of the project
   const isOwner = useSelector((state) => state.project?.owned ?? true);
 
+  const [projectRevision, setProjectRevision] = useState(0);
+
+  useEffect(() => {
+    const refreshProjects = () => setProjectRevision((value) => value + 1);
+    window.addEventListener('projects-updated', refreshProjects);
+    return () => window.removeEventListener('projects-updated', refreshProjects);
+  }, []);
+
   const userData = getUserData();
-  const projectList = userData?.projects?.list || (Array.isArray(userData?.projects) ? userData.projects : []);
-  const hasProjects = projectList.length > 0 || (userData?.projects?.project_count > 0);
+  void projectRevision;
+  const hasProjects = Boolean(userData?.selected_project_id);
 
   const toggleSubmenu = (menuKey) => {
     setOpenSubmenus(prev => ({ ...prev, [menuKey]: !prev[menuKey] }));
@@ -803,13 +853,16 @@ export const Sidebar = ({ mobileMenuOpen, setMobileMenuOpen, isMinimized, setIsM
         <AnimatePresence>
           {(!isMinimized || isHovered) && (
             <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 10 }} transition={{ delay: 0.1 }} className="p-3 border-t border-indigo-100">
-              <div onClick={() => navigate('/support')} className="flex items-center gap-3 px-3 py-2.5 rounded-xl bg-gradient-to-r from-indigo-50 to-white border border-indigo-100 hover:border-indigo-200 hover:shadow-sm transition-all group cursor-pointer">
-                <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-white text-indigo-600 shadow-sm border border-indigo-50 group-hover:scale-105 transition-transform">
+              <div
+                onClick={() => hasProjects && navigate('/support')}
+                className={`flex items-center gap-3 px-3 py-2.5 rounded-xl border transition-all group ${hasProjects ? 'bg-gradient-to-r from-indigo-50 to-white border-indigo-100 hover:border-indigo-200 hover:shadow-sm cursor-pointer' : 'bg-slate-50 border-slate-100 cursor-not-allowed'}`}
+              >
+                <div className={`flex h-8 w-8 items-center justify-center rounded-lg bg-white shadow-sm border transition-transform ${hasProjects ? 'text-indigo-600 border-indigo-50 group-hover:scale-105' : 'text-slate-300 border-slate-100'}`}>
                   <FiHelpCircle size={16} />
                 </div>
                 <div className="flex flex-col">
-                  <span className="text-xs font-bold text-slate-700 leading-none mb-0.5">Need Help?</span>
-                  <span className="text-[10px] text-slate-500 font-medium">Contact Support</span>
+                  <span className={`text-xs font-bold leading-none mb-0.5 ${hasProjects ? 'text-slate-700' : 'text-slate-300'}`}>Need Help?</span>
+                  <span className={`text-[10px] font-medium ${hasProjects ? 'text-slate-500' : 'text-slate-300'}`}>{hasProjects ? 'Contact Support' : 'Locked'}</span>
                 </div>
               </div>
             </motion.div>

@@ -1,10 +1,13 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import axios from 'axios';
 import moment from 'moment';
-import { FiCalendar, FiDollarSign, FiFileText, FiRefreshCw, FiSearch } from 'react-icons/fi';
+import { FiCalendar, FiDollarSign, FiEye, FiFileText, FiRefreshCw, FiSearch } from 'react-icons/fi';
 import { API_BASE_URL } from '../config/api';
 import { Header, Sidebar } from '../component/Menu';
 import Pagination from '../component/Pagination';
+import RowActionMenu from '../component/table/RowActionMenu';
+import RecordDetailsModal from '../component/table/RecordDetailsModal';
+import { TableSkeletonRows } from '../component/table/TableSkeleton';
 import { parseServerDate } from '../utils/dateTime';
 
 const formatDate = (value, format) => {
@@ -23,6 +26,7 @@ const AiBills = () => {
   const [fromDate, setFromDate] = useState(() => moment().subtract(30, 'days').format('YYYY-MM-DD'));
   const [toDate, setToDate] = useState(() => moment().format('YYYY-MM-DD'));
   const [currentPage, setCurrentPage] = useState(1);
+  const [detailBill, setDetailBill] = useState(null);
   const [pageSize, setPageSize] = useState(20);
   const [totalRecords, setTotalRecords] = useState(0);
   const [totalPages, setTotalPages] = useState(1);
@@ -111,7 +115,7 @@ const AiBills = () => {
     <div className="min-h-screen bg-gray-50">
       <Header mobileMenuOpen={mobileMenuOpen} setMobileMenuOpen={setMobileMenuOpen} isMinimized={isMinimized} setIsMinimized={setIsMinimized} />
       <Sidebar mobileMenuOpen={mobileMenuOpen} setMobileMenuOpen={setMobileMenuOpen} isMinimized={isMinimized} setIsMinimized={setIsMinimized} />
-      <main className={`pt-16 transition-all duration-300 ${isMinimized ? 'md:pl-20' : 'md:pl-72'}`}>
+      <main className={`pt-16 transition-all duration-300 ${isMinimized ? 'md:pl-20' : 'md:pl-[260px]'}`}>
         <div className="max-w-8xl mx-auto px-4 sm:px-6 md:px-8 py-6">
           <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 mb-6">
             <div>
@@ -142,18 +146,35 @@ const AiBills = () => {
           </form>
 
           <section className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
-            {loading ? <div className="p-12 text-center text-gray-500"><FiRefreshCw className="animate-spin mx-auto mb-3" size={28} />Loading AI bills…</div>
-              : error ? <div className="p-12 text-center"><p className="text-red-600 mb-4">{error}</p><button onClick={() => fetchBills(currentPage, pageSize)} className="px-4 py-2 bg-indigo-600 text-white rounded-lg">Try again</button></div>
+            {loading ? (
+              <table className="w-full">
+                <thead className="bg-gray-50"><tr>{['#', 'Date', 'Project ID', 'Transaction type', 'Amount', ''].map((label) => <th key={label || 'actions'} className="px-5 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-600">{label}</th>)}</tr></thead>
+                <tbody><TableSkeletonRows rows={8} cells={['index', 'text', 'text', 'badge', 'short', 'action']} /></tbody>
+              </table>
+            ) : error ? <div className="p-12 text-center"><p className="text-red-600 mb-4">{error}</p><button onClick={() => fetchBills(currentPage, pageSize)} className="px-4 py-2 bg-indigo-600 text-white rounded-lg">Try again</button></div>
                 : <>
                   <div className="hidden md:block overflow-x-auto">
-                    <table className="w-full divide-y divide-gray-200"><thead className="bg-gray-50"><tr>{['#', 'Date', 'Project ID', 'Transaction type', 'Remark', 'Amount'].map((label) => <th key={label} className="px-5 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-600">{label}</th>)}</tr></thead>
-                      <tbody className="divide-y divide-gray-100">{bills.length ? bills.map((bill, index) => <tr key={bill.transaction_id || index} className="hover:bg-gray-50"><td className="px-5 py-4 text-sm text-gray-500">{(currentPage - 1) * pageSize + index + 1}</td><td className="px-5 py-4 whitespace-nowrap"><p className="text-sm font-medium text-gray-900">{formatDate(bill.create_date, 'MMM DD, YYYY')}</p><p className="text-xs text-gray-500">{formatDate(bill.create_date, 'hh:mm A')}</p></td><td className="px-5 py-4 text-sm font-mono text-gray-700 break-all">{bill.project_id || '—'}</td><td className="px-5 py-4"><span className="inline-flex px-2.5 py-1 rounded-full bg-indigo-50 text-indigo-700 text-xs font-medium">{bill.transaction_type || 'AI bill'}</span></td><td className="px-5 py-4 text-sm text-gray-600 max-w-sm">{bill.remark || '—'}</td><td className="px-5 py-4 whitespace-nowrap text-sm font-semibold text-rose-600">{currency(bill.amount)}</td></tr>) : <tr><td colSpan="6" className="px-5 py-12 text-center text-gray-500">No AI bills found for the selected filters.</td></tr>}</tbody>
+                    <table className="w-full divide-y divide-gray-200"><thead className="bg-gray-50"><tr>{['#', 'Date', 'Project ID', 'Transaction type', 'Amount', ''].map((label) => <th key={label || 'actions'} className="px-5 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-600">{label}</th>)}</tr></thead>
+                      <tbody className="divide-y divide-gray-100">{bills.length ? bills.map((bill, index) => <tr key={bill.transaction_id || index} className="hover:bg-gray-50"><td className="px-5 py-4 text-center text-sm text-gray-500">{(currentPage - 1) * pageSize + index + 1}</td><td className="px-5 py-4 whitespace-nowrap"><p className="text-sm font-medium text-gray-900">{formatDate(bill.create_date, 'MMM DD, YYYY')}</p><p className="text-xs text-gray-500">{formatDate(bill.create_date, 'hh:mm A')}</p></td><td className="px-5 py-4 text-sm font-mono text-gray-700 break-all">{bill.project_id || '—'}</td><td className="px-5 py-4"><span className="inline-flex px-2.5 py-1 rounded-full bg-indigo-50 text-indigo-700 text-xs font-medium">{bill.transaction_type || 'AI bill'}</span></td><td className="px-5 py-4 whitespace-nowrap text-sm font-semibold text-rose-600">{currency(bill.amount)}</td><td className="px-3 py-4 text-right"><RowActionMenu items={[{ label: 'Details', icon: <FiEye size={15} />, onClick: () => setDetailBill(bill) }]} /></td></tr>) : <tr><td colSpan="6" className="px-5 py-12 text-center text-gray-500">No AI bills found for the selected filters.</td></tr>}</tbody>
                     </table>
                   </div>
                   <div className="md:hidden divide-y divide-gray-100">{bills.length ? bills.map((bill, index) => <article key={bill.transaction_id || index} className="p-4"><div className="flex justify-between gap-3"><div><p className="font-semibold text-gray-900">{bill.transaction_type || 'AI bill'}</p><p className="mt-1 text-xs text-gray-500 flex items-center gap-1"><FiCalendar size={12} />{formatDate(bill.create_date, 'MMM DD, YYYY hh:mm A')}</p></div><p className="font-bold text-rose-600">{currency(bill.amount)}</p></div><p className="mt-3 text-sm text-gray-600">{bill.remark || 'No remark provided.'}</p><p className="mt-2 text-xs font-mono text-gray-500">Project: {bill.project_id || '—'}</p></article>) : <div className="p-10 text-center text-gray-500">No AI bills found for the selected filters.</div>}</div>
                 </>}
           </section>
           {!loading && !error && totalRecords > 0 && <Pagination currentPage={currentPage} totalPages={totalPages} totalRecords={totalRecords} pageSize={pageSize} onPageChange={changePage} onPageSizeChange={changePageSize} pageSizeOptions={[10, 20, 50, 100]} />}
+          <RecordDetailsModal
+            isOpen={Boolean(detailBill)}
+            onClose={() => setDetailBill(null)}
+            title={detailBill?.transaction_type || 'AI bill'}
+            subtitle={detailBill ? currency(detailBill.amount) : ''}
+            fields={detailBill ? [
+              { label: 'Date', value: formatDate(detailBill.create_date, 'MMM DD, YYYY hh:mm A') },
+              { label: 'Project ID', value: detailBill.project_id },
+              { label: 'Transaction ID', value: detailBill.transaction_id },
+              { label: 'Remark', value: detailBill.remark },
+              { label: 'Amount', value: currency(detailBill.amount) },
+            ] : []}
+          />
         </div>
       </main>
     </div>

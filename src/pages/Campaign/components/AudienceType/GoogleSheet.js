@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Phone, User, CheckCircle, AlertCircle } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { extractContacts } from '../../utils/excelParser';
+import SearchableSelect from '../../../../component/SearchableSelect';
 
 export default function GoogleSheet({ 
   sheetLink, 
@@ -234,36 +235,26 @@ export default function GoogleSheet({
                 <Phone className="w-4 h-4 inline mr-2" />
                 Phone Number Column
               </label>
-              <select
+              <SearchableSelect
                 value={excelMapping.phone}
                 onChange={(e) => handleColumnMappingChange('phone', e.target.value)}
+                options={[{ value: '', label: 'Select a column...' }, ...headers.map((header) => ({ value: header, label: header }))]}
+                placeholder="Select a column..."
                 className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 bg-white"
-              >
-                <option value="">Select a column...</option>
-                {headers.map((header, index) => (
-                  <option key={index} value={header}>
-                    {header}
-                  </option>
-                ))}
-              </select>
+              />
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 <User className="w-4 h-4 inline mr-2" />
                 Name Column
               </label>
-              <select
+              <SearchableSelect
                 value={excelMapping.name}
                 onChange={(e) => handleColumnMappingChange('name', e.target.value)}
+                options={[{ value: '', label: 'Select a column...' }, ...headers.map((header) => ({ value: header, label: header }))]}
+                placeholder="Select a column..."
                 className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 bg-white"
-              >
-                <option value="">Select a column...</option>
-                {headers.map((header, index) => (
-                  <option key={index} value={header}>
-                    {header}
-                  </option>
-                ))}
-              </select>
+              />
             </div>
           </div>
         </div>

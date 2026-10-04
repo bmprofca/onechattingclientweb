@@ -1,11 +1,11 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { API_BASE_URL } from '../config/api';
 import { Header, Sidebar } from '../component/Menu';
+import SearchableSelect from '../component/SearchableSelect';
 import { Encrypt } from './encryption/payload-encryption';
 import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
 import {
-  FiChevronDown,
   FiX,
   FiPlus,
   FiPaperclip,
@@ -1023,7 +1023,7 @@ function TemplateAdd() {
       />
 
       {/* Main content */}
-      <div className={`pt-16 transition-all duration-300 ease-in-out ${isMinimized ? 'md:pl-20' : 'md:pl-72'
+      <div className={`pt-16 transition-all duration-300 ease-in-out ${isMinimized ? 'md:pl-20' : 'md:pl-[260px]'
         }`}>
         <div className="max-w-8xl mx-auto px-4 sm:px-6 md:px-8 py-6">
           {/* Page header */}
@@ -1082,22 +1082,14 @@ function TemplateAdd() {
                   <label className="block text-sm font-medium text-gray-700 mb-1">
                     Category <span className="text-red-500">*</span>
                   </label>
-                  <div className="relative">
-                    <select
-                      name="category"
-                      value={formData.category}
-                      onChange={handleInputChange}
-                      className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 appearance-none transition-colors ${formData.category ? 'border-green-400' : 'border-gray-300'
-                        }`}
-                      required
-                    >
-                      <option value="">Select a category</option>
-                      {categories.map(cat => (
-                        <option key={cat.code} value={cat.code}>{cat.name}</option>
-                      ))}
-                    </select>
-                    <FiChevronDown className="absolute right-3 top-3 text-gray-400" />
-                  </div>
+                  <SearchableSelect
+                    name="category"
+                    value={formData.category}
+                    onChange={handleInputChange}
+                    options={[{ value: '', label: 'Select a category' }, ...categories.map((cat) => ({ value: cat.code, label: cat.name }))]}
+                    placeholder="Select a category"
+                    className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-colors ${formData.category ? 'border-green-400' : 'border-gray-300'}`}
+                  />
                 </div>
 
                 {/* Language */}
@@ -1105,22 +1097,14 @@ function TemplateAdd() {
                   <label className="block text-sm font-medium text-gray-700 mb-1">
                     Language <span className="text-red-500">*</span>
                   </label>
-                  <div className="relative">
-                    <select
-                      name="language"
-                      value={formData.language}
-                      onChange={handleInputChange}
-                      className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 appearance-none transition-colors ${formData.language ? 'border-green-400' : 'border-gray-300'
-                        }`}
-                      required
-                    >
-                      <option value="">Select a language</option>
-                      {languages.map(lang => (
-                        <option key={lang.code} value={lang.code}>{lang.name}</option>
-                      ))}
-                    </select>
-                    <FiChevronDown className="absolute right-3 top-3 text-gray-400" />
-                  </div>
+                  <SearchableSelect
+                    name="language"
+                    value={formData.language}
+                    onChange={handleInputChange}
+                    options={[{ value: '', label: 'Select a language' }, ...languages.map((lang) => ({ value: lang.code, label: lang.name }))]}
+                    placeholder="Select a language"
+                    className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-colors ${formData.language ? 'border-green-400' : 'border-gray-300'}`}
+                  />
                 </div>
 
                 {isAuthentication && (
@@ -1176,13 +1160,12 @@ function TemplateAdd() {
                       <label className="block text-sm font-medium text-gray-700 mb-1">
                         OTP Button Type
                       </label>
-                      <select
+                      <SearchableSelect
                         value={authConfig.otpType}
                         onChange={(e) => handleAuthConfigChange('otpType', e.target.value)}
+                        options={[{ value: 'COPY_CODE', label: 'Copy Code' }]}
                         className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                      >
-                        <option value="COPY_CODE">Copy Code</option>
-                      </select>
+                      />
                       <p className="mt-1 text-xs text-gray-500">
                         ONE_TAP and ZERO_TAP require Android app package configuration in Meta Business Manager.
                       </p>

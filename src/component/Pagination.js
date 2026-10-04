@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import SearchableSelect from './SearchableSelect';
 import {
   FiChevronLeft,
   FiChevronRight,
@@ -143,18 +144,13 @@ function Pagination({
                 <label htmlFor="pageSize" className="text-sm text-gray-600 whitespace-nowrap">
                   Show:
                 </label>
-                <select
+                <SearchableSelect
                   id="pageSize"
                   value={pageSize}
                   onChange={handlePageSizeChange}
+                  options={pageSizeOptions.map((size) => ({ value: size, label: String(size) }))}
                   className="border border-gray-300 rounded-md px-3 py-1.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-colors"
-                >
-                  {pageSizeOptions.map((size) => (
-                    <option key={size} value={size}>
-                      {size}
-                    </option>
-                  ))}
-                </select>
+                />
               </div>
             )}
           </div>
@@ -368,17 +364,12 @@ function Pagination({
           {showPageSizeSelector && onPageSizeChange && (
             <div className="flex items-center justify-center gap-2">
               <label className="text-sm text-gray-600">Show:</label>
-              <select
+              <SearchableSelect
                 value={pageSize}
                 onChange={handlePageSizeChange}
+                options={pageSizeOptions.map((size) => ({ value: size, label: `${size} per page` }))}
                 className="border border-gray-300 rounded-md px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
-              >
-                {pageSizeOptions.map((size) => (
-                  <option key={size} value={size}>
-                    {size} per page
-                  </option>
-                ))}
-              </select>
+              />
             </div>
           )}
         </div>

@@ -30,6 +30,9 @@ import {
     deleteScannedUser
 } from '../api/scannedUsers';
 import { getProjectQRCodes } from '../api/qrcode';
+import RowActionMenu from '../component/table/RowActionMenu';
+import RecordDetailsModal from '../component/table/RecordDetailsModal';
+import { TableSkeletonRows } from '../component/table/TableSkeleton';
 
 const INITIAL_FORM = {
     name: '',
@@ -69,6 +72,7 @@ export default function ScannedUsers() {
     const [deleteModalOpen, setDeleteModalOpen] = useState(false);
     const [userToDelete, setUserToDelete] = useState(null);
     const [deleting, setDeleting] = useState(false);
+    const [detailsUser, setDetailsUser] = useState(null);
 
     // Get current project from storage
     const getUserData = () => {
@@ -424,10 +428,18 @@ export default function ScannedUsers() {
                     {/* Scanned Users Table */}
                     <div className="bg-white rounded-2xl border border-slate-200/80 shadow-sm overflow-hidden">
                         {loading ? (
-                            <div className="p-12 text-center">
-                                <div className="inline-block animate-spin rounded-full h-8 w-8 border-4 border-indigo-600 border-t-transparent mb-3"></div>
-                                <p className="text-sm text-slate-500">Loading scanned users...</p>
-                            </div>
+                            <table className="w-full">
+                                <thead className="bg-slate-50/80 text-xs uppercase tracking-wider text-slate-500 font-semibold border-b border-slate-200">
+                                    <tr>
+                                        {['#', 'User', 'Contact', 'Special Dates', 'QR Source', 'Date Added', ''].map((label) => (
+                                            <th key={label || 'actions'} className="px-4 py-4 text-left">{label}</th>
+                                        ))}
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <TableSkeletonRows rows={8} cells={['index', 'avatar', 'text', 'short', 'badge', 'short', 'action']} />
+                                </tbody>
+                            </table>
                         ) : users.length === 0 ? (
                             <div className="p-12 text-center max-w-md mx-auto">
                                 <div className="w-16 h-16 rounded-2xl bg-indigo-50 text-indigo-600 flex items-center justify-center mx-auto mb-4">
@@ -452,17 +464,17 @@ export default function ScannedUsers() {
                                 <table className="w-full text-left text-sm text-slate-600">
                                     <thead className="bg-slate-50/80 text-xs uppercase tracking-wider text-slate-500 font-semibold border-b border-slate-200">
                                         <tr>
+                                            <th className="w-14 px-4 py-4 text-center">#</th>
                                             <th className="px-6 py-4">User</th>
                                             <th className="px-6 py-4">Contact</th>
                                             <th className="px-6 py-4">Special Dates</th>
-                                            <th className="px-6 py-4">Company / Address</th>
-                                            <th className="px-6 py-4">QR Source / Tags</th>
+                                            <th className="px-6 py-4">QR Source</th>
                                             <th className="px-6 py-4">Date Added</th>
-                                            <th className="px-6 py-4 text-right">Actions</th>
+                                            <th className="w-16 px-3 py-4 text-right">Actions</th>
                                         </tr>
                                     </thead>
                                     <tbody className="divide-y divide-slate-100">
-                                        {users.map((user) => {
+                                        {users.map((user, index) => {
                                             const initials = (user.name || 'U')
                                                 .split(' ')
                                                 .map(n => n[0])
@@ -472,7 +484,7 @@ export default function ScannedUsers() {
 
                                             return (
                                                 <tr key={user.scan_id || user.id} className="hover:bg-slate-50/60 transition-colors">
-                                                    {/* User Info */}
+                                                    <td className="px-4 py-4 text-center text-sm text-slate-500">{(pagination.page - 1) * pagination.limit + index + 1}</td>
                                                     <td className="px-6 py-4">
                                                         <div className="flex items-center gap-3">
                                                             <div className="w-10 h-10 rounded-full bg-gradient-to-tr from-indigo-600 to-violet-500 text-white flex items-center justify-center font-bold text-xs shadow-sm flex-shrink-0">
@@ -531,26 +543,7 @@ export default function ScannedUsers() {
                                                         </div>
                                                     </td>
 
-                                                    {/* Company & Address */}
-                                                    <td className="px-6 py-4">
-                                                        <div className="max-w-[200px]">
-                                                            {user.address ? (
-                                                                <p className="text-xs text-slate-600 truncate flex items-start gap-1">
-                                                                    <MapPin className="w-3 h-3 text-slate-400 mt-0.5 flex-shrink-0" />
-                                                                    <span title={user.address}>{user.address}</span>
-                                                                </p>
-                                                            ) : (
-                                                                <span className="text-xs text-slate-400 italic">—</span>
-                                                            )}
-                                                            {user.notes && (
-                                                                <p className="text-[11px] text-slate-400 italic truncate mt-1" title={user.notes}>
-                                                                    Note: {user.notes}
-                                                                </p>
-                                                            )}
-                                                        </div>
-                                                    </td>
-
-                                                    {/* QR Source / Tags */}
+                                                    {/* QR Source */}
                                                     <td className="px-6 py-4">
                                                         <div className="space-y-1.5">
                                                             {user.qr_label ? (
@@ -582,23 +575,14 @@ export default function ScannedUsers() {
                                                     </td>
 
                                                     {/* Actions */}
-                                                    <td className="px-6 py-4 text-right">
-                                                        <div className="flex items-center justify-end gap-2">
-                                                            <button
-                                                                onClick={() => handleOpenEditModal(user)}
-                                                                className="p-2 rounded-lg text-slate-500 hover:text-indigo-600 hover:bg-indigo-50 transition-colors"
-                                                                title="Edit Profile"
-                                                            >
-                                                                <Edit2 className="w-4 h-4" />
-                                                            </button>
-                                                            <button
-                                                                onClick={() => handleOpenDeleteModal(user)}
-                                                                className="p-2 rounded-lg text-slate-500 hover:text-red-600 hover:bg-red-50 transition-colors"
-                                                                title="Delete"
-                                                            >
-                                                                <Trash2 className="w-4 h-4" />
-                                                            </button>
-                                                        </div>
+                                                    <td className="px-3 py-4 text-right">
+                                                        <RowActionMenu
+                                                            items={[
+                                                                { label: 'Details', icon: <FileText className="w-4 h-4" />, onClick: () => setDetailsUser(user) },
+                                                                { label: 'Edit', icon: <Edit2 className="w-4 h-4" />, onClick: () => handleOpenEditModal(user) },
+                                                                { label: 'Delete', icon: <Trash2 className="w-4 h-4" />, onClick: () => handleOpenDeleteModal(user), danger: true },
+                                                            ]}
+                                                        />
                                                     </td>
                                                 </tr>
                                             );
@@ -864,6 +848,23 @@ export default function ScannedUsers() {
                     </div>
                 </div>
             )}
+            <RecordDetailsModal
+                isOpen={Boolean(detailsUser)}
+                onClose={() => setDetailsUser(null)}
+                title={detailsUser?.name || 'Scanned user'}
+                subtitle={detailsUser?.mobile}
+                fields={detailsUser ? [
+                    { label: 'Email', value: detailsUser.email },
+                    { label: 'Company', value: detailsUser.company },
+                    { label: 'Address', value: detailsUser.address },
+                    { label: 'Notes', value: detailsUser.notes },
+                    { label: 'Date of birth', value: detailsUser.dob },
+                    { label: 'Anniversary', value: detailsUser.anniversary },
+                    { label: 'QR source', value: detailsUser.qr_label || 'Direct' },
+                    { label: 'Tags', value: detailsUser.tags },
+                    { label: 'Added', value: detailsUser.create_date },
+                ] : []}
+            />
         </div>
     );
 }

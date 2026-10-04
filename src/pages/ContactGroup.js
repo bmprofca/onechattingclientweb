@@ -16,8 +16,12 @@ import {
   FiUser,
   FiFileText,
   FiCheckCircle,
-  FiUsers
+  FiUsers,
+  FiEye
 } from 'react-icons/fi';
+import RowActionMenu from '../component/table/RowActionMenu';
+import RecordDetailsModal from '../component/table/RecordDetailsModal';
+import { TableSkeletonRows } from '../component/table/TableSkeleton';
 
 function ContactGroup() {
   const navigate = useNavigate();
@@ -42,6 +46,7 @@ function ContactGroup() {
   const [isAllSelected, setIsAllSelected] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [editingGroup, setEditingGroup] = useState(null);
+  const [detailGroup, setDetailGroup] = useState(null);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [deletingGroup, setDeletingGroup] = useState(null);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
@@ -565,7 +570,7 @@ function ContactGroup() {
           isMinimized={isMinimized}
           setIsMinimized={setIsMinimized}
         />
-        <div className={`pt-16 transition-all duration-300 ease-in-out ${isMinimized ? 'md:pl-20' : 'md:pl-72'
+        <div className={`pt-16 transition-all duration-300 ease-in-out ${isMinimized ? 'md:pl-20' : 'md:pl-[260px]'
           }`}>
           <div className="p-4 sm:p-6 md:p-8">
             <div className="bg-white rounded-lg shadow p-8 text-center">
@@ -593,7 +598,7 @@ function ContactGroup() {
         setIsMinimized={setIsMinimized}
       />
 
-      <div className={`pt-16 transition-all duration-300 ease-in-out ${isMinimized ? 'md:pl-20' : 'md:pl-72'
+      <div className={`pt-16 transition-all duration-300 ease-in-out ${isMinimized ? 'md:pl-20' : 'md:pl-[260px]'
         }`}>
         <div className="p-4 sm:p-6 md:p-8">
           {/* Header Section */}
@@ -624,10 +629,18 @@ function ContactGroup() {
           <div className="bg-white shadow rounded-lg overflow-hidden">
             <div className="px-4 py-5 sm:p-6">
               {loading ? (
-                <div className="flex justify-center items-center py-12">
-                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600"></div>
-                  <span className="ml-2 text-gray-600">Loading groups...</span>
-                </div>
+                <table className="min-w-full">
+                  <thead className="bg-gray-50">
+                    <tr>
+                      {['#', '', 'Group Name', 'Contacts', ''].map((label, i) => (
+                        <th key={i} className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">{label}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <TableSkeletonRows rows={8} cells={['index', 'short', 'avatar', 'badge', 'action']} />
+                  </tbody>
+                </table>
               ) : (
                 <>
                   {/* Table Header */}
@@ -635,6 +648,7 @@ function ContactGroup() {
                     <table className="min-w-full divide-y divide-gray-200">
                       <thead className="bg-gray-50">
                         <tr>
+                          <th className="w-14 px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">#</th>
                           <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                             <input
                               type="checkbox"
@@ -650,26 +664,6 @@ function ContactGroup() {
                             <div className="flex items-center space-x-1">
                               <span>Group Name</span>
                               {sortColumn === 'name' ? (
-                                sortDirection === 'asc' ? (
-                                  <FiChevronUp className="h-4 w-4 text-gray-700" />
-                                ) : (
-                                  <FiChevronDown className="h-4 w-4 text-gray-700" />
-                                )
-                              ) : (
-                                <div className="flex flex-col -space-y-1">
-                                  <FiChevronUp className="h-3 w-3 text-gray-400" />
-                                  <FiChevronDown className="h-3 w-3 text-gray-400" />
-                                </div>
-                              )}
-                            </div>
-                          </th>
-                          <th
-                            className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 select-none"
-                            onClick={() => handleSort('remark')}
-                          >
-                            <div className="flex items-center space-x-1">
-                              <span>Remark</span>
-                              {sortColumn === 'remark' ? (
                                 sortDirection === 'asc' ? (
                                   <FiChevronUp className="h-4 w-4 text-gray-700" />
                                 ) : (
@@ -716,8 +710,9 @@ function ContactGroup() {
                             </td>
                           </tr>
                         ) : (
-                          filteredGroups.map((group) => (
+                          filteredGroups.map((group, index) => (
                             <tr key={group.id} className="hover:bg-gray-50">
+                              <td className="px-4 py-4 text-center text-sm text-gray-500">{(pageNo - 1) * pageSize + index + 1}</td>
                               <td className="px-6 py-4 whitespace-nowrap">
                                 <input
                                   type="checkbox"
@@ -745,45 +740,19 @@ function ContactGroup() {
                                 </div>
                               </td>
                               <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                                {group.remark || '-'}
-                              </td>
-                              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                                 <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-indigo-100 text-indigo-800">
                                   {group.contact_count} contacts
                                 </span>
                               </td>
-                              <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                                <div className="flex space-x-2">
-                                  <button
-                                    onClick={() => handleGroupNameClick(group)}
-                                    className="text-indigo-600 hover:text-indigo-900"
-                                    title="View group contacts"
-                                  >
-                                    <FiUsers className="h-4 w-4" />
-                                  </button>
-                                  <button
-                                    onClick={() => handleOpenEditModal(group)}
-                                    className="text-indigo-600 hover:text-indigo-900"
-                                    title="Edit group"
-                                  >
-                                    <FiEdit className="h-4 w-4" />
-                                  </button>
-                                  <button
-                                    onClick={() => group.contact_count === 0 && handleOpenDeleteModal(group)}
-                                    className={`${group.contact_count > 0
-                                      ? 'text-gray-400 cursor-not-allowed'
-                                      : 'text-red-600 hover:text-red-900 cursor-pointer'
-                                      }`}
-                                    title={
-                                      group.contact_count > 0
-                                        ? `Cannot delete group with ${group.contact_count} contacts. Remove all contacts first.`
-                                        : "Delete group"
-                                    }
-                                    disabled={group.contact_count > 0}
-                                  >
-                                    <FiTrash2 className="h-4 w-4" />
-                                  </button>
-                                </div>
+                              <td className="px-3 py-4 text-right">
+                                <RowActionMenu
+                                  items={[
+                                    { label: 'Details', icon: <FiEye className="h-4 w-4" />, onClick: () => setDetailGroup(group) },
+                                    { label: 'View contacts', icon: <FiUsers className="h-4 w-4" />, onClick: () => handleGroupNameClick(group) },
+                                    { label: 'Edit', icon: <FiEdit className="h-4 w-4" />, onClick: () => handleOpenEditModal(group) },
+                                    { label: 'Delete', icon: <FiTrash2 className="h-4 w-4" />, onClick: () => handleOpenDeleteModal(group), danger: true, disabled: group.contact_count > 0 },
+                                  ]}
+                                />
                               </td>
                             </tr>
                           ))
@@ -811,6 +780,16 @@ function ContactGroup() {
           </div>
         </div>
       </div>
+
+      <RecordDetailsModal
+        isOpen={Boolean(detailGroup)}
+        onClose={() => setDetailGroup(null)}
+        title={detailGroup?.name || 'Group'}
+        fields={detailGroup ? [
+          { label: 'Remark', value: detailGroup.remark },
+          { label: 'Contacts', value: String(detailGroup.contact_count ?? 0) },
+        ] : []}
+      />
 
       {/* Create Group Modal */}
       {showCreateModal && (

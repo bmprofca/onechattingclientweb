@@ -4,6 +4,7 @@ import { API_BASE_URL } from '../../config/api';
 import axios from 'axios';
 import toast from 'react-hot-toast';
 import { Encrypt } from '../../pages/encryption/payload-encryption';
+import SearchableSelect from '../SearchableSelect';
 import {
     FiX,
     FiEdit2,
@@ -525,7 +526,7 @@ const ContactFormModal = ({
                                             Mobile Number *
                                         </label>
                                         <div className="flex gap-2">
-                                            <select
+                                            <SearchableSelect
                                                 value={country.iso2}
                                                 onChange={(e) => {
                                                     const next = COUNTRY_OPTIONS.find((c) => c.iso2 === e.target.value) || DEFAULT_COUNTRY;
@@ -538,18 +539,12 @@ const ContactFormModal = ({
                                                     }
                                                 }}
                                                 disabled={loading || submitting}
-                                                className={`w-4/12 px-3 py-2 border rounded-lg text-sm outline-none transition focus:ring-2 ${darkMode
+                                                options={COUNTRY_OPTIONS.map((c) => ({ value: c.iso2, label: `${c.name} (${c.dialCode})` }))}
+                                                className={`w-5/12 px-3 py-2 border rounded-lg text-sm outline-none transition focus:ring-2 ${darkMode
                                                         ? 'border-gray-600 bg-gray-900 text-white focus:border-blue-400 focus:ring-blue-800'
                                                         : 'border-gray-300 bg-white text-gray-900 focus:border-blue-500 focus:ring-blue-200'
-                                                    } ${(loading || submitting) ? 'opacity-50 cursor-not-allowed' : ''}`}
-                                                aria-label="Country code"
-                                            >
-                                                {COUNTRY_OPTIONS.map((c) => (
-                                                    <option key={c.iso2} value={c.iso2}>
-                                                        {c.name} ({c.dialCode})
-                                                    </option>
-                                                ))}
-                                            </select>
+                                                    }`}
+                                            />
 
                                             <input
                                                 type="tel"
@@ -632,20 +627,17 @@ const ContactFormModal = ({
                                                 <FiUsers className="inline h-4 w-4 mr-1" />
                                                 Assign to Group <span className="text-xs font-normal text-gray-400">(optional)</span>
                                             </label>
-                                            <select
+                                            <SearchableSelect
                                                 value={formData.group_id}
                                                 onChange={(e) => handleFieldChange('group_id', e.target.value)}
                                                 disabled={loading || submitting}
+                                                options={[{ value: '', label: 'No group' }, ...groups.map((group) => ({ value: group.id, label: group.name }))]}
+                                                placeholder="No group"
                                                 className={`w-full px-3 py-2 border rounded-lg text-sm outline-none transition focus:ring-2 ${darkMode
                                                     ? 'border-gray-600 bg-gray-900 text-white focus:border-blue-400 focus:ring-blue-800'
                                                     : 'border-gray-300 bg-white text-gray-900 focus:border-blue-500 focus:ring-blue-200'
-                                                    } ${(loading || submitting) ? 'opacity-50 cursor-not-allowed' : ''}`}
-                                            >
-                                                <option value="">No group</option>
-                                                {groups.map((group) => (
-                                                    <option key={group.id} value={group.id}>{group.name}</option>
-                                                ))}
-                                            </select>
+                                                    }`}
+                                            />
                                         </div>
                                     )}
 
@@ -767,19 +759,20 @@ const ContactFormModal = ({
                                             Assign New Group
                                         </label>
                                         <div className="flex gap-2">
-                                            <select
+                                            <SearchableSelect
                                                 value={selectedAddGroupId}
                                                 onChange={(e) => setSelectedAddGroupId(e.target.value)}
                                                 disabled={addingGroupLoading}
+                                                options={[
+                                                    { value: '', label: 'Choose an unassigned group...' },
+                                                    ...unassignedGroups.map((g) => ({
+                                                        value: g.id || g.group_id,
+                                                        label: `${g.name}${g.remark ? ` (${g.remark})` : ''}`,
+                                                    })),
+                                                ]}
+                                                placeholder="Choose an unassigned group..."
                                                 className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                                            >
-                                                <option value="">Choose an unassigned group...</option>
-                                                {unassignedGroups.map((g) => (
-                                                    <option key={g.id || g.group_id} value={g.id || g.group_id}>
-                                                        {g.name} {g.remark ? `(${g.remark})` : ''}
-                                                    </option>
-                                                ))}
-                                            </select>
+                                            />
                                             <button
                                                 type="button"
                                                 onClick={handleAddGroupToContact}

@@ -1,6 +1,9 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { FiCheck, FiCreditCard, FiX, FiDollarSign } from 'react-icons/fi';
+import { FiCheck, FiCreditCard, FiX, FiDollarSign, FiEye } from 'react-icons/fi';
+import RowActionMenu from '../component/table/RowActionMenu';
+import RecordDetailsModal from '../component/table/RecordDetailsModal';
+import { TableSkeletonRows } from '../component/table/TableSkeleton';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Header, Sidebar } from '../component/Menu';
 import toast from 'react-hot-toast';
@@ -74,6 +77,7 @@ function MySubscription() {
     // Selected projects for renewal: { [project_id]: 'monthly' | 'yearly' }
     const [selectedForRenewal, setSelectedForRenewal] = useState({});
     const [loading, setLoading] = useState(true);
+    const [projectDetail, setProjectDetail] = useState(null);
     const [processing, setProcessing] = useState(false);
     const [showPaymentModal, setShowPaymentModal] = useState(false);
     const [showWalletRechargeModal, setShowWalletRechargeModal] = useState(false);
@@ -297,7 +301,7 @@ function MySubscription() {
             />
 
             {/* Main content */}
-            <div className={`pt-16 transition-all duration-300 ease-in-out ${isMinimized ? 'md:pl-20' : 'md:pl-72'}`}>
+            <div className={`pt-16 transition-all duration-300 ease-in-out ${isMinimized ? 'md:pl-20' : 'md:pl-[260px]'}`}>
                 <div className="max-w-8xl mx-auto px-4 sm:px-6 md:px-8 py-6">
                     {/* Page header */}
                     <div className="mb-6">
@@ -314,16 +318,19 @@ function MySubscription() {
                                     <div className="h-24 bg-gray-200 dark:bg-gray-600 rounded-lg"></div>
                                 </div>
                             </div>
-                            <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl p-6">
-                                <div className="space-y-3">
-                                    {[1, 2, 3, 4, 5].map(i => (
-                                        <div key={i} className="flex gap-4">
-                                            <div className="flex-1 h-10 bg-gray-200 dark:bg-gray-600 rounded"></div>
-                                            <div className="w-20 h-10 bg-gray-200 dark:bg-gray-600 rounded"></div>
-                                            <div className="w-28 h-10 bg-gray-200 dark:bg-gray-600 rounded"></div>
-                                        </div>
-                                    ))}
-                                </div>
+                            <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl overflow-hidden">
+                                <table className="w-full">
+                                    <thead>
+                                        <tr>
+                                            {['#', '', 'Project', 'Billing', 'Cost', 'Status', 'Valid until', ''].map((label, index) => (
+                                                <th key={`${label}-${index}`} className="px-4 py-3 text-left text-xs font-semibold text-gray-500">{label}</th>
+                                            ))}
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <TableSkeletonRows rows={5} cells={['index', 'short', 'text', 'short', 'short', 'badge', 'short', 'action']} />
+                                    </tbody>
+                                </table>
                             </div>
                         </div>
                     ) : (
@@ -360,6 +367,7 @@ function MySubscription() {
                                         <table className="w-full min-w-[640px]">
                                             <thead>
                                                 <tr className="border-b border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-700/60">
+                                                    <th className="w-12 pl-5 pr-2 py-3.5 text-center text-xs font-semibold text-gray-600 dark:text-gray-300 uppercase tracking-wider">#</th>
                                                     <th className="w-14 pl-5 pr-3 py-3.5 text-left">
                                                         <div className="flex items-center gap-2">
                                                             <AnimatedCheckbox
@@ -378,17 +386,18 @@ function MySubscription() {
                                                     <th className="text-left px-4 py-3.5 text-xs font-semibold text-gray-600 dark:text-gray-300 uppercase tracking-wider">Renewal cost</th>
                                                     <th className="text-left px-4 py-3.5 text-xs font-semibold text-gray-600 dark:text-gray-300 uppercase tracking-wider">Status</th>
                                                     <th className="text-left px-4 py-3.5 pr-5 text-xs font-semibold text-gray-600 dark:text-gray-300 uppercase tracking-wider">Valid until</th>
+                                                    <th className="w-16 px-3 py-3.5 text-right text-xs font-semibold text-gray-600 dark:text-gray-300 uppercase tracking-wider">Actions</th>
                                                 </tr>
                                             </thead>
                                             <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
                                                 {packageRecord.length === 0 ? (
                                                     <tr>
-                                                        <td colSpan={6} className="px-5 py-10 text-center text-sm text-gray-500 dark:text-gray-400">
+                                                        <td colSpan={8} className="px-5 py-10 text-center text-sm text-gray-500 dark:text-gray-400">
                                                             No projects found
                                                         </td>
                                                     </tr>
                                                 ) : (
-                                                    packageRecord.map((record) => {
+                                                    packageRecord.map((record, index) => {
                                                         const isSelected = !!selectedForRenewal[record.project_id];
                                                         const cycle = selectedForRenewal[record.project_id] || 'monthly';
                                                         const renewalAmount = getAmountForCycle(cycle);
@@ -398,6 +407,7 @@ function MySubscription() {
                                                                 key={record.project_id}
                                                                 className="bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700/40 transition-colors"
                                                             >
+                                                                <td className="pl-5 pr-2 py-3 text-center text-sm text-gray-500 dark:text-gray-400">{index + 1}</td>
                                                                 <td className="pl-5 pr-3 py-3 align-middle">
                                                                     <AnimatedCheckbox
                                                                         checked={isSelected}
@@ -467,6 +477,15 @@ function MySubscription() {
                                                                 </td>
                                                                 <td className="px-4 pr-5 py-3 text-sm text-gray-600 dark:text-gray-400">
                                                                     {formatValidity(record)}
+                                                                </td>
+                                                                <td className="px-3 py-3 text-right">
+                                                                    <RowActionMenu
+                                                                        items={[{
+                                                                            label: 'Details',
+                                                                            icon: <FiEye className="w-4 h-4" />,
+                                                                            onClick: () => setProjectDetail(record),
+                                                                        }]}
+                                                                    />
                                                                 </td>
                                                             </tr>
                                                         );
@@ -640,6 +659,17 @@ function MySubscription() {
                     </motion.div>
                 )}
             </AnimatePresence>
+            <RecordDetailsModal
+                isOpen={Boolean(projectDetail)}
+                onClose={() => setProjectDetail(null)}
+                title={projectDetail?.project_name || projectDetail?.project_id || 'Project'}
+                fields={projectDetail ? [
+                    { label: 'Project ID', value: projectDetail.project_id },
+                    { label: 'Status', value: projectDetail.has_package_record ? (projectDetail.end_date && isValidityExpired(projectDetail.end_date) ? 'Expired' : 'Active') : 'No plan' },
+                    { label: 'Valid until', value: formatValidity(projectDetail) },
+                    { label: 'End date', value: projectDetail.end_date },
+                ] : []}
+            />
         </div>
     );
 }

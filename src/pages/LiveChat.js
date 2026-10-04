@@ -6,7 +6,6 @@ import Conversation from './Conversation';
 import { dbHelper, contactDbHelper } from './db';
 import { socketManager } from './socket';
 import { FiArrowLeft, FiSun, FiMoon, FiLock } from 'react-icons/fi';
-import logo from '../logo.svg';
 import { Header, Sidebar } from '../component/Menu';
 
 function LiveChat() {
@@ -412,14 +411,14 @@ function LiveChat() {
                 className="flex flex-1 overflow-hidden w-full"
                 initial={false}
                 animate={{
-                    paddingTop: isFullScreen ? 0 : 64,
+                    paddingTop: isFullScreen ? 0 : 'calc(4rem + var(--subscription-alert-height, 0px))',
                 }}
                 transition={{ duration: 0.35, ease: [0.4, 0, 0.2, 1] }}
             >
                 <motion.div
                     layout
                     className={`flex flex-1 overflow-hidden w-full transition-[padding] duration-300 ease-in-out ${
-                        isFullScreen ? 'md:pl-0' : (isMinimized ? 'md:pl-20' : 'md:pl-72')
+                        isFullScreen ? 'md:pl-0' : (isMinimized ? 'md:pl-20' : 'md:pl-[260px]')
                     }`}
                     transition={{ duration: 0.35, ease: [0.4, 0, 0.2, 1] }}
                 >
@@ -520,7 +519,7 @@ function LiveChat() {
                                     className="mb-8 p-6 bg-white dark:bg-gray-800 rounded-full shadow-xl relative overflow-hidden"
                                 >
                                     <div className="absolute inset-0 bg-green-500/10 dark:bg-green-500/20 blur-xl rounded-full"></div>
-                                    <img src="/onechatting.gif" alt="1Chat Logo" className="w-20 h-20 object-contain relative z-10" />
+                                    <img src="/logo.png" alt="OneChatting" className="w-20 h-20 object-cover relative z-10 rounded-2xl" />
                                 </motion.div>
 
                                 <motion.h2

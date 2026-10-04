@@ -112,15 +112,50 @@ export const fetchUserProfile = async () => {
       balance: apiData.balance,
       project_count: apiData.projects?.project_count || 0,
       projects: apiData.projects?.list || [],
-      selected_project_id: userData?.selected_project_id || apiData.projects?.list?.[0]?.project_id || ''
+      pending_invitations: Array.isArray(apiData.pending_invitations) ? apiData.pending_invitations : [],
+      selected_project_id: userData && Object.prototype.hasOwnProperty.call(userData, 'selected_project_id')
+        ? (userData.selected_project_id || null)
+        : (apiData.projects?.list?.[0]?.project_id || '')
     };
 
     // Update localStorage with transformed data
     localStorage.setItem('userData', JSON.stringify(updatedUserData));
+    window.dispatchEvent(new Event('projects-updated'));
   }
 
   return apiData;
 };
+
+const readStoredAuth = () => {
+  try {
+    const userData = localStorage.getItem('userData');
+    return userData ? JSON.parse(userData) : null;
+  } catch (error) {
+    return null;
+  }
+};
+
+const postEncrypted = async (path, payload) => {
+  const userData = readStoredAuth();
+  const { data, key } = Encrypt(payload || {});
+  const response = await axios.post(
+    `${API_BASE_URL}${path}`,
+    JSON.stringify({ data, key }),
+    {
+      headers: {
+        token: userData?.token,
+        username: userData?.username,
+        'Content-Type': 'application/json'
+      }
+    }
+  );
+  return response.data;
+};
+
+export const listAgentInvitations = () => postEncrypted('/agent/invitations', {});
+
+export const respondAgentInvitation = ({ invitation_id, action }) =>
+  postEncrypted('/agent/invitation/respond', { invitation_id, action });
 
 // Update user profile
 export const updateUserProfile = async ({ name, country_code, mobile, gender, firm_name, business_name, business_type }) => {
@@ -651,7 +686,20 @@ export const submitWabaId = async ({ project_id, waba_id, code, phone_number_id 
 };
 
 // Create project
-export const createProject = async ({ company_name, project_name, package_id }) => {
+export const createProject = async ({
+  company_name,
+  project_name,
+  package_id,
+  pan,
+  gst,
+  firm_type,
+  team_volume,
+  client_volume,
+  annual_revenue,
+  industry,
+  website,
+  city,
+}) => {
   // Load auth tokens from localStorage to match existing API requirements
   const getUserData = () => {
     try {
@@ -674,6 +722,15 @@ export const createProject = async ({ company_name, project_name, package_id }) 
   const payload = {
     company_name,
     project_name,
+    pan,
+    gst,
+    firm_type,
+    team_volume,
+    client_volume,
+    annual_revenue,
+    industry,
+    website,
+    city,
     ...(package_id != null && package_id !== '' ? { package_id } : {})
   };
 

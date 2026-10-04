@@ -5,6 +5,7 @@ import { useSelector, useDispatch } from 'react-redux';
 import axios from 'axios';
 import { uploadFile } from '../utils/uploadFile';
 import { Header, Sidebar } from '../component/Menu';
+import SearchableSelect from '../component/SearchableSelect';
 import { fetchProjectInfo } from '../store/projectSlice';
 import { Encrypt } from './encryption/payload-encryption';
 import {
@@ -639,17 +640,16 @@ function ContextConfig() {
                         className="flex-1 min-w-[200px] bg-white border border-slate-200 rounded-xl px-3.5 py-1.5 text-sm font-semibold text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-sky-200 focus:border-sky-400"
                     />
                     <div className="flex items-center gap-2 flex-shrink-0 ml-auto">
-                        <select
+                        <SearchableSelect
                             value={section.type}
                             onChange={(e) => changeSectionType(section.id, e.target.value)}
-                            className="bg-white border border-slate-200 rounded-xl px-3 py-1.5 text-xs sm:text-sm text-slate-700 font-medium focus:outline-none focus:ring-2 focus:ring-sky-200 focus:border-sky-400"
-                        >
-                            {SECTION_TYPES.map(t => (
-                                <option key={t.value} value={t.value} disabled={t.value === 'docs' && !usePersonalKey}>
-                                    {t.label} {t.value === 'docs' && !usePersonalKey ? '(Personal Key Req.)' : ''}
-                                </option>
-                            ))}
-                        </select>
+                            options={SECTION_TYPES.map((t) => ({
+                                value: t.value,
+                                label: `${t.label}${t.value === 'docs' && !usePersonalKey ? ' (Personal Key Req.)' : ''}`,
+                                disabled: t.value === 'docs' && !usePersonalKey,
+                            }))}
+                            className="bg-white border border-slate-200 rounded-xl px-3 py-1.5 text-xs sm:text-sm text-slate-700 font-medium focus:outline-none focus:ring-2 focus:ring-sky-200 focus:border-sky-400 min-w-[160px]"
+                        />
                         <button
                             type="button"
                             onClick={() => toggleSectionCollapse(section.id)}
@@ -835,7 +835,7 @@ function ContextConfig() {
             <div className="min-h-screen bg-slate-50">
                 <Header mobileMenuOpen={mobileMenuOpen} setMobileMenuOpen={setMobileMenuOpen} isMinimized={isMinimized} setIsMinimized={setIsMinimized} />
                 <Sidebar mobileMenuOpen={mobileMenuOpen} setMobileMenuOpen={setMobileMenuOpen} isMinimized={isMinimized} setIsMinimized={setIsMinimized} />
-                <div className={`pt-16 transition-all duration-300 ease-in-out ${isMinimized ? 'md:pl-20' : 'md:pl-72'}`}>
+                <div className={`pt-16 transition-all duration-300 ease-in-out ${isMinimized ? 'md:pl-20' : 'md:pl-[260px]'}`}>
                     <div className="max-w-8xl mx-auto px-4 sm:px-6 md:px-8 py-8">
                         <div className="max-w-2xl mx-auto mt-12 rounded-2xl border border-slate-200 bg-white p-8 shadow-xs text-center">
                             <FiLock className="w-14 h-14 mx-auto text-slate-300 mb-4" />
@@ -865,8 +865,8 @@ function ContextConfig() {
         <div className="min-h-screen bg-slate-50/60 pb-24">
             <Header mobileMenuOpen={mobileMenuOpen} setMobileMenuOpen={setMobileMenuOpen} isMinimized={isMinimized} setIsMinimized={setIsMinimized} />
             <Sidebar mobileMenuOpen={mobileMenuOpen} setMobileMenuOpen={setMobileMenuOpen} isMinimized={isMinimized} setIsMinimized={setIsMinimized} />
-            <div className={`pt-16 transition-all duration-300 ease-in-out ${isMinimized ? 'md:pl-20' : 'md:pl-72'}`}>
-                <div className="max-w-6xl mx-auto px-4 sm:px-6 md:px-8 py-8">
+            <div className={`pt-16 transition-all duration-300 ease-in-out ${isMinimized ? 'md:pl-20' : 'md:pl-[260px]'}`}>
+                <div className="w-full px-4 sm:px-6 md:px-8 py-8">
                     
                     {/* Header bar */}
                     <div className="mb-6">

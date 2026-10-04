@@ -3,6 +3,7 @@ import { API_BASE_URL } from '../../config/api';
 import { Encrypt } from '../../pages/encryption/payload-encryption';
 import { uploadFile } from '../../utils/uploadFile';
 import axios from 'axios';
+import SearchableSelect from '../SearchableSelect';
 import toast from 'react-hot-toast';
 import {
   FiX,
@@ -418,47 +419,50 @@ export default function AiTemplateModal({
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
               <div>
                 <label className="text-xs font-semibold text-gray-700 mb-1 block">Category</label>
-                <select
+                <SearchableSelect
                   value={category}
                   onChange={(e) => setCategory(e.target.value)}
+                  options={[
+                    { value: 'MARKETING', label: 'Marketing (Promotions, Offers)' },
+                    { value: 'UTILITY', label: 'Utility (Updates, Orders, Alerts)' },
+                    { value: 'AUTHENTICATION', label: 'Authentication (OTP, Verification)' },
+                  ]}
                   className="w-full px-3 py-2 rounded-lg border border-gray-300 bg-white text-xs font-medium text-gray-800 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 outline-none shadow-sm"
-                >
-                  <option value="MARKETING">Marketing (Promotions, Offers)</option>
-                  <option value="UTILITY">Utility (Updates, Orders, Alerts)</option>
-                  <option value="AUTHENTICATION">Authentication (OTP, Verification)</option>
-                </select>
+                />
               </div>
 
               <div>
                 <label className="text-xs font-semibold text-gray-700 mb-1 block">Language</label>
-                <select
+                <SearchableSelect
                   value={language}
                   onChange={(e) => setLanguage(e.target.value)}
+                  options={[
+                    { value: 'en', label: 'English (en)' },
+                    { value: 'hi', label: 'Hindi (hi)' },
+                    { value: 'es', label: 'Spanish (es)' },
+                    { value: 'pt_BR', label: 'Portuguese (pt_BR)' },
+                    { value: 'ar', label: 'Arabic (ar)' },
+                    { value: 'fr', label: 'French (fr)' },
+                    { value: 'de', label: 'German (de)' },
+                    { value: 'it', label: 'Italian (it)' },
+                  ]}
                   className="w-full px-3 py-2 rounded-lg border border-gray-300 bg-white text-xs font-medium text-gray-800 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 outline-none shadow-sm"
-                >
-                  <option value="en">English (en)</option>
-                  <option value="hi">Hindi (hi)</option>
-                  <option value="es">Spanish (es)</option>
-                  <option value="pt_BR">Portuguese (pt_BR)</option>
-                  <option value="ar">Arabic (ar)</option>
-                  <option value="fr">French (fr)</option>
-                  <option value="de">German (de)</option>
-                  <option value="it">Italian (it)</option>
-                </select>
+                />
               </div>
 
               <div>
                 <label className="text-xs font-semibold text-gray-700 mb-1 block">Tone / Style</label>
-                <select
+                <SearchableSelect
                   value={tone}
                   onChange={(e) => setTone(e.target.value)}
+                  options={[
+                    { value: 'friendly and persuasive', label: 'Friendly & Persuasive' },
+                    { value: 'exciting and promotional', label: 'Exciting & Urgent' },
+                    { value: 'polite and professional', label: 'Polite & Professional' },
+                    { value: 'concise and direct', label: 'Concise & Direct' },
+                  ]}
                   className="w-full px-3 py-2 rounded-lg border border-gray-300 bg-white text-xs font-medium text-gray-800 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 outline-none shadow-sm"
-                >
-                  <option value="friendly and persuasive">Friendly & Persuasive</option>
-                  <option value="exciting and promotional">Exciting & Urgent</option>
-                  <option value="polite and professional">Polite & Professional</option>
-                  <option value="concise and direct">Concise & Direct</option>
-                </select>
+                />
               </div>
             </div>
 
@@ -477,7 +481,7 @@ export default function AiTemplateModal({
                 <div className="mt-3 p-4 bg-gray-50 rounded-xl border border-gray-200 grid grid-cols-1 sm:grid-cols-2 gap-4 animate-in fade-in duration-150">
                   <div>
                     <label className="text-xs font-semibold text-gray-700 mb-1 block">Header Type</label>
-                    <select
+                    <SearchableSelect
                       value={headerType}
                       onChange={(e) => {
                         setHeaderType(e.target.value);
@@ -485,28 +489,30 @@ export default function AiTemplateModal({
                           setReferenceImageUrl('');
                         }
                       }}
+                      options={[
+                        { value: 'NONE', label: 'None' },
+                        { value: 'TEXT', label: 'Text Header' },
+                        { value: 'IMAGE', label: 'Image Header' },
+                        { value: 'VIDEO', label: 'Video Header' },
+                        { value: 'DOCUMENT', label: 'Document Header' },
+                      ]}
                       className="w-full px-3 py-2 rounded-lg border border-gray-300 bg-white text-xs font-medium text-gray-800 focus:border-indigo-500 outline-none shadow-sm"
-                    >
-                      <option value="NONE">None</option>
-                      <option value="TEXT">Text Header</option>
-                      <option value="IMAGE">Image Header</option>
-                      <option value="VIDEO">Video Header</option>
-                      <option value="DOCUMENT">Document Header</option>
-                    </select>
+                    />
                   </div>
 
                   <div>
                     <label className="text-xs font-semibold text-gray-700 mb-1 block">Buttons Preference</label>
-                    <select
+                    <SearchableSelect
                       value={buttonType}
                       onChange={(e) => setButtonType(e.target.value)}
+                      options={[
+                        { value: 'NONE', label: 'None' },
+                        { value: 'QUICK_REPLY', label: 'Quick Reply Buttons' },
+                        { value: 'URL', label: 'Call to Action (Website URL)' },
+                        { value: 'PHONE_NUMBER', label: 'Call Phone Number' },
+                      ]}
                       className="w-full px-3 py-2 rounded-lg border border-gray-300 bg-white text-xs font-medium text-gray-800 focus:border-indigo-500 outline-none shadow-sm"
-                    >
-                      <option value="NONE">None</option>
-                      <option value="QUICK_REPLY">Quick Reply Buttons</option>
-                      <option value="URL">Call to Action (Website URL)</option>
-                      <option value="PHONE_NUMBER">Call Phone Number</option>
-                    </select>
+                    />
                   </div>
 
                   {/* Separate Header Prompt: Visible when headerType !== 'NONE' */}

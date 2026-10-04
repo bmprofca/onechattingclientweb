@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Header, Sidebar } from '../../component/Menu';
+import SearchableSelect from '../../component/SearchableSelect';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
     FiPlus,
@@ -274,7 +275,7 @@ const AutoReply = () => {
             />
 
             {/* Main content */}
-            <div className={`pt-16 transition-all duration-300 ease-in-out ${isMinimized ? 'md:pl-20' : 'md:pl-72'}`}>
+            <div className={`pt-16 transition-all duration-300 ease-in-out ${isMinimized ? 'md:pl-20' : 'md:pl-[260px]'}`}>
                 <div className="max-w-8xl mx-auto px-4 sm:px-6 md:px-8 py-6">
                     {/* Page Header */}
                     <div className="mb-6">
@@ -382,15 +383,16 @@ const AutoReply = () => {
                                 </div>
                             </div>
                             <div className="sm:w-48">
-                                <select
+                                <SearchableSelect
                                     value={filterStatus}
                                     onChange={(e) => setFilterStatus(e.target.value)}
+                                    options={[
+                                        { value: 'all', label: 'All Status' },
+                                        { value: 'enabled', label: 'Enabled' },
+                                        { value: 'disabled', label: 'Disabled' },
+                                    ]}
                                     className="block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
-                                >
-                                    <option value="all">All Status</option>
-                                    <option value="enabled">Enabled</option>
-                                    <option value="disabled">Disabled</option>
-                                </select>
+                                />
                             </div>
                         </div>
                     </div>
@@ -613,16 +615,17 @@ const AutoReply = () => {
                                         <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                                             Match Type
                                         </label>
-                                        <select
+                                        <SearchableSelect
                                             value={formData.matchType}
                                             onChange={(e) => setFormData({ ...formData, matchType: e.target.value })}
+                                            options={[
+                                                { value: 'contains', label: 'Contains' },
+                                                { value: 'exact', label: 'Exact Match' },
+                                                { value: 'startsWith', label: 'Starts With' },
+                                                { value: 'endsWith', label: 'Ends With' },
+                                            ]}
                                             className="block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                                        >
-                                            <option value="contains">Contains</option>
-                                            <option value="exact">Exact Match</option>
-                                            <option value="startsWith">Starts With</option>
-                                            <option value="endsWith">Ends With</option>
-                                        </select>
+                                        />
                                     </div>
 
                                     {/* Response Message */}

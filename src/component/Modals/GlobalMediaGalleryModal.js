@@ -24,6 +24,9 @@ import { Encrypt } from '../../pages/encryption/payload-encryption';
 import { parseServerDate } from '../../utils/dateTime';
 import MediaModal from './Conversation/MediaModal';
 import Pagination from '../Pagination';
+import RowActionMenu from '../table/RowActionMenu';
+import RecordDetailsModal from '../table/RecordDetailsModal';
+import { TableSkeletonRows } from '../table/TableSkeleton';
 import DateRangePickerModal from '../DateRangePickerModal';
 
 const MEDIA_TABS = [
@@ -247,6 +250,7 @@ function GlobalMediaGalleryModal({ isOpen, onClose, tokens, onChatSelect }) {
     const [totalPages, setTotalPages] = useState(1);
     const [downloadingId, setDownloadingId] = useState(null);
     const [previewItem, setPreviewItem] = useState(null);
+    const [mediaDetail, setMediaDetail] = useState(null);
     const [searchInput, setSearchInput] = useState('');
     const [dateFromInput, setDateFromInput] = useState('');
     const [dateToInput, setDateToInput] = useState('');
@@ -553,35 +557,13 @@ function GlobalMediaGalleryModal({ isOpen, onClose, tokens, onChatSelect }) {
                     <DirectionBadge direction={item.direction} />
                 </td>
                 <td className="px-3 py-2.5 text-right whitespace-nowrap">
-                    <div className="flex items-center justify-end gap-1">
-                        {showPreview && (
-                            <button
-                                type="button"
-                                onClick={(e) => handlePreview(e, item)}
-                                className="p-1.5 rounded-lg text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 transition-colors"
-                                title="Preview"
-                                aria-label="Preview"
-                            >
-                                <FiEye className="w-4 h-4" />
-                            </button>
-                        )}
-                        {canDownload && (
-                            <button
-                                type="button"
-                                onClick={(e) => handleDownload(e, item)}
-                                disabled={isDownloading}
-                                className="p-1.5 rounded-lg text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600 disabled:opacity-60 transition-colors"
-                                title={item.message_type === 'location' ? 'Open location' : 'Download'}
-                                aria-label={item.message_type === 'location' ? 'Open location' : 'Download file'}
-                            >
-                                {isDownloading ? (
-                                    <span className="block h-4 w-4 border-2 border-current border-t-transparent rounded-full animate-spin" />
-                                ) : (
-                                    <FiDownload className="w-4 h-4" />
-                                )}
-                            </button>
-                        )}
-                    </div>
+                    <RowActionMenu
+                        items={[
+                            { label: 'Details', icon: <FiEye className="w-4 h-4" />, onClick: () => setMediaDetail(item) },
+                            { label: 'Preview', icon: <FiEye className="w-4 h-4" />, onClick: () => handlePreview({ stopPropagation() {}, preventDefault() {} }, item), hidden: !showPreview },
+                            { label: item.message_type === 'location' ? 'Open location' : 'Download', icon: <FiDownload className="w-4 h-4" />, onClick: () => handleDownload({ stopPropagation() {}, preventDefault() {} }, item), hidden: !canDownload, disabled: isDownloading },
+                        ]}
+                    />
                 </td>
             </tr>
         );
@@ -724,8 +706,19 @@ function GlobalMediaGalleryModal({ isOpen, onClose, tokens, onChatSelect }) {
 
                             <div className="flex-1 min-h-0 overflow-auto p-4">
                                 {loading && items.length === 0 ? (
-                                    <div className="flex items-center justify-center h-full">
-                                        <div className="h-10 w-10 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin" />
+                                    <div className="overflow-x-auto rounded-xl border border-gray-200 dark:border-gray-700">
+                                        <table className="w-full text-sm min-w-[720px]">
+                                            <thead>
+                                                <tr className="bg-gray-50 dark:bg-gray-700/50">
+                                                    {['#', 'Preview', 'Name', 'Contact', 'Type', 'Date', 'Dir.', ''].map((label, index) => (
+                                                        <th key={`${label}-${index}`} className="px-3 py-2.5 text-left text-xs font-semibold text-gray-500">{label}</th>
+                                                    ))}
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                <TableSkeletonRows rows={6} cells={['index', 'short', 'text', 'text', 'short', 'short', 'badge', 'action']} />
+                                            </tbody>
+                                        </table>
                                     </div>
                                 ) : error ? (
                                     <div className="flex flex-col items-center justify-center h-full text-center">
@@ -771,11 +764,7 @@ function GlobalMediaGalleryModal({ isOpen, onClose, tokens, onChatSelect }) {
                                             </thead>
                                             <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
                                                 {loading ? (
-                                                    <tr>
-                                                        <td colSpan={8} className="px-3 py-10 text-center">
-                                                            <div className="h-8 w-8 mx-auto border-2 border-indigo-500 border-t-transparent rounded-full animate-spin" />
-                                                        </td>
-                                                    </tr>
+                                                    <TableSkeletonRows rows={6} cells={['index', 'short', 'text', 'text', 'short', 'short', 'badge', 'action']} />
                                                 ) : (
                                                     items.map(renderTableRow)
                                                 )}
@@ -833,6 +822,18 @@ function GlobalMediaGalleryModal({ isOpen, onClose, tokens, onChatSelect }) {
                     type={previewType}
                 />
             )}
+            <RecordDetailsModal
+                isOpen={Boolean(mediaDetail)}
+                onClose={() => setMediaDetail(null)}
+                title={mediaDetail ? resolveFileName(mediaDetail) : 'Media'}
+                fields={mediaDetail ? [
+                    { label: 'Contact', value: renderContactLabel(mediaDetail) },
+                    { label: 'Type', value: TYPE_LABELS[mediaDetail.message_type] || mediaDetail.message_type },
+                    { label: 'Date', value: formatMediaDate(mediaDetail.create_date) },
+                    { label: 'Direction', value: mediaDetail.direction },
+                    { label: 'Voice note', value: mediaDetail.is_voice ? 'Yes' : '' },
+                ] : []}
+            />
         </>,
         document.body
     );

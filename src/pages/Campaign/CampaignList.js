@@ -3,6 +3,7 @@ import { API_BASE_URL } from '../../config/api';
 import { Header, Sidebar } from '../../component/Menu';
 import { useNavigate } from 'react-router-dom';
 import Pagination from '../../component/Pagination';
+import SearchableSelect from '../../component/SearchableSelect';
 import {
     FiPlus,
     FiSearch,
@@ -22,6 +23,9 @@ import moment from 'moment';
 import { parseServerDate } from '../../utils/dateTime';
 import axios from 'axios';
 import toast from 'react-hot-toast';
+import RowActionMenu from '../../component/table/RowActionMenu';
+import RecordDetailsModal from '../../component/table/RecordDetailsModal';
+import { TableSkeletonRows } from '../../component/table/TableSkeleton';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Encrypt } from '../encryption/payload-encryption';
 
@@ -46,6 +50,7 @@ const CampaignList = () => {
 
     // Delete modal state
     const [showDeleteModal, setShowDeleteModal] = useState(false);
+    const [detailCampaign, setDetailCampaign] = useState(null);
     const [campaignToDelete, setCampaignToDelete] = useState(null);
     const [deleteLoading, setDeleteLoading] = useState(false);
     const [deleteError, setDeleteError] = useState(null);
@@ -353,7 +358,7 @@ const CampaignList = () => {
             />
 
             {/* Main content */}
-            <div className={`pt-16 transition-all duration-300 ease-in-out ${isMinimized ? 'md:pl-20' : 'md:pl-72'}`}>
+            <div className={`pt-16 transition-all duration-300 ease-in-out ${isMinimized ? 'md:pl-20' : 'md:pl-[260px]'}`}>
                 <div className="max-w-8xl mx-auto px-4 sm:px-6 md:px-8 py-6">
                     {/* Page Header */}
                     <div className="mb-6">
@@ -426,16 +431,17 @@ const CampaignList = () => {
 
                             {/* Status Filter */}
                             <div className="sm:w-48">
-                                <select
+                                <SearchableSelect
                                     value={filterStatus}
                                     onChange={(e) => setFilterStatus(e.target.value)}
+                                    options={[
+                                        { value: 'all', label: 'All Status' },
+                                        { value: 'complete', label: 'Completed' },
+                                        { value: 'pending', label: 'Pending' },
+                                        { value: 'stopped', label: 'Stopped' },
+                                    ]}
                                     className="block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
-                                >
-                                    <option value="all">All Status</option>
-                                    <option value="complete">Completed</option>
-                                    <option value="pending">Pending</option>
-                                    <option value="stopped">Stopped</option>
-                                </select>
+                                />
                             </div>
                         </div>
                     </div>
@@ -457,7 +463,7 @@ const CampaignList = () => {
                                 <thead className="bg-gray-50 dark:bg-gray-700">
                                     <tr>
                                         <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                                            S.No
+                                            #
                                         </th>
                                         <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
                                             Campaign
@@ -484,14 +490,7 @@ const CampaignList = () => {
                                 </thead>
                                 <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
                                     {loading ? (
-                                        <tr>
-                                            <td colSpan="8" className="px-6 py-8 text-center text-sm text-gray-500 dark:text-gray-400">
-                                                <div className="flex items-center justify-center">
-                                                    <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-indigo-600"></div>
-                                                    <span className="ml-2">Loading campaigns...</span>
-                                                </div>
-                                            </td>
-                                        </tr>
+                                        <TableSkeletonRows rows={8} cells={['index', 'avatar', 'text', 'short', 'short', 'badge', 'short', 'action']} />
                                     ) : filteredCampaigns.length === 0 ? (
                                         <tr>
                                             <td colSpan="8" className="px-6 py-8 text-center text-sm text-gray-500 dark:text-gray-400">
@@ -569,23 +568,14 @@ const CampaignList = () => {
                                                         {moment(parseServerDate(campaign.createdDate)).format('MMM DD, YYYY')}
                                                     </div>
                                                 </td>
-                                                <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                                                    <div className="flex items-center justify-end space-x-2">
-                                                        <button
-                                                            onClick={() => handleViewCampaign(campaign.id)}
-                                                            className="text-indigo-600 hover:text-indigo-900 dark:text-indigo-400 dark:hover:text-indigo-300"
-                                                            title="View campaign"
-                                                        >
-                                                            <FiEye size={18} />
-                                                        </button>
-                                                        <button
-                                                            onClick={() => openDeleteModal(campaign)}
-                                                            className="text-red-600 hover:text-red-900 dark:text-red-400 dark:hover:text-red-300"
-                                                            title="Delete campaign"
-                                                        >
-                                                            <FiTrash2 size={18} />
-                                                        </button>
-                                                    </div>
+                                                <td className="px-3 py-4 text-right">
+                                                    <RowActionMenu
+                                                        items={[
+                                                            { label: 'Details', icon: <FiEye size={15} />, onClick: () => setDetailCampaign(campaign) },
+                                                            { label: 'Open', icon: <FiZap size={15} />, onClick: () => handleViewCampaign(campaign.id) },
+                                                            { label: 'Delete', icon: <FiTrash2 size={15} />, onClick: () => openDeleteModal(campaign), danger: true },
+                                                        ]}
+                                                    />
                                                 </td>
                                             </tr>
                                         ))
@@ -612,6 +602,22 @@ const CampaignList = () => {
 
                 </div>
             </div>
+
+            <RecordDetailsModal
+                isOpen={Boolean(detailCampaign)}
+                onClose={() => setDetailCampaign(null)}
+                title={detailCampaign?.name || 'Campaign'}
+                fields={detailCampaign ? [
+                    { label: 'Template', value: detailCampaign.template },
+                    { label: 'Audience', value: detailCampaign.audience },
+                    { label: 'Recipients', value: String(detailCampaign.recipients ?? '') },
+                    { label: 'Delivered', value: String(detailCampaign.delivered ?? '') },
+                    { label: 'Read', value: String(detailCampaign.read ?? '') },
+                    { label: 'Status', value: detailCampaign.status },
+                    { label: 'Scheduled', value: detailCampaign.scheduledDate ? moment(parseServerDate(detailCampaign.scheduledDate)).format('MMM DD, YYYY HH:mm') : '' },
+                    { label: 'Created', value: detailCampaign.createdDate ? moment(parseServerDate(detailCampaign.createdDate)).format('MMM DD, YYYY') : '' },
+                ] : []}
+            />
 
             {/* Delete Campaign Confirmation Modal */}
             <AnimatePresence>

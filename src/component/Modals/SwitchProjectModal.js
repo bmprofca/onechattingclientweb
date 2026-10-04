@@ -1,12 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { FiX, FiCheck, FiBriefcase, FiRefreshCw, FiUser, FiShield, FiUserCheck } from 'react-icons/fi';
-import { fetchUserProfile } from '../../api/auth';
+import { fetchUserProfile, listAgentInvitations, respondAgentInvitation } from '../../api/auth';
 
-const SwitchProjectModal = ({ isOpen, onClose, companies = [], onSelectCompany }) => {
+const SwitchProjectModal = ({ isOpen, onClose, companies = [], onSelectCompany, onInvitationsChange }) => {
     const [selectedCompany, setSelectedCompany] = useState(null);
     const [searchQuery, setSearchQuery] = useState('');
     const [projects, setProjects] = useState([]);
+    const [invitations, setInvitations] = useState([]);
+    const [respondingId, setRespondingId] = useState(null);
     const [refreshing, setRefreshing] = useState(false);
     const [error, setError] = useState(null);
     const [activeProjectId, setActiveProjectId] = useState(null);
@@ -30,6 +32,9 @@ const SwitchProjectModal = ({ isOpen, onClose, companies = [], onSelectCompany }
                         } else if (parsedData.projects && Array.isArray(parsedData.projects)) {
                             setProjects(parsedData.projects);
                         }
+                        if (Array.isArray(parsedData.pending_invitations)) {
+                            setInvitations(parsedData.pending_invitations);
+                        }
                     }
                 } catch (error) {
                     console.error('Error parsing userData from localStorage:', error);
@@ -44,7 +49,15 @@ const SwitchProjectModal = ({ isOpen, onClose, companies = [], onSelectCompany }
                 setRefreshing(true);
                 setError(null);
                 try {
-                    const response = await fetchUserProfile();
+                    const [response, inviteResponse] = await Promise.all([
+                        fetchUserProfile(),
+                        listAgentInvitations().catch(() => null)
+                    ]);
+
+                    if (inviteResponse && Array.isArray(inviteResponse.list)) {
+                        setInvitations(inviteResponse.list);
+                        if (onInvitationsChange) onInvitationsChange(inviteResponse.list);
+                    }
 
                     if (response && response.projects) {
                         // API returns projects as object with list property
@@ -78,6 +91,8 @@ const SwitchProjectModal = ({ isOpen, onClose, companies = [], onSelectCompany }
         } else {
             // Reset state when modal closes
             setProjects([]);
+            setInvitations([]);
+            setRespondingId(null);
             setRefreshing(false);
             setError(null);
             setActiveProjectId(null);
@@ -116,6 +131,32 @@ const SwitchProjectModal = ({ isOpen, onClose, companies = [], onSelectCompany }
         (project.description && project.description.toLowerCase().includes(searchQuery.toLowerCase())) ||
         (project.owner_name && project.owner_name.toLowerCase().includes(searchQuery.toLowerCase()))
     );
+
+    const handleInvitation = async (invitation, action) => {
+        if (!invitation?.invitation_id || respondingId) return;
+        setRespondingId(invitation.invitation_id);
+        setError(null);
+        try {
+            const result = await respondAgentInvitation({
+                invitation_id: invitation.invitation_id,
+                action
+            });
+            if (result?.error) {
+                setError(typeof result.error === 'string' ? result.error : 'Could not update the invitation');
+                return;
+            }
+            const profile = await fetchUserProfile();
+            const nextProjects = profile?.projects?.list || (Array.isArray(profile?.projects) ? profile.projects : []);
+            if (nextProjects.length > 0) setProjects(nextProjects);
+            const remaining = invitations.filter((item) => item.invitation_id !== invitation.invitation_id);
+            setInvitations(remaining);
+            if (onInvitationsChange) onInvitationsChange(remaining);
+        } catch (inviteError) {
+            setError('Could not update the invitation');
+        } finally {
+            setRespondingId(null);
+        }
+    };
 
     const handleSelect = (company) => {
         setSelectedCompany(company);
@@ -196,6 +237,59 @@ const SwitchProjectModal = ({ isOpen, onClose, companies = [], onSelectCompany }
                             {error && (
                                 <div className="mb-4 p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
                                     <p className="text-sm text-red-600 dark:text-red-400">{error}</p>
+                                </div>
+                            )}
+                            {invitations.length > 0 && (
+                                <div className="mb-6">
+                                    <div className="flex items-center gap-2 mb-3">
+                                        <span className="inline-flex h-2 w-2 rounded-full bg-amber-500 animate-pulse" />
+                                        <h4 className="text-sm font-semibold text-gray-900 dark:text-white">
+                                            Invitations waiting for you
+                                        </h4>
+                                    </div>
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                        {invitations.map((invitation) => {
+                                            const busy = respondingId === invitation.invitation_id;
+                                            return (
+                                                <div
+                                                    key={invitation.invitation_id}
+                                                    className="rounded-xl border-2 border-amber-300 bg-amber-50/80 dark:bg-amber-900/20 dark:border-amber-700 p-4"
+                                                >
+                                                    <div className="flex items-start justify-between gap-2">
+                                                        <h4 className="font-semibold text-gray-900 dark:text-white truncate">
+                                                            {invitation.project_name}
+                                                        </h4>
+                                                        <span className="flex-shrink-0 inline-flex items-center gap-1 px-1.5 py-0.5 text-xs font-medium text-amber-800 bg-amber-100 rounded">
+                                                            <FiUserCheck className="w-3 h-3" />
+                                                            Agent invite
+                                                        </span>
+                                                    </div>
+                                                    <p className="mt-2 text-sm text-gray-600 dark:text-gray-300">
+                                                        {invitation.invited_by_name ? `${invitation.invited_by_name} invited you` : 'You have a pending invitation'}
+                                                        {invitation.permission_name ? ` · ${invitation.permission_name}` : ''}
+                                                    </p>
+                                                    <div className="mt-3 flex items-center gap-2">
+                                                        <button
+                                                            type="button"
+                                                            disabled={busy}
+                                                            onClick={() => handleInvitation(invitation, 'accept')}
+                                                            className="px-3 py-1.5 rounded-lg bg-indigo-600 text-white text-sm font-medium hover:bg-indigo-700 disabled:opacity-60"
+                                                        >
+                                                            {busy ? 'Please wait…' : 'Accept'}
+                                                        </button>
+                                                        <button
+                                                            type="button"
+                                                            disabled={busy}
+                                                            onClick={() => handleInvitation(invitation, 'reject')}
+                                                            className="px-3 py-1.5 rounded-lg border border-gray-300 bg-white text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-60"
+                                                        >
+                                                            Reject
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
                                 </div>
                             )}
                             {filteredProjects.length === 0 ? (

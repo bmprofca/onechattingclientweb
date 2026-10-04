@@ -23,14 +23,129 @@ import {
     FiShield,
     FiUser,
     FiChevronRight,
-    FiBarChart2
+    FiBarChart2,
+    FiCpu,
+    FiLayers
 } from 'react-icons/fi';
 import axios from 'axios';
 import { Encrypt } from './encryption/payload-encryption';
 import { getProjectMetaDetails } from '../api/auth';
 import SwitchProjectModal from '../component/Modals/SwitchProjectModal';
+import CreateProjectModal from '../component/Modals/CreateProjectModal';
 import { useDispatch } from 'react-redux';
 import { setSelectedProjectId, setAuthData } from '../store/authSlice';
+
+const PLATFORM_FEATURES = [
+    {
+        title: 'Live chat',
+        description: 'Reply to customers on WhatsApp in real time, with media, documents, and unread conversations in one inbox.',
+        icon: FiMessageSquare,
+        card: 'border-emerald-200 bg-emerald-50/70',
+        iconWrap: 'bg-emerald-500 text-white',
+        titleColor: 'text-emerald-900',
+    },
+    {
+        title: 'Open cases',
+        description: 'Track support issues against each phone number, add remarks, and see what is still waiting on your team.',
+        icon: FiBriefcase,
+        card: 'border-amber-200 bg-amber-50/70',
+        iconWrap: 'bg-amber-500 text-white',
+        titleColor: 'text-amber-900',
+    },
+    {
+        title: 'Audience',
+        description: 'Keep contacts and groups ready so campaigns go to the right customers without rebuilding the list each time.',
+        icon: FiUsers,
+        card: 'border-sky-200 bg-sky-50/70',
+        iconWrap: 'bg-sky-500 text-white',
+        titleColor: 'text-sky-900',
+    },
+    {
+        title: 'Templates',
+        description: 'Submit Marketing, Utility, and Authentication templates and follow them from pending to approved.',
+        icon: FiMail,
+        card: 'border-violet-200 bg-violet-50/70',
+        iconWrap: 'bg-violet-500 text-white',
+        titleColor: 'text-violet-900',
+    },
+    {
+        title: 'Campaigns',
+        description: 'Send approved messages to contacts or groups and watch sent, delivered, read, and failed results.',
+        icon: FiZap,
+        card: 'border-orange-200 bg-orange-50/70',
+        iconWrap: 'bg-orange-500 text-white',
+        titleColor: 'text-orange-900',
+    },
+    {
+        title: 'QR leads',
+        description: 'Share a project QR code and see who scanned it, so new customers can start a chat with your business.',
+        icon: FiLayers,
+        card: 'border-teal-200 bg-teal-50/70',
+        iconWrap: 'bg-teal-500 text-white',
+        titleColor: 'text-teal-900',
+    },
+    {
+        title: 'Team access',
+        description: 'Invite agents, set what each person can do, and share one WhatsApp number across your staff.',
+        icon: FiUserCheck,
+        card: 'border-indigo-200 bg-indigo-50/70',
+        iconWrap: 'bg-indigo-500 text-white',
+        titleColor: 'text-indigo-900',
+    },
+    {
+        title: 'Developer API',
+        description: 'Connect your own apps with project tokens and send or receive WhatsApp messages from your systems.',
+        icon: FiCpu,
+        card: 'border-rose-200 bg-rose-50/70',
+        iconWrap: 'bg-rose-500 text-white',
+        titleColor: 'text-rose-900',
+    },
+];
+
+function NewUserWelcome({ onCreateProject }) {
+    return (
+        <div className="space-y-6">
+            <div className="rounded-2xl border border-indigo-100 bg-white shadow-sm overflow-hidden">
+                <div className="bg-gradient-to-r from-indigo-600 to-indigo-500 px-6 py-8 sm:px-8">
+                    <p className="text-xs font-semibold uppercase tracking-wider text-indigo-100">Start here</p>
+                    <h2 className="mt-2 text-2xl font-bold text-white">Create a project for your business</h2>
+                    <p className="mt-3 max-w-2xl text-sm leading-relaxed text-indigo-100">
+                        A project is your WhatsApp Business workspace. It connects one number, holds your contacts,
+                        chats, templates, and campaigns, and is where you invite your team. The rest of the platform
+                        stays locked until that workspace exists.
+                    </p>
+                    <button
+                        type="button"
+                        onClick={onCreateProject}
+                        className="mt-6 inline-flex items-center px-4 py-2.5 bg-white text-indigo-700 rounded-lg text-sm font-semibold hover:bg-indigo-50"
+                    >
+                        <FiPlus className="mr-2" size={16} />
+                        Create project
+                    </button>
+                </div>
+            </div>
+
+            <div className="rounded-2xl border border-gray-200 bg-white p-5 sm:p-6 shadow-sm">
+                <h3 className="text-lg font-semibold text-gray-900">What you can do after you create a project</h3>
+                <p className="mt-1 text-sm text-gray-500">These tools run inside a project, so each business stays separate.</p>
+                <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
+                    {PLATFORM_FEATURES.map((feature) => {
+                        const Icon = feature.icon;
+                        return (
+                            <div key={feature.title} className={`rounded-xl border p-5 shadow-sm ${feature.card}`}>
+                                <div className={`flex h-10 w-10 items-center justify-center rounded-lg shadow-sm ${feature.iconWrap}`}>
+                                    <Icon className="w-5 h-5" />
+                                </div>
+                                <h4 className={`mt-4 text-sm font-semibold ${feature.titleColor}`}>{feature.title}</h4>
+                                <p className="mt-2 text-sm leading-relaxed text-gray-700">{feature.description}</p>
+                            </div>
+                        );
+                    })}
+                </div>
+            </div>
+        </div>
+    );
+}
 
 function Dashboard() {
     const navigate = useNavigate();
@@ -44,6 +159,7 @@ function Dashboard() {
     const [projectMetaLoading, setProjectMetaLoading] = useState(false);
     const [projectMetaError, setProjectMetaError] = useState(null);
     const [switchProjectModalOpen, setSwitchProjectModalOpen] = useState(false);
+    const [showCreateModal, setShowCreateModal] = useState(false);
 
     const [isMinimized, setIsMinimized] = useState(() => {
         if (typeof window !== 'undefined') {
@@ -65,34 +181,27 @@ function Dashboard() {
     };
 
     const userData = getUserData();
-    const hasProjects = userData && userData.project_count > 0;
+    const hasSelectedProject = Boolean(userData?.selected_project_id || tokens?.selected_project_id);
 
     useEffect(() => {
         localStorage.setItem('sidebarMinimized', JSON.stringify(isMinimized));
     }, [isMinimized]);
 
-    // Check if selected_project_id exists, if not open project selection modal
     useEffect(() => {
-        const checkProjectSelection = () => {
-            try {
-                const stored = localStorage.getItem('userData');
-                if (stored) {
-                    const parsed = JSON.parse(stored);
-                    const hasProjects = parsed.project_count > 0 || (parsed.projects?.list && parsed.projects.list.length > 0) || (Array.isArray(parsed.projects) && parsed.projects.length > 0);
-                    const selectedProjectId = parsed.selected_project_id;
-
-                    // Open the project selection modal if user has projects but no project is selected
-                    if (hasProjects && !selectedProjectId) {
-                        setSwitchProjectModalOpen(true);
-                    }
-                }
-            } catch (error) {
-                console.error('Error checking project selection:', error);
+        if (sessionStorage.getItem('showProjectPicker') !== '1') return;
+        try {
+            const stored = localStorage.getItem('userData');
+            if (!stored) return;
+            const parsed = JSON.parse(stored);
+            const projectList = parsed.projects?.list || (Array.isArray(parsed.projects) ? parsed.projects : []);
+            const hasProjects = Number(parsed.project_count) > 0 || projectList.length > 0;
+            if (hasProjects && !parsed.selected_project_id) {
+                setSwitchProjectModalOpen(true);
             }
-        };
-
-        checkProjectSelection();
-    }, []); // Run once on mount
+        } catch (error) {
+            console.error('Error checking project selection:', error);
+        }
+    }, []);
 
     // Load tokens from storage
     useEffect(() => {
@@ -120,6 +229,8 @@ function Dashboard() {
             }
         };
         loadTokens();
+        window.addEventListener('projects-updated', loadTokens);
+        return () => window.removeEventListener('projects-updated', loadTokens);
     }, []);
 
     // Fetch dashboard data from API
@@ -130,7 +241,7 @@ function Dashboard() {
                 return;
             }
 
-            if (!hasProjects) {
+            if (!tokens?.selected_project_id) {
                 setLoading(false);
                 setError(null);
                 setDashboardData({
@@ -178,7 +289,7 @@ function Dashboard() {
         };
 
         fetchDashboardData();
-    }, [tokens, hasProjects]);
+    }, [tokens]);
 
     // Prevent background scrolling when mobile menu is open
     useEffect(() => {
@@ -195,7 +306,7 @@ function Dashboard() {
     // Fetch project profile/meta information
     useEffect(() => {
         const fetchProjectMetaDetails = async () => {
-            if (!tokens?.selected_project_id || !hasProjects) {
+            if (!tokens?.selected_project_id) {
                 setProjectMeta(null);
                 setProjectMetaLoading(false);
                 return;
@@ -225,7 +336,7 @@ function Dashboard() {
         };
 
         fetchProjectMetaDetails();
-    }, [tokens?.selected_project_id, hasProjects]);
+    }, [tokens?.selected_project_id]);
 
     // Handle project selection from modal
     const handleSelectCompany = (company) => {
@@ -240,29 +351,17 @@ function Dashboard() {
                 dispatch(setSelectedProjectId(selectedId));
                 dispatch(setAuthData(updatedUserData));
             }
+            sessionStorage.removeItem('showProjectPicker');
             setSwitchProjectModalOpen(false);
-            // Reload to refresh dashboard data with new project
             window.location.reload();
         } catch (error) {
             console.error('Failed to update selected project', error);
         }
     };
 
-    // Handle modal close - prevent closing if no project is selected
     const handleModalClose = () => {
-        try {
-            const stored = localStorage.getItem('userData');
-            if (stored) {
-                const parsed = JSON.parse(stored);
-                const selectedProjectId = parsed.selected_project_id;
-                // Only allow closing if a project is already selected
-                if (selectedProjectId) {
-                    setSwitchProjectModalOpen(false);
-                }
-            }
-        } catch (error) {
-            console.error('Error checking project selection on close:', error);
-        }
+        sessionStorage.removeItem('showProjectPicker');
+        setSwitchProjectModalOpen(false);
     };
 
     // Main Metrics Data
@@ -364,36 +463,18 @@ function Dashboard() {
             />
 
             {/* Main content */}
-            <div className={`pt-16 transition-all duration-300 ease-in-out ${isMinimized ? 'md:pl-20' : 'md:pl-72'}`}>
+            <div className={`pt-16 transition-all duration-300 ease-in-out ${isMinimized ? 'md:pl-20' : 'md:pl-[260px]'}`}>
                 <div className="max-w-8xl mx-auto px-4 sm:px-6 md:px-8 py-6">
 
-                    {/* No Projects Warning */}
-                    {!hasProjects && (
-                        <div className="mb-8 bg-amber-50 border border-amber-200 rounded-xl p-6">
-                            <div className="flex items-start">
-                                <div className="flex-shrink-0">
-                                    <FiBriefcase className="h-6 w-6 text-amber-400" />
-                                </div>
-                                <div className="ml-4 flex-1">
-                                    <h3 className="text-lg font-medium text-amber-800 mb-2">
-                                        No Projects Found
-                                    </h3>
-                                    <p className="text-sm text-amber-700 mb-4">
-                                        You need to create at least one project to access dashboard features.
-                                    </p>
-                                    <a href="/projects" className="inline-flex items-center px-4 py-2 bg-amber-600 text-white rounded-lg text-sm font-medium hover:bg-amber-700">
-                                        <FiPlus className="mr-2" size={16} /> Create New Project
-                                    </a>
-                                </div>
-                            </div>
-                        </div>
+                    {!hasSelectedProject && (
+                        <NewUserWelcome onCreateProject={() => setShowCreateModal(true)} />
                     )}
 
                     {/* ------------------------------------------------------------- */}
                     {/* UPDATED SECTION: Main Metrics & Project Profile Layout Fix     */}
                     {/* ------------------------------------------------------------- */}
 
-                    {hasProjects && (
+                    {hasSelectedProject && (
                         <>
                             {loading ? (
                                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
@@ -440,7 +521,7 @@ function Dashboard() {
                     {/* ------------------------------------------------------------- */}
 
                     {/* Campaign Message Analytics */}
-                    {hasProjects && !loading && !error && dashboardData?.campaign?.message && (
+                    {hasSelectedProject && !loading && !error && dashboardData?.campaign?.message && (
                         <div className="mb-8">
                             <div className="bg-white rounded-xl shadow p-6">
                                 <h3 className="text-lg font-semibold text-gray-900 mb-6 flex items-center">
@@ -457,7 +538,7 @@ function Dashboard() {
                     )}
 
                     {/* Template Status & Performance Grid */}
-                    {hasProjects && (
+                    {hasSelectedProject && (
                         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
                             {/* Left column - Analytics and Activity */}
                             <div className="lg:col-span-2 space-y-6">
@@ -530,6 +611,19 @@ function Dashboard() {
                     )}
                 </div>
             </div>
+
+            <CreateProjectModal
+                isOpen={showCreateModal}
+                onClose={() => setShowCreateModal(false)}
+                onCreated={() => {
+                    try {
+                        const stored = localStorage.getItem('userData');
+                        if (stored) setTokens(JSON.parse(stored));
+                    } catch (error) {
+                        console.error('Error reading user data after project create:', error);
+                    }
+                }}
+            />
 
             {/* Project Selection Modal */}
             <SwitchProjectModal

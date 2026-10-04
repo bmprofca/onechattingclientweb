@@ -79,7 +79,7 @@ export default function FlowList() {
     <div className="min-h-screen bg-slate-50 dark:bg-gray-900">
       <Header mobileMenuOpen={mobileMenuOpen} setMobileMenuOpen={setMobileMenuOpen} isMinimized={minimized} setIsMinimized={setMinimized} />
       <Sidebar mobileMenuOpen={mobileMenuOpen} setMobileMenuOpen={setMobileMenuOpen} isMinimized={minimized} setIsMinimized={setMinimized} />
-      <main className={`pt-16 transition-all ${minimized ? 'md:pl-20' : 'md:pl-72'}`}>
+      <main className={`pt-16 transition-all ${minimized ? 'md:pl-20' : 'md:pl-[260px]'}`}>
         <div className="p-4 md:p-8 max-w-8xl mx-auto">
           <div className="flex flex-wrap justify-between items-center gap-4 mb-6">
             <div>

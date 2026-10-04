@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Header, Sidebar } from '../component/Menu';
+import SearchableSelect from '../component/SearchableSelect';
 import { fetchUserProfile, updateUserProfile } from '../api/auth';
 import toast from 'react-hot-toast';
 import {
@@ -260,7 +261,7 @@ const MyProfile = () => {
 
             <div
                 className={`flex-1 flex flex-col overflow-hidden transition-all duration-300 ${
-                    isMinimized ? 'lg:ml-16' : 'lg:ml-64'
+                    isMinimized ? 'md:ml-20' : 'md:ml-[260px]'
                 }`}
             >
                 <Header
@@ -271,7 +272,7 @@ const MyProfile = () => {
                 />
 
                 <main className="mt-16 flex-1 overflow-y-auto p-4 sm:p-6">
-                    <div className="max-w-6xl mx-auto">
+                    <div className="w-full">
                         <div className="mb-6">
                             <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
                                 My Profile
@@ -381,20 +382,14 @@ const MyProfile = () => {
                                                     <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
                                                         Country code
                                                     </label>
-                                                    <select
+                                                    <SearchableSelect
                                                         value={profile.countryCode}
                                                         onChange={(e) =>
                                                             handleProfileChange('countryCode', e.target.value)
                                                         }
+                                                        options={countryCodeOptions.map((item) => ({ value: item.code, label: item.label }))}
                                                         className="block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                                                        required
-                                                    >
-                                                        {countryCodeOptions.map((item) => (
-                                                            <option key={item.code} value={item.code}>
-                                                                {item.label}
-                                                            </option>
-                                                        ))}
-                                                    </select>
+                                                    />
                                                 </div>
 
                                                 <div>
@@ -422,18 +417,18 @@ const MyProfile = () => {
                                                     <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
                                                         Gender
                                                     </label>
-                                                    <select
+                                                    <SearchableSelect
                                                         value={profile.gender}
                                                         onChange={(e) =>
                                                             handleProfileChange('gender', e.target.value)
                                                         }
+                                                        options={[
+                                                            { value: 'male', label: 'Male' },
+                                                            { value: 'female', label: 'Female' },
+                                                            { value: 'others', label: 'Others' },
+                                                        ]}
                                                         className="block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                                                        required
-                                                    >
-                                                        <option value="male">Male</option>
-                                                        <option value="female">Female</option>
-                                                        <option value="others">Others</option>
-                                                    </select>
+                                                    />
                                                 </div>
 
                                                 <div>
@@ -456,21 +451,15 @@ const MyProfile = () => {
                                                     <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
                                                         Business type
                                                     </label>
-                                                    <select
+                                                    <SearchableSelect
                                                         value={profile.businessType}
                                                         onChange={(e) =>
                                                             handleProfileChange('businessType', e.target.value)
                                                         }
+                                                        options={[{ value: '', label: 'Select business type' }, ...businessTypeOptions.map((type) => ({ value: type, label: type }))]}
+                                                        placeholder="Select business type"
                                                         className="block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                                                        required
-                                                    >
-                                                        <option value="">Select business type</option>
-                                                        {businessTypeOptions.map((type) => (
-                                                            <option key={type} value={type}>
-                                                                {type}
-                                                            </option>
-                                                        ))}
-                                                    </select>
+                                                    />
                                                 </div>
                                             </div>
 

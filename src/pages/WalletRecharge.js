@@ -731,14 +731,14 @@ const WalletRecharge = () => {
       />
 
       <div
-        className={`transition-all duration-300 mt-16 w-full ${isMinimized ? 'md:ml-[72px]' : 'md:ml-[280px]'
+        className={`transition-all duration-300 mt-16 w-full ${isMinimized ? 'md:ml-20' : 'md:ml-[260px]'
           }`}
         style={{
-          width: windowWidth >= 768 ? (isMinimized ? 'calc(100% - 72px)' : 'calc(100% - 280px)') : '100%'
+          width: windowWidth >= 768 ? (isMinimized ? 'calc(100% - 80px)' : 'calc(100% - 260px)') : '100%'
         }}
       >
         <div className="min-h-[calc(100vh-64px)] bg-gradient-to-br from-indigo-50 via-white to-purple-50 py-4 sm:py-6 lg:py-8 px-3 sm:px-4 lg:px-8 w-full">
-          <div className="max-w-6xl mx-auto w-full">
+          <div className="w-full">
             {/* Header */}
             {/* <div className="mb-4 sm:mb-6 lg:mb-8">
               <button
