@@ -14,33 +14,6 @@ import toast from 'react-hot-toast';
 import { fetchProjectInfo } from '../store/projectSlice';
 import { createPaymentOrder, checkPaymentStatus } from '../api/auth';
 
-// Layer checkout script URL (use production in prod)
-const LAYER_SCRIPT_URL = process.env.REACT_APP_LAYER_SANDBOX
-  ? 'https://sandbox-payments.open.money/layer'
-  : 'https://payments.open.money/layer';
-
-const loadLayerScript = () => {
-  return new Promise((resolve, reject) => {
-    if (typeof window !== 'undefined' && window.Layer) {
-      resolve();
-      return;
-    }
-    const existing = document.getElementById('layer-checkout-script');
-    if (existing) {
-      if (window.Layer) resolve();
-      else existing.addEventListener('load', () => resolve());
-      return;
-    }
-    const script = document.createElement('script');
-    script.id = 'layer-checkout-script';
-    script.type = 'text/javascript';
-    script.src = LAYER_SCRIPT_URL;
-    script.onload = () => resolve();
-    script.onerror = () => reject(new Error('Failed to load Layer checkout'));
-    document.head.appendChild(script);
-  });
-};
-
 const RAZORPAY_SCRIPT_URL = 'https://checkout.razorpay.com/v1/checkout.js';
 
 const loadRazorpayScript = () => {
@@ -63,37 +36,6 @@ const loadRazorpayScript = () => {
     script.onerror = () => reject(new Error('Failed to load Razorpay checkout'));
     document.head.appendChild(script);
   });
-};
-
-const CASHFREE_SCRIPT_URL = 'https://sdk.cashfree.com/js/v3/cashfree.js';
-
-const loadCashfreeScript = () => {
-  return new Promise((resolve, reject) => {
-    if (typeof window !== 'undefined' && window.Cashfree) {
-      resolve();
-      return;
-    }
-    const existing = document.getElementById('cashfree-checkout-script');
-    if (existing) {
-      if (window.Cashfree) resolve();
-      else existing.addEventListener('load', () => resolve());
-      return;
-    }
-    const script = document.createElement('script');
-    script.id = 'cashfree-checkout-script';
-    script.type = 'text/javascript';
-    script.src = CASHFREE_SCRIPT_URL;
-    script.onload = () => resolve();
-    script.onerror = () => reject(new Error('Failed to load Cashfree checkout'));
-    document.head.appendChild(script);
-  });
-};
-
-const getCashfreeSdkMode = (environment) => {
-  if (process.env.REACT_APP_CASHFREE_MODE === 'production' && environment === 'production') {
-    return 'production';
-  }
-  return 'sandbox';
 };
 
 const getUserPrefill = () => {
@@ -516,81 +458,7 @@ const WalletRecharge = () => {
     rzp.open();
   };
 
-  const openCashfreeCheckout = async (topupResponse) => {
-    const paymentSessionId =
-      topupResponse.payment_session_id || topupResponse.token_id;
-    const orderId = topupResponse.order_id;
-
-    if (!paymentSessionId) {
-      throw new Error('Invalid Cashfree response: missing payment_session_id');
-    }
-    if (!orderId) {
-      throw new Error('Invalid Cashfree response: missing order_id');
-    }
-
-    await loadCashfreeScript();
-    if (!window.Cashfree || typeof window.Cashfree !== 'function') {
-      throw new Error('Cashfree checkout not available');
-    }
-
-    sessionStorage.setItem('pending_wallet_order_id', orderId);
-
-    const cashfree = window.Cashfree({
-      mode: getCashfreeSdkMode(topupResponse.environment)
-    });
-
-    await cashfree.checkout({
-      paymentSessionId,
-      redirectTarget: '_self'
-    });
-  };
-
-  const openZwitchCheckout = async (topupResponse) => {
-    const tokenId = topupResponse.token_id || topupResponse.payment_token || topupResponse.token;
-    const orderId = topupResponse.order_id;
-    const accessKey = process.env.REACT_APP_LAYER_ACCESS_KEY || 'ebab5ff3-8ff5-423c-b1bf-4f5a0f99fec0';
-
-    if (!tokenId) {
-      throw new Error('Invalid Zwitch response: missing token_id');
-    }
-    if (!accessKey) {
-      throw new Error('Layer access key not configured. Set REACT_APP_LAYER_ACCESS_KEY.');
-    }
-
-    await loadLayerScript();
-    if (!window.Layer || typeof window.Layer.checkout !== 'function') {
-      throw new Error('Layer checkout not available');
-    }
-
-    const origin = window.location.origin;
-    const paymentStatusUrl = `${origin}/payment-status/${orderId}`;
-
-    window.Layer.checkout(
-      {
-        token: tokenId,
-        accesskey: accessKey,
-        theme: {
-          logo: process.env.REACT_APP_LAYER_LOGO || '',
-          color: process.env.REACT_APP_LAYER_COLOR || '#4f46e5',
-          error_color: process.env.REACT_APP_LAYER_ERROR_COLOR || '#ef4444'
-        }
-      },
-      (res) => {
-        setIsPolling(false);
-        if (res.status === 'captured' || res.status === 'failed' || res.status === 'cancelled') {
-          window.location.href = paymentStatusUrl;
-        }
-      },
-      (err) => {
-        console.error('Layer checkout error:', err);
-        toast.error('Payment gateway error. Please try again.');
-        setProcessing(false);
-        setIsPolling(false);
-      }
-    );
-  };
-
-  // Resume polling after Cashfree redirect back to /wallet or /wallet-recharge
+  // Resume polling if the user returns with an order id in the URL
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const orderIdFromUrl = params.get('order_id');
@@ -655,28 +523,12 @@ const WalletRecharge = () => {
         discount: promoApplied ? discount : 0
       }));
 
-      const gateway = String(
-        response.gateway || response.payment_gateway || 'zwitch'
-      )
-        .trim()
-        .toLowerCase();
-
       setProcessing(false);
-
-      if (gateway === 'cashfree') {
-        await openCashfreeCheckout(response);
-      } else if (gateway === 'razorpay') {
-        setIsPolling(true);
-        if (!response.token_id || !response.key_id) {
-          throw new Error('Invalid Razorpay response: missing token_id or key_id');
-        }
-        await openRazorpayCheckout(response);
-      } else if (gateway === 'zwitch') {
-        setIsPolling(true);
-        await openZwitchCheckout(response);
-      } else {
-        throw new Error(`Unsupported payment gateway: ${gateway}`);
+      setIsPolling(true);
+      if (!response.token_id || !response.key_id) {
+        throw new Error('Invalid Razorpay response: missing token_id or key_id');
       }
+      await openRazorpayCheckout(response);
     } catch (error) {
       console.error('Payment initialization error:', error);
       toast.error(error.message || 'Failed to initialize payment');
