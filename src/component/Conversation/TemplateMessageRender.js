@@ -5,6 +5,7 @@ import {
     resolveTemplateBodyText,
     resolveTemplateFooterText,
 } from '../../utils/templateMessageDisplay';
+import WhatsAppText from '../WhatsAppText';
 
 const getFileNameFromUrl = (url) => url?.substring(url.lastIndexOf('/') + 1) || 'Document';
 const getFileExtension = (name) => name?.split('.').pop() || '';
@@ -63,7 +64,7 @@ const TemplateMessageRenderer = ({ msg, darkMode, renderFilePreview, isOwnMessag
                         </svg>
                     </span>
                     <div className={`text-[14.2px] leading-[19px] whitespace-pre-wrap break-words ${textColorClass}`}>
-                        {msg.message}
+                        <WhatsAppText text={msg.message} />
                     </div>
                 </div>
             </div>
@@ -135,7 +136,7 @@ const TemplateMessageRenderer = ({ msg, darkMode, renderFilePreview, isOwnMessag
                 {headerText && (
                     <div className="px-2 pt-2">
                         <div className={`text-[14.5px] font-bold ${textColorClass}`}>
-                            {headerText}
+                            <WhatsAppText text={headerText} />
                         </div>
                     </div>
                 )}
@@ -143,13 +144,13 @@ const TemplateMessageRenderer = ({ msg, darkMode, renderFilePreview, isOwnMessag
                 <div className={`px-2 pt-1.5 ${buttons.length > 0 ? 'pb-2' : 'pb-1.5'}`}>
                     {bodyText && (
                         <div className={`text-[14.2px] leading-[19px] whitespace-pre-wrap break-words ${textColorClass}`}>
-                            {bodyText}
+                            <WhatsAppText text={bodyText} />
                         </div>
                     )}
 
                     {footerText && (
                         <div className={`text-[11px] mt-1 opacity-80 ${secondaryTextColorClass}`}>
-                            {footerText}
+                            <WhatsAppText text={footerText} />
                         </div>
                     )}
                 </div>

@@ -568,7 +568,7 @@ const WalletRecharge = () => {
   }, [dispatch, navigate]);
 
   return (
-    <div className="min-h-screen bg-gray-50 overflow-x-hidden">
+    <div className="min-h-screen bg-[#f4f6fb] overflow-x-hidden">
       <Header
         mobileMenuOpen={mobileMenuOpen}
         setMobileMenuOpen={setMobileMenuOpen}
@@ -589,7 +589,7 @@ const WalletRecharge = () => {
           width: windowWidth >= 768 ? (isMinimized ? 'calc(100% - 80px)' : 'calc(100% - 260px)') : '100%'
         }}
       >
-        <div className="min-h-[calc(100vh-64px)] bg-gradient-to-br from-indigo-50 via-white to-purple-50 py-4 sm:py-6 lg:py-8 px-3 sm:px-4 lg:px-8 w-full">
+        <div className="min-h-[calc(100vh-64px)] bg-gradient-to-br from-indigo-50 via-white to-purple-50 px-4 py-5 w-full">
           <div className="w-full">
             {/* Header */}
             {/* <div className="mb-4 sm:mb-6 lg:mb-8">
@@ -602,7 +602,7 @@ const WalletRecharge = () => {
               </button>
               <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
                 <div>
-                  <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">Recharge Wallet</h1>
+                  <h1 className="text-2xl font-semibold tracking-tight text-slate-900">Recharge Wallet</h1>
                   <p className="text-sm sm:text-base text-gray-600 mt-1">Add money to your WICHAT wallet</p>
                 </div>
 

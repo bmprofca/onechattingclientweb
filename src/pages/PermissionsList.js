@@ -31,12 +31,15 @@ import {
     FiSquare as FiSquareIcon
 } from 'react-icons/fi';
 import RowActionMenu from '../component/table/RowActionMenu';
+import Pagination from '../component/Pagination';
 import RecordDetailsModal from '../component/table/RecordDetailsModal';
 import { TableSkeletonRows } from '../component/table/TableSkeleton';
 
 function PermissionsList() {
     const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
     const [permissions, setPermissions] = useState([]);
+    const [permissionPage, setPermissionPage] = useState(1);
+    const [permissionPageSize, setPermissionPageSize] = useState(20);
     const [loading, setLoading] = useState(true);
     const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
     const [isEditModalOpen, setIsEditModalOpen] = useState(false);
@@ -581,8 +584,15 @@ function PermissionsList() {
         );
     });
 
+    const permissionPageCount = Math.max(1, Math.ceil(permissions.length / permissionPageSize) || 1);
+    const safePermissionPage = Math.min(permissionPage, permissionPageCount);
+    const pagedPermissions = permissions.slice(
+        (safePermissionPage - 1) * permissionPageSize,
+        safePermissionPage * permissionPageSize
+    );
+
     return (
-        <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100/50">
+        <div className="min-h-screen bg-[#f4f6fb]">
             <Header
                 mobileMenuOpen={mobileMenuOpen}
                 setMobileMenuOpen={setMobileMenuOpen}
@@ -599,16 +609,16 @@ function PermissionsList() {
             {/* Main content */}
             <div className={`pt-16 transition-all duration-300 ease-in-out ${isMinimized ? 'md:pl-20' : 'md:pl-[260px]'
                 }`}>
-                <div className="max-w-8xl mx-auto px-4 sm:px-6 md:px-8 py-8">
+                <div className="w-full px-4 py-5">
                     {/* Header with title and create button - Professional styling */}
-                    <div className="md:flex md:items-center md:justify-between mb-8">
+                    <div className="mb-5 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                         <div className="flex-1 min-w-0">
                             <div className="flex items-center space-x-3">
                                 <div className="p-2 bg-gradient-to-br from-indigo-500 to-indigo-600 rounded-xl shadow-lg shadow-indigo-200">
                                     <FiKey className="w-6 h-6 text-white" />
                                 </div>
                                 <div>
-                                    <h2 className="text-3xl font-bold bg-gradient-to-r from-gray-900 to-gray-700 bg-clip-text text-transparent">
+                                    <h2 className="text-2xl font-semibold tracking-tight text-slate-900">
                                         Permissions
                                     </h2>
                                     <p className="mt-1 text-sm text-gray-500">
@@ -653,15 +663,14 @@ function PermissionsList() {
                                     {loading ? (
                                         <TableSkeletonRows rows={6} cells={['index', 'text', 'badge', 'action']} />
                                     ) : (
-                                        // Show actual data
-                                        permissions.map((permission, index) => (
+                                        pagedPermissions.map((permission, index) => (
                                             <tr
                                                 key={permission.permission_id}
                                                 className="hover:bg-gradient-to-r hover:from-indigo-50/30 hover:to-transparent transition-all duration-200 group"
                                             >
                                                 <td className="px-6 py-4 whitespace-nowrap">
                                                     <div className="text-sm font-semibold text-gray-900 bg-gray-50 w-8 h-8 flex items-center justify-center rounded-lg border border-gray-100 group-hover:border-indigo-200 group-hover:bg-indigo-50 transition-all duration-200">
-                                                        {index + 1}
+                                                        {(safePermissionPage - 1) * permissionPageSize + index + 1}
                                                     </div>
                                                 </td>
                                                 <td className="px-6 py-4 whitespace-nowrap">
@@ -702,6 +711,20 @@ function PermissionsList() {
                                 </tbody>
                             </table>
                         </div>
+                        {!loading && permissions.length > 0 ? (
+                            <Pagination
+                                currentPage={safePermissionPage}
+                                totalPages={permissionPageCount}
+                                totalRecords={permissions.length}
+                                pageSize={permissionPageSize}
+                                onPageChange={setPermissionPage}
+                                onPageSizeChange={(size) => {
+                                    setPermissionPageSize(size);
+                                    setPermissionPage(1);
+                                }}
+                                pageSizeOptions={[10, 20, 50, 100]}
+                            />
+                        ) : null}
                     </div>
 
                     {/* Empty state - Professional design */}

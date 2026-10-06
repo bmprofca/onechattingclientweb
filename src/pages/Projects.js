@@ -175,7 +175,7 @@ const Projects = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-[#f4f6fb]">
       <Header
         mobileMenuOpen={mobileMenuOpen}
         setMobileMenuOpen={setMobileMenuOpen}
@@ -191,7 +191,7 @@ const Projects = () => {
 
       {/* Main content - same layout as Switch Project Modal */}
       <div className={`pt-16 transition-all duration-300 ease-in-out ${isMinimized ? 'md:pl-20' : 'md:pl-[260px]'}`}>
-        <div className="max-w-8xl mx-auto px-4 sm:px-6 md:px-8 py-6">
+        <div className="w-full px-4 py-5">
           {/* Header - same style as modal */}
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
             <div className="flex items-center space-x-3">
@@ -199,7 +199,7 @@ const Projects = () => {
                 <FiBriefcase className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
               </div>
               <div>
-                <h1 className="text-xl font-semibold text-gray-900 dark:text-white">Projects</h1>
+                <h1 className="text-2xl font-semibold tracking-tight text-slate-900 dark:text-white">Projects</h1>
                 {loading ? (
                   <SkeletonBar className="h-4 w-36 mt-1" />
                 ) : (

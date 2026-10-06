@@ -9,6 +9,7 @@ import { dbHelper } from './db';
 import { socketManager } from './socket';
 import GlobalMediaGalleryModal from '../component/Modals/GlobalMediaGalleryModal';
 import SearchableSelect from '../component/SearchableSelect';
+import WhatsAppText from '../component/WhatsAppText';
 
 const COUNTRY_CODES = [
     { code: '91', country: 'India', dial: '+91' },
@@ -508,7 +509,7 @@ function ChatList({ tokens, onChatSelect, activeChat, darkMode, dbAvailable, soc
 
         switch (messageType) {
             case 'text':
-                return message || 'Message';
+                return message ? <WhatsAppText text={message} /> : 'Message';
             case 'image':
                 return '📷 Photo';
             case 'video':
@@ -526,7 +527,7 @@ function ChatList({ tokens, onChatSelect, activeChat, darkMode, dbAvailable, soc
             case 'voice':
                 return '🎤 Voice message';
             default:
-                return message || 'Message';
+                return message ? <WhatsAppText text={message} /> : 'Message';
         }
     };
 

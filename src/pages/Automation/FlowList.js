@@ -76,14 +76,14 @@ export default function FlowList() {
   const selectedCount = selected.size;
 
   return (
-    <div className="min-h-screen bg-slate-50 dark:bg-gray-900">
+    <div className="min-h-screen bg-[#f4f6fb] dark:bg-gray-900">
       <Header mobileMenuOpen={mobileMenuOpen} setMobileMenuOpen={setMobileMenuOpen} isMinimized={minimized} setIsMinimized={setMinimized} />
       <Sidebar mobileMenuOpen={mobileMenuOpen} setMobileMenuOpen={setMobileMenuOpen} isMinimized={minimized} setIsMinimized={setMinimized} />
       <main className={`pt-16 transition-all ${minimized ? 'md:pl-20' : 'md:pl-[260px]'}`}>
-        <div className="p-4 md:p-8 max-w-8xl mx-auto">
-          <div className="flex flex-wrap justify-between items-center gap-4 mb-6">
+        <div className="w-full px-4 py-5">
+          <div className="mb-5 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
             <div>
-              <h1 className="text-2xl font-bold text-slate-900 dark:text-white flex items-center gap-2"><FiGitBranch className="text-indigo-600" /> Flow Library</h1>
+              <h1 className="text-2xl font-semibold tracking-tight text-slate-900 dark:text-white flex items-center gap-2"><FiGitBranch className="text-indigo-600" /> Flow Library</h1>
               <p className="text-sm text-slate-500 mt-1">All conversation flows for the selected project.</p>
             </div>
             <div className="flex gap-2">

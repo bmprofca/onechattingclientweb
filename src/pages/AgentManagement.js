@@ -3,6 +3,7 @@ import { AnimatePresence, motion } from 'framer-motion';
 import { API_BASE_URL } from '../config/api';
 import { Header, Sidebar } from '../component/Menu';
 import SearchableSelect from '../component/SearchableSelect';
+import Pagination from '../component/Pagination';
 import RowActionMenu from '../component/table/RowActionMenu';
 import { TableSkeletonRows } from '../component/table/TableSkeleton';
 import { Link } from 'react-router-dom';
@@ -20,8 +21,6 @@ import {
     FiUpload,
     FiEdit,
     FiTrash2,
-    FiChevronLeft,
-    FiChevronRight,
     FiUserPlus,
     FiCheckSquare,
     FiSquare,
@@ -234,7 +233,7 @@ function AgentManagement() {
     const [agents, setAgents] = useState([]);
     const [loading, setLoading] = useState(true);
     const [currentPage, setCurrentPage] = useState(1);
-    const [itemsPerPage] = useState(10);
+    const [itemsPerPage, setItemsPerPage] = useState(20);
     const [permissionOptions, setPermissionOptions] = useState([]);
 
     // Modal states
@@ -466,11 +465,11 @@ function AgentManagement() {
     const indexOfLastItem = currentPage * itemsPerPage;
     const indexOfFirstItem = indexOfLastItem - itemsPerPage;
     const currentAgents = agents.slice(indexOfFirstItem, indexOfLastItem);
-    const totalPages = Math.ceil(agents.length / itemsPerPage);
+    const totalPages = Math.max(1, Math.ceil(agents.length / itemsPerPage) || 1);
 
-    // Change page
-    const paginate = (pageNumber) => {
-        setCurrentPage(pageNumber);
+    const handlePageSizeChange = (size) => {
+        setItemsPerPage(size);
+        setCurrentPage(1);
     };
 
     // Handle delete agent
@@ -885,7 +884,7 @@ function AgentManagement() {
     );
 
     return (
-        <div className="min-h-screen bg-gray-50">
+        <div className="min-h-screen bg-[#f4f6fb]">
             <Header
                 mobileMenuOpen={mobileMenuOpen}
                 setMobileMenuOpen={setMobileMenuOpen}
@@ -1137,15 +1136,16 @@ function AgentManagement() {
             {/* Main content */}
             <div className={`pt-16 transition-all duration-300 ease-in-out ${isMinimized ? 'md:pl-20' : 'md:pl-[260px]'
                 }`}>
-                <div className="max-w-8xl mx-auto px-4 sm:px-6 md:px-8 py-6">
+                <div className="w-full px-4 py-5">
                     {/* Page header */}
-                    <div className="md:flex md:items-center md:justify-between mb-6">
-                        <div className="flex-1 min-w-0">
-                            <h2 className="text-2xl font-bold leading-7 text-gray-900 sm:text-3xl sm:truncate">
-                                Agent Management
-                            </h2>
+                    <div className="mb-5 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                        <div className="min-w-0">
+                            <h1 className="text-2xl font-semibold tracking-tight text-slate-900">
+                                Agents
+                            </h1>
+                            <p className="mt-1 text-sm text-slate-500">Invite people and manage who can work in this project.</p>
                         </div>
-                        <div className="mt-4 flex md:mt-0 md:ml-4 gap-2">
+                        <div className="flex items-center gap-2">
                             <button
                                 onClick={() => {
                                     fetchAgents();
@@ -1166,7 +1166,7 @@ function AgentManagement() {
                     </div>
 
                     {/* Agents table */}
-                    <div className="bg-white shadow rounded-lg overflow-hidden">
+                    <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
                         <div className="overflow-x-auto">
                             <table className="min-w-full divide-y divide-gray-200">
                                 <thead className="bg-gray-50">
@@ -1251,59 +1251,17 @@ function AgentManagement() {
                             </table>
                         </div>
 
-                        {/* Pagination */}
-                        {!loading && (
-                            <div className="bg-white px-4 py-3 flex items-center justify-between border-t border-gray-200 sm:px-6">
-                                <div className="hidden sm:flex-1 sm:flex sm:items-center sm:justify-between">
-                                    <div>
-                                        <p className="text-sm text-gray-700">
-                                            Showing <span className="font-medium">{indexOfFirstItem + 1}</span> to{' '}
-                                            <span className="font-medium">
-                                                {Math.min(indexOfLastItem, agents.length)}
-                                            </span>{' '}
-                                            of <span className="font-medium">{agents.length}</span> results
-                                        </p>
-                                    </div>
-                                    <div>
-                                        <nav className="relative z-0 inline-flex rounded-md shadow-sm -space-x-px" aria-label="Pagination">
-                                            <button
-                                                onClick={() => paginate(Math.max(1, currentPage - 1))}
-                                                disabled={currentPage === 1}
-                                                className={`relative inline-flex items-center px-2 py-2 rounded-l-md border border-gray-300 bg-white text-sm font-medium 
-                          ${currentPage === 1 ? 'text-gray-300' : 'text-gray-500 hover:bg-gray-50'}`}
-                                            >
-                                                <span className="sr-only">Previous</span>
-                                                <FiChevronLeft className="h-5 w-5" aria-hidden="true" />
-                                            </button>
-
-                                            {/* Page numbers */}
-                                            {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
-                                                <button
-                                                    key={page}
-                                                    onClick={() => paginate(page)}
-                                                    className={`relative inline-flex items-center px-4 py-2 border text-sm font-medium
-                            ${currentPage === page
-                                                            ? 'z-10 bg-indigo-50 border-indigo-500 text-indigo-600'
-                                                            : 'bg-white border-gray-300 text-gray-500 hover:bg-gray-50'}`}
-                                                >
-                                                    {page}
-                                                </button>
-                                            ))}
-
-                                            <button
-                                                onClick={() => paginate(Math.min(totalPages, currentPage + 1))}
-                                                disabled={currentPage === totalPages}
-                                                className={`relative inline-flex items-center px-2 py-2 rounded-r-md border border-gray-300 bg-white text-sm font-medium 
-                          ${currentPage === totalPages ? 'text-gray-300' : 'text-gray-500 hover:bg-gray-50'}`}
-                                            >
-                                                <span className="sr-only">Next</span>
-                                                <FiChevronRight className="h-5 w-5" aria-hidden="true" />
-                                            </button>
-                                        </nav>
-                                    </div>
-                                </div>
-                            </div>
-                        )}
+                        {!loading && agents.length > 0 ? (
+                            <Pagination
+                                currentPage={currentPage}
+                                totalPages={totalPages}
+                                totalRecords={agents.length}
+                                pageSize={itemsPerPage}
+                                onPageChange={setCurrentPage}
+                                onPageSizeChange={handlePageSizeChange}
+                                pageSizeOptions={[10, 20, 50, 100]}
+                            />
+                        ) : null}
                     </div>
                 </div>
             </div>

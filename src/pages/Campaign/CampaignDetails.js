@@ -1,14 +1,13 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { API_BASE_URL } from '../../config/api';
 import { Header, Sidebar } from '../../component/Menu';
+import Pagination from '../../component/Pagination';
 import SearchableSelect from '../../component/SearchableSelect';
 import { useNavigate, useParams } from 'react-router-dom';
 import {
   FiArrowLeft,
   FiCalendar,
   FiCheckCircle,
-  FiChevronLeft,
-  FiChevronRight,
   FiClock,
   FiCopy,
   FiDownload,
@@ -301,8 +300,6 @@ const CampaignDetails = () => {
     setCurrentPage(1);
   }, [statusFilter, itemsPerPage]);
 
-  const startRecord = totalRecords === 0 ? 0 : (currentPage - 1) * itemsPerPage + 1;
-  const endRecord = Math.min(currentPage * itemsPerPage, totalRecords);
   const paginatedRecipients = filteredRecipients;
 
   const campaignStats = useMemo(() => {
@@ -514,7 +511,7 @@ const CampaignDetails = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
+    <div className="min-h-screen bg-[#f4f6fb] dark:bg-gray-900">
       <Header
         mobileMenuOpen={mobileMenuOpen}
         setMobileMenuOpen={setMobileMenuOpen}
@@ -529,7 +526,7 @@ const CampaignDetails = () => {
       />
 
       <div className={`pt-16 transition-all duration-300 ease-in-out ${isMinimized ? 'md:pl-20' : 'md:pl-[260px]'}`}>
-        <div className="max-w-8xl mx-auto px-4 sm:px-6 md:px-8 py-6">
+        <div className="w-full px-4 py-5">
           <div className="mb-6">
             <button
               onClick={handleBack}
@@ -546,7 +543,7 @@ const CampaignDetails = () => {
                     <FiZap size={24} />
                   </div>
                   <div>
-                    <h1 className="text-2xl font-bold text-gray-900 dark:text-white">{campaignDetails?.name || 'Campaign Details'}</h1>
+                    <h1 className="text-2xl font-semibold tracking-tight text-slate-900 dark:text-white">{campaignDetails?.name || 'Campaign Details'}</h1>
                   </div>
                 </div>
                 {detailsError && (
@@ -555,7 +552,7 @@ const CampaignDetails = () => {
                   </div>
                 )}
               </div>
-              <div className="mt-4 sm:mt-0 flex items-center space-x-3">
+              <div className="flex items-center gap-2">
                 <button
                   onClick={openDuplicateModal}
                   className="inline-flex items-center px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
@@ -833,49 +830,17 @@ const CampaignDetails = () => {
               </div>
             </div>
 
-            {/* Footer Pagination */}
-            <div className="p-4 border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 rounded-b-lg flex flex-col sm:flex-row items-center justify-between gap-4">
-              <div className="text-sm text-gray-500 dark:text-gray-400">
-                Showing <span className="font-medium">{startRecord}</span> to <span className="font-medium">{endRecord}</span> of <span className="font-medium">{totalRecords}</span> results
-              </div>
-
-              <div className="flex items-center gap-2">
-                <SearchableSelect
-                  value={String(itemsPerPage)}
-                  onChange={(e) => setItemsPerPage(Number(e.target.value))}
-                  options={[
-                    { value: '10', label: '10 / pg' },
-                    { value: '20', label: '20 / pg' },
-                    { value: '25', label: '25 / pg' },
-                    { value: '50', label: '50 / pg' },
-                    { value: '100', label: '100 / pg' },
-                  ]}
-                  className="block w-28 px-2 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 focus:ring-indigo-500 focus:border-indigo-500"
-                />
-
-                <nav className="isolate inline-flex -space-x-px rounded-md shadow-sm" aria-label="Pagination">
-                  <button
-                    onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
-                    disabled={currentPage === 1 || loadingMessages}
-                    className="relative inline-flex items-center rounded-l-md px-2 py-2 text-gray-400 ring-1 ring-inset ring-gray-300 dark:ring-gray-600 hover:bg-gray-50 dark:hover:bg-gray-800 focus:z-20 focus:outline-offset-0 disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    <span className="sr-only">Previous</span>
-                    <FiChevronLeft className="h-5 w-5" aria-hidden="true" />
-                  </button>
-                  <span className="relative inline-flex items-center px-4 py-2 text-sm font-semibold text-gray-900 dark:text-white ring-1 ring-inset ring-gray-300 dark:ring-gray-600 focus:outline-offset-0">
-                    Page {currentPage} of {totalPages}
-                  </span>
-                  <button
-                    onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
-                    disabled={currentPage >= totalPages || loadingMessages}
-                    className="relative inline-flex items-center rounded-r-md px-2 py-2 text-gray-400 ring-1 ring-inset ring-gray-300 dark:ring-gray-600 hover:bg-gray-50 dark:hover:bg-gray-800 focus:z-20 focus:outline-offset-0 disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    <span className="sr-only">Next</span>
-                    <FiChevronRight className="h-5 w-5" aria-hidden="true" />
-                  </button>
-                </nav>
-              </div>
-            </div>
+            {totalRecords > 0 ? (
+              <Pagination
+                currentPage={currentPage}
+                totalPages={totalPages}
+                totalRecords={totalRecords}
+                pageSize={itemsPerPage}
+                onPageChange={setCurrentPage}
+                onPageSizeChange={setItemsPerPage}
+                pageSizeOptions={[10, 20, 50, 100]}
+              />
+            ) : null}
           </div>
         </div>
       </div>

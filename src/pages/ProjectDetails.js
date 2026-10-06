@@ -961,7 +961,7 @@ const ProjectDetails = () => {
 
     // --- Main Render ---
     return (
-        <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
+        <div className="min-h-screen bg-[#f4f6fb] dark:bg-gray-900">
             <Header
                 mobileMenuOpen={mobileMenuOpen}
                 setMobileMenuOpen={setMobileMenuOpen}
@@ -977,7 +977,7 @@ const ProjectDetails = () => {
 
             {/* Main content */}
             <div className={`pt-16 transition-all duration-300 ease-in-out ${isMinimized ? 'md:pl-20' : 'md:pl-[260px]'}`}>
-                <div className="max-w-8xl mx-auto px-4 sm:px-6 md:px-8 py-6">
+                <div className="w-full px-4 py-5">
                     {loading ? (
                         <div className="flex justify-center items-center h-64"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600"></div></div>
                     ) : error && !showErrorModal ? (
@@ -989,7 +989,7 @@ const ProjectDetails = () => {
                         <div className="space-y-6">
                             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
                                 <div>
-                                    <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Business Profile</h1>
+                                    <h1 className="text-2xl font-semibold tracking-tight text-slate-900 dark:text-white">Business Profile</h1>
                                     <p className="text-sm text-gray-500">Connect your WhatsApp Business Account to get started.</p>
                                 </div>
                                 <button
@@ -1139,7 +1139,7 @@ const ProjectDetails = () => {
                             {/* Page Header */}
                             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
                                 <div>
-                                    <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Business Profile</h1>
+                                    <h1 className="text-2xl font-semibold tracking-tight text-slate-900 dark:text-white">Business Profile</h1>
                                     <p className="text-sm text-gray-500">Manage your WhatsApp Business presence and settings.</p>
                                 </div>
                                 <div className="flex items-center gap-2">

@@ -10,8 +10,7 @@ import {
     FiCopy,
     FiCheck,
     FiClock,
-    FiGlobe,
-    FiHeadphones
+    FiGlobe
 } from 'react-icons/fi';
 
 const Support = () => {
@@ -94,7 +93,7 @@ const Support = () => {
     };
 
     return (
-        <div className="min-h-screen bg-gray-50">
+        <div className="min-h-screen bg-[#f4f6fb]">
             <Header
                 mobileMenuOpen={mobileMenuOpen}
                 setMobileMenuOpen={setMobileMenuOpen}
@@ -109,50 +108,38 @@ const Support = () => {
             />
 
             <div className={`pt-16 transition-all duration-300 ease-in-out ${isMinimized ? 'md:pl-20' : 'md:pl-[260px]'}`}>
-                <div className="max-w-8xl mx-auto px-4 sm:px-6 md:px-8 py-8">
-                    {/* Header Section */}
-                    <div className="mb-8">
-                        <div className="flex items-center gap-3 mb-2">
-                            <div className="p-3 bg-indigo-100 rounded-xl">
-                                <FiHeadphones className="w-6 h-6 text-indigo-600" />
-                            </div>
-                            <div>
-                                <h1 className="text-3xl font-bold text-gray-900">Support Center</h1>
-                                <p className="text-gray-500 mt-1">Get help from our support team</p>
-                            </div>
-                        </div>
+                <div className="w-full px-4 py-5">
+                    <div className="mb-5">
+                        <h1 className="text-2xl font-semibold tracking-tight text-slate-900">Support</h1>
+                        <p className="mt-1 text-sm text-slate-500">Call, message on WhatsApp, or email the OneChatting team.</p>
                     </div>
 
                     {loading ? (
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                        <div className="grid grid-cols-1 gap-4 xl:grid-cols-3">
                             {[1, 2, 3].map((i) => (
-                                <div key={i} className="bg-white rounded-xl shadow p-6 animate-pulse">
-                                    <div className="h-6 bg-gray-200 rounded w-32 mb-4"></div>
-                                    <div className="space-y-3">
-                                        <div className="h-20 bg-gray-200 rounded"></div>
-                                        <div className="h-20 bg-gray-200 rounded"></div>
+                                <div key={i} className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+                                    <div className="h-16 animate-pulse bg-slate-50" />
+                                    <div className="space-y-3 p-5">
+                                        <div className="h-4 w-24 animate-pulse rounded bg-slate-100" />
+                                        <div className="h-6 w-full animate-pulse rounded bg-slate-100" />
                                     </div>
                                 </div>
                             ))}
                         </div>
                     ) : error ? (
-                        <div className="bg-red-50 border border-red-200 rounded-xl p-6">
-                            <div className="flex items-center gap-3">
-                                <FiHelpCircle className="w-5 h-5 text-red-600" />
-                                <p className="text-red-600">{error}</p>
-                            </div>
+                        <div className="flex items-start gap-3 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
+                            <FiHelpCircle className="mt-0.5 h-4 w-4 shrink-0" />
+                            <p>{error}</p>
                         </div>
                     ) : supportData ? (
-                        <div className="space-y-6">
-                            {/* Support Cards Grid */}
-                            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                                {/* Phone Support */}
+                        <div className="space-y-4">
+                            <div className="grid grid-cols-1 gap-4 xl:grid-cols-3">
                                 {supportData.phone && supportData.phone.length > 0 && (
                                     <SupportCard
-                                        title="Phone Support"
-                                        icon={<FiPhone className="w-6 h-6" />}
-                                        iconBg="bg-blue-100"
-                                        iconColor="text-blue-600"
+                                        title="Phone"
+                                        description="Call a support number"
+                                        icon={<FiPhone className="h-5 w-5" />}
+                                        iconWrap="bg-sky-50 text-sky-600"
                                         items={supportData.phone}
                                         type="phone"
                                         onCopy={handleCopy}
@@ -162,13 +149,12 @@ const Support = () => {
                                     />
                                 )}
 
-                                {/* WhatsApp Support */}
                                 {supportData.whatsapp && supportData.whatsapp.length > 0 && (
                                     <SupportCard
-                                        title="WhatsApp Support"
-                                        icon={<FiMessageCircle className="w-6 h-6" />}
-                                        iconBg="bg-green-100"
-                                        iconColor="text-green-600"
+                                        title="WhatsApp"
+                                        description="Message us on WhatsApp"
+                                        icon={<FiMessageCircle className="h-5 w-5" />}
+                                        iconWrap="bg-emerald-50 text-emerald-600"
                                         items={supportData.whatsapp}
                                         type="whatsapp"
                                         onCopy={handleCopy}
@@ -178,13 +164,12 @@ const Support = () => {
                                     />
                                 )}
 
-                                {/* Email Support */}
                                 {supportData.email && supportData.email.length > 0 && (
                                     <SupportCard
-                                        title="Email Support"
-                                        icon={<FiMail className="w-6 h-6" />}
-                                        iconBg="bg-purple-100"
-                                        iconColor="text-purple-600"
+                                        title="Email"
+                                        description="Write to the support desk"
+                                        icon={<FiMail className="h-5 w-5" />}
+                                        iconWrap="bg-indigo-50 text-indigo-600"
                                         items={supportData.email}
                                         type="email"
                                         onCopy={handleCopy}
@@ -194,29 +179,15 @@ const Support = () => {
                                 )}
                             </div>
 
-                            {/* Additional Help Section */}
-                            <div className="bg-gradient-to-br from-indigo-50 to-white rounded-xl shadow-lg p-6 border border-indigo-100">
-                                <div className="flex items-start gap-4">
-                                    <div className="p-3 bg-indigo-100 rounded-lg">
-                                        <FiHelpCircle className="w-6 h-6 text-indigo-600" />
-                                    </div>
-                                    <div className="flex-1">
-                                        <h3 className="text-lg font-semibold text-gray-900 mb-2">Need More Help?</h3>
-                                        <p className="text-gray-600 mb-4">
-                                            Our support team is available to assist you. Choose the contact method that works best for you.
-                                        </p>
-                                        <div className="flex flex-wrap gap-3 text-sm text-gray-500">
-                                            <div className="flex items-center gap-2">
-                                                <FiClock className="w-4 h-4" />
-                                                <span>Available 24/7</span>
-                                            </div>
-                                            <div className="flex items-center gap-2">
-                                                <FiGlobe className="w-4 h-4" />
-                                                <span>Global Support</span>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
+                            <div className="flex flex-wrap items-center gap-x-5 gap-y-2 rounded-2xl border border-slate-200 bg-white px-5 py-4 text-sm text-slate-500 shadow-sm">
+                                <span className="inline-flex items-center gap-2">
+                                    <FiClock className="h-4 w-4 text-slate-400" />
+                                    Available 24/7
+                                </span>
+                                <span className="inline-flex items-center gap-2">
+                                    <FiGlobe className="h-4 w-4 text-slate-400" />
+                                    Global support
+                                </span>
                             </div>
                         </div>
                     ) : null}
@@ -227,82 +198,63 @@ const Support = () => {
 };
 
 // Support Card Component
-const SupportCard = ({ title, icon, iconBg, iconColor, items, type, onCopy, copiedItem, formatPhoneNumber, onActionClick }) => {
+const SupportCard = ({ title, description, icon, iconWrap, items, type, onCopy, copiedItem, formatPhoneNumber, onActionClick }) => {
+    const actionLabel = type === 'phone' ? 'Call' : type === 'whatsapp' ? 'WhatsApp' : 'Email';
+    const actionClass = type === 'phone'
+        ? 'bg-sky-600 hover:bg-sky-700'
+        : type === 'whatsapp'
+            ? 'bg-emerald-600 hover:bg-emerald-700'
+            : 'bg-indigo-600 hover:bg-indigo-700';
+
     return (
-        <div className="bg-white rounded-xl shadow-lg hover:shadow-xl transition-all duration-200 overflow-hidden border border-gray-100">
-            {/* Card Header */}
-            <div className={`${iconBg} p-6`}>
-                <div className="flex items-center gap-3">
-                    <div className={`p-3 ${iconBg} rounded-lg`}>
-                        <div className={iconColor}>{icon}</div>
-                    </div>
-                    <h3 className="text-lg font-semibold text-gray-900">{title}</h3>
+        <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+            <div className="flex items-center gap-3 border-b border-slate-100 px-5 py-4">
+                <span className={`inline-flex h-10 w-10 items-center justify-center rounded-lg ${iconWrap}`}>
+                    {icon}
+                </span>
+                <div className="min-w-0">
+                    <h2 className="text-base font-semibold text-slate-900">{title}</h2>
+                    <p className="text-sm text-slate-500">{description}</p>
                 </div>
             </div>
 
-            {/* Card Body */}
-            <div className="p-6 space-y-4">
+            <ul className="divide-y divide-slate-100">
                 {items.map((item, index) => {
                     const displayValue = type === 'phone' || type === 'whatsapp'
                         ? formatPhoneNumber(item.number)
                         : item.email;
-                    const itemKey = `${type}-${index}`;
-                    const isCopied = copiedItem === itemKey;
+                    const isCopied = copiedItem === `${type}-${index}`;
 
                     return (
-                        <div
-                            key={index}
-                            className="group p-4 bg-gray-50 rounded-lg border border-gray-200 hover:border-indigo-300 hover:bg-indigo-50/30 transition-all duration-200"
-                        >
-                            <div className="flex items-start justify-between gap-3">
-                                <div className="flex-1 min-w-0">
-                                    <div className="flex items-center gap-2 mb-2">
-                                        <span className="text-xs font-semibold text-gray-500 uppercase tracking-wide">
-                                            {item.type}
-                                        </span>
-                                    </div>
-                                    <div className="flex items-center gap-2">
-                                        <span className="text-base font-semibold text-gray-900 truncate">
-                                            {displayValue}
-                                        </span>
-                                    </div>
-                                </div>
-                                <div className="flex items-center gap-2 flex-shrink-0">
-                                    <button
-                                        onClick={() => onCopy(displayValue, type, index)}
-                                        className="p-2 text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-all duration-200"
-                                        title="Copy"
-                                    >
-                                        {isCopied ? (
-                                            <FiCheck className="w-4 h-4 text-green-600" />
-                                        ) : (
-                                            <FiCopy className="w-4 h-4" />
-                                        )}
-                                    </button>
-                                    <button
-                                        onClick={() => {
-                                            if (type === 'phone' || type === 'whatsapp') {
-                                                onActionClick(item.number);
-                                            } else {
-                                                onActionClick(item.email);
-                                            }
-                                        }}
-                                        className={`px-4 py-2 rounded-lg font-medium text-sm transition-all duration-200 ${type === 'phone'
-                                            ? 'bg-blue-600 text-white hover:bg-blue-700 shadow-md hover:shadow-lg'
-                                            : type === 'whatsapp'
-                                                ? 'bg-green-600 text-white hover:bg-green-700 shadow-md hover:shadow-lg'
-                                                : 'bg-purple-600 text-white hover:bg-purple-700 shadow-md hover:shadow-lg'
-                                            }`}
-                                    >
-                                        {type === 'phone' ? 'Call' : type === 'whatsapp' ? 'Chat' : 'Email'}
-                                    </button>
-                                </div>
+                        <li key={`${type}-${index}`} className="px-5 py-4">
+                            {item.type ? (
+                                <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">{item.type}</p>
+                            ) : null}
+                            <p className="mt-1 break-all text-base font-semibold leading-6 text-slate-900">
+                                {displayValue}
+                            </p>
+                            <div className="mt-3 flex flex-wrap items-center gap-2">
+                                <button
+                                    type="button"
+                                    onClick={() => onCopy(displayValue, type, index)}
+                                    className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 text-sm font-medium text-slate-600 transition hover:bg-slate-50"
+                                >
+                                    {isCopied ? <FiCheck className="h-4 w-4 text-emerald-600" /> : <FiCopy className="h-4 w-4" />}
+                                    {isCopied ? 'Copied' : 'Copy'}
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => onActionClick(type === 'email' ? item.email : item.number)}
+                                    className={`inline-flex h-9 items-center rounded-lg px-3 text-sm font-semibold text-white transition ${actionClass}`}
+                                >
+                                    {actionLabel}
+                                </button>
                             </div>
-                        </div>
+                        </li>
                     );
                 })}
-            </div>
-        </div>
+            </ul>
+        </section>
     );
 };
 

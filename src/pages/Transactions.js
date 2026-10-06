@@ -812,7 +812,7 @@ const Transactions = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-[#f4f6fb]">
       <Header
         mobileMenuOpen={mobileMenuOpen}
         setMobileMenuOpen={setMobileMenuOpen}
@@ -828,11 +828,14 @@ const Transactions = () => {
 
       {/* Main content */}
       <div className={`pt-16 transition-all duration-300 ease-in-out ${isMinimized ? 'md:pl-20' : 'md:pl-[260px]'}`}>
-        <div className="max-w-8xl mx-auto px-4 sm:px-6 md:px-8 py-6">
+        <div className="w-full px-4 py-5">
           {/* Header Section */}
-          <div className="mb-6">
-            <div className="flex justify-between items-center mb-2">
-              <h1 className="text-2xl md:text-3xl font-bold text-gray-900">Transaction History</h1>
+          <div className="mb-5">
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+              <div className="min-w-0">
+              <h1 className="text-2xl font-semibold tracking-tight text-slate-900">Transactions</h1>
+              <p className="mt-1 text-sm text-slate-500">View and download receipts for all your transactions</p>
+              </div>
               <button
                 onClick={handleRefresh}
                 disabled={loading}
@@ -842,7 +845,6 @@ const Transactions = () => {
                 <span className="hidden sm:inline">Refresh</span>
               </button>
             </div>
-            <p className="text-gray-600">View and download receipts for all your transactions</p>
             {error && (
               <div className="mt-2 p-3 bg-red-100 border border-red-300 text-red-700 rounded-lg">
                 {error}
@@ -976,7 +978,7 @@ const Transactions = () => {
           )}
 
           {/* Transactions Table with Skeleton Loading */}
-          <div className="bg-white rounded-xl shadow overflow-hidden">
+          <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
             {loading ? (
               <>
                 <DesktopTableSkeleton />
@@ -1188,22 +1190,20 @@ const Transactions = () => {
                 </div>
               </>
             )}
+            {!loading && !error && transactions.length > 0 && (
+              <Pagination
+                currentPage={currentPage}
+                totalPages={totalPages}
+                totalRecords={totalRecords}
+                pageSize={pageSize}
+                onPageChange={handlePageChange}
+                onPageSizeChange={handlePageSizeChange}
+                pageSizeOptions={[10, 20, 50, 100]}
+                showPageSizeSelector={true}
+                showGoToPage={true}
+              />
+            )}
           </div>
-
-          {/* Pagination - Show only when not loading and has data */}
-          {!loading && !error && transactions.length > 0 && (
-            <Pagination
-              currentPage={currentPage}
-              totalPages={totalPages}
-              totalRecords={totalRecords}
-              pageSize={pageSize}
-              onPageChange={handlePageChange}
-              onPageSizeChange={handlePageSizeChange}
-              pageSizeOptions={[10, 20, 50, 100]}
-              showPageSizeSelector={true}
-              showGoToPage={true}
-            />
-          )}
         </div>
       </div>
 

@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { FiList } from 'react-icons/fi';
 import { getInteractiveOptions, normalizeInteractiveMessage } from '../../utils/interactiveMessage';
 import InteractiveOptionsModal from './InteractiveOptionsModal';
+import WhatsAppText from '../WhatsAppText';
 
 export default function InteractiveMessageRenderer({ msg, isOwnMessage = false, onSelectOption }) {
     const [isModalOpen, setIsModalOpen] = useState(false);
@@ -24,12 +25,12 @@ export default function InteractiveMessageRenderer({ msg, isOwnMessage = false, 
                     <div className="relative pl-3.5 py-0.5 border-l-3 border-emerald-500 dark:border-emerald-400">
                         {interactive.header?.text && (
                             <div className="text-xs font-bold tracking-wide text-emerald-700 dark:text-emerald-400">
-                                {interactive.header.text}
+                                <WhatsAppText text={interactive.header.text} />
                             </div>
                         )}
                         {body && (
                             <div className="mt-1 text-xs text-gray-600 dark:text-gray-300 leading-relaxed line-clamp-2">
-                                {body}
+                                <WhatsAppText text={body} />
                             </div>
                         )}
                         
@@ -50,17 +51,17 @@ export default function InteractiveMessageRenderer({ msg, isOwnMessage = false, 
                     <div className="space-y-3">
                         {interactive.header?.text && (
                             <div className="text-sm font-bold text-gray-900 dark:text-gray-100">
-                                {interactive.header.text}
+                                <WhatsAppText text={interactive.header.text} />
                             </div>
                         )}
                         
                         <p className="whitespace-pre-wrap break-words text-sm leading-relaxed text-gray-800 dark:text-gray-200">
-                            {body}
+                            <WhatsAppText text={body} />
                         </p>
 
                         {interactive.footer?.text && (
                             <p className="text-xs text-gray-500 dark:text-gray-400">
-                                {interactive.footer.text}
+                                <WhatsAppText text={interactive.footer.text} />
                             </p>
                         )}
 

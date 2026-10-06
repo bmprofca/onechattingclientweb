@@ -10,6 +10,7 @@ import { Encrypt } from './encryption/payload-encryption';
 import { FiArrowLeft, FiShield, FiLock, FiTrash2, FiPlus, FiEye } from 'react-icons/fi';
 import toast from 'react-hot-toast';
 import RowActionMenu from '../component/table/RowActionMenu';
+import Pagination from '../component/Pagination';
 import RecordDetailsModal from '../component/table/RecordDetailsModal';
 import { TableSkeletonRows } from '../component/table/TableSkeleton';
 
@@ -34,6 +35,8 @@ function AgentConfig() {
     // would break that invariant.
     const [agentUsePersonalKey, setAgentUsePersonalKey] = useState(true);
     const [apiKeys, setApiKeys] = useState([]);
+    const [keyPage, setKeyPage] = useState(1);
+    const [keyPageSize, setKeyPageSize] = useState(20);
     const [keyDetail, setKeyDetail] = useState(null);
 
     // selectedTab = purely local UI state for which panel is shown.
@@ -280,11 +283,11 @@ function AgentConfig() {
 
     if (!isOwner) {
         return (
-            <div className="min-h-screen bg-slate-50">
+            <div className="min-h-screen bg-[#f4f6fb]">
                 <Header mobileMenuOpen={mobileMenuOpen} setMobileMenuOpen={setMobileMenuOpen} isMinimized={isMinimized} setIsMinimized={setIsMinimized} />
                 <Sidebar mobileMenuOpen={mobileMenuOpen} setMobileMenuOpen={setMobileMenuOpen} isMinimized={isMinimized} setIsMinimized={setIsMinimized} />
                 <div className={`pt-16 transition-all duration-300 ease-in-out ${isMinimized ? 'md:pl-20' : 'md:pl-[260px]'}`}>
-                    <div className="max-w-8xl mx-auto px-4 sm:px-6 md:px-8 py-8">
+                    <div className="w-full px-4 py-5">
                         <div className="max-w-2xl mx-auto mt-12 rounded-xl border border-slate-200 bg-white p-8 shadow-sm text-center">
                             <FiLock className="w-14 h-14 mx-auto text-slate-300 mb-4" />
                             <h2 className="text-xl font-semibold text-slate-800 mb-2">Access denied</h2>
@@ -304,13 +307,16 @@ function AgentConfig() {
     }
 
     const personalEnabledButNoKeys = selectedTab === 'personal' && apiKeys.length === 0 && !agentUsePersonalKey;
+    const keyPageCount = Math.max(1, Math.ceil(apiKeys.length / keyPageSize) || 1);
+    const safeKeyPage = Math.min(keyPage, keyPageCount);
+    const pagedKeys = apiKeys.slice((safeKeyPage - 1) * keyPageSize, safeKeyPage * keyPageSize);
 
     return (
-        <div className="min-h-screen bg-slate-50">
+        <div className="min-h-screen bg-[#f4f6fb]">
             <Header mobileMenuOpen={mobileMenuOpen} setMobileMenuOpen={setMobileMenuOpen} isMinimized={isMinimized} setIsMinimized={setIsMinimized} />
             <Sidebar mobileMenuOpen={mobileMenuOpen} setMobileMenuOpen={setMobileMenuOpen} isMinimized={isMinimized} setIsMinimized={setIsMinimized} />
             <div className={`pt-16 transition-all duration-300 ease-in-out ${isMinimized ? 'md:pl-20' : 'md:pl-[260px]'}`}>
-                <div className="max-w-8xl mx-auto px-4 sm:px-6 md:px-8 py-8">
+                <div className="w-full px-4 py-5">
                     <div className="mb-8 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
                         <div>
                             <button
@@ -419,9 +425,9 @@ function AgentConfig() {
                                                     </tr>
                                                 </thead>
                                                 <tbody className="bg-white divide-y divide-slate-200">
-                                                    {apiKeys.map((keyObj, index) => (
+                                                    {pagedKeys.map((keyObj, index) => (
                                                         <tr key={keyObj.unique_id} className={keyObj.is_active ? 'bg-emerald-50/60 hover:bg-emerald-50' : 'hover:bg-slate-50'}>
-                                                            <td className="px-4 py-3 whitespace-nowrap text-center text-sm text-slate-500">{index + 1}</td>
+                                                            <td className="px-4 py-3 whitespace-nowrap text-center text-sm text-slate-500">{(safeKeyPage - 1) * keyPageSize + index + 1}</td>
                                                             <td className="px-4 py-3 whitespace-nowrap text-sm font-medium text-slate-800 capitalize">
                                                                 {keyObj.api_provider}
                                                             </td>
@@ -456,6 +462,20 @@ function AgentConfig() {
                                                     ))}
                                                 </tbody>
                                             </table>
+                                            {apiKeys.length > 0 ? (
+                                                <Pagination
+                                                    currentPage={safeKeyPage}
+                                                    totalPages={keyPageCount}
+                                                    totalRecords={apiKeys.length}
+                                                    pageSize={keyPageSize}
+                                                    onPageChange={setKeyPage}
+                                                    onPageSizeChange={(size) => {
+                                                        setKeyPageSize(size);
+                                                        setKeyPage(1);
+                                                    }}
+                                                    pageSizeOptions={[10, 20, 50, 100]}
+                                                />
+                                            ) : null}
                                         </div>
                                     )}
 

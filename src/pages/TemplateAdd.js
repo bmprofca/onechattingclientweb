@@ -1008,7 +1008,7 @@ function TemplateAdd() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-[#f4f6fb]">
       <Header
         mobileMenuOpen={mobileMenuOpen}
         setMobileMenuOpen={setMobileMenuOpen}
@@ -1025,10 +1025,10 @@ function TemplateAdd() {
       {/* Main content */}
       <div className={`pt-16 transition-all duration-300 ease-in-out ${isMinimized ? 'md:pl-20' : 'md:pl-[260px]'
         }`}>
-        <div className="max-w-8xl mx-auto px-4 sm:px-6 md:px-8 py-6">
+        <div className="w-full px-4 py-5">
           {/* Page header */}
           <div className="mb-6">
-            <h2 className="text-2xl font-bold text-gray-900">Create New WhatsApp Template</h2>
+            <h2 className="text-2xl font-semibold tracking-tight text-slate-900">Create New WhatsApp Template</h2>
             <p className="mt-1 text-sm text-gray-600">
               Create a new WhatsApp message template following Aisensy API structure
             </p>

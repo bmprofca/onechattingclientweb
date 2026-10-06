@@ -7,7 +7,7 @@ import { Header, Sidebar } from '../component/Menu';
 import { Encrypt } from './encryption/payload-encryption';
 import Pagination from '../component/Pagination';
 import SearchableSelect from '../component/SearchableSelect';
-import { FiAlertCircle, FiHash, FiPhone, FiFileText, FiUser, FiSearch, FiFilter, FiEye, FiEdit2, FiX, FiPlus, FiClock, FiCalendar, FiCheckSquare } from 'react-icons/fi';
+import { FiAlertCircle, FiHash, FiPhone, FiFileText, FiUser, FiSearch, FiEye, FiEdit2, FiX, FiPlus, FiClock, FiCalendar, FiCheckSquare, FiRefreshCw } from 'react-icons/fi';
 import { parseServerDate } from '../utils/dateTime';
 import RowActionMenu from '../component/table/RowActionMenu';
 import RecordDetailsModal from '../component/table/RecordDetailsModal';
@@ -37,7 +37,7 @@ function OpenCaseList() {
     const [error, setError] = useState('');
     const [casesByNumber, setCasesByNumber] = useState([]);
     const [pageNo, setPageNo] = useState(1);
-    const [limit] = useState(10);
+    const [limit, setLimit] = useState(10);
     const [total, setTotal] = useState(0);
     const [totalPage, setTotalPage] = useState(1);
     const [search, setSearch] = useState('');
@@ -662,7 +662,7 @@ function OpenCaseList() {
     }, [tokens?.token, tokens?.username, tokens?.selected_project_id, caseEditRow, caseEditName, caseEditRemark, caseEditStatus, closeCaseEditModal, fetchCaseListForNumber, caseModalNumber, caseListPageNo, fetchOpenCases, pageNo, search]);
 
     return (
-        <div className="min-h-screen bg-slate-50 font-sans text-slate-900">
+        <div className="min-h-screen bg-[#f4f6fb] font-sans text-slate-900">
             <Header
                 mobileMenuOpen={mobileMenuOpen}
                 setMobileMenuOpen={setMobileMenuOpen}
@@ -680,84 +680,74 @@ function OpenCaseList() {
                 className={`pt-16 transition-all duration-300 ease-in-out ${isMinimized ? 'md:pl-20' : 'md:pl-[260px]'
                     }`}
             >
-                <div className="p-4 sm:p-6 lg:p-8 max-w-8xl mx-auto space-y-6">
-                    <div className="bg-white rounded-2xl border border-slate-200/80 shadow-sm p-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-                        <div>
-                            <div className="flex items-center gap-2 text-xs font-semibold text-indigo-600 uppercase tracking-wider mb-1">
-                                <FiFileText className="w-4 h-4" />
-                                <span>Case Management</span>
-                            </div>
-                            <h1 className="text-2xl font-bold text-slate-900 tracking-tight flex items-center gap-3">
-                                Open Cases
-                                <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-indigo-50 text-indigo-700 border border-indigo-200">
-                                    {total} Records
-                                </span>
-                            </h1>
-                            <p className="text-sm text-slate-500 mt-1">List of contacts with at least one open case.</p>
+                <div className="w-full px-4 py-5">
+                    <div className="mb-5 flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+                        <div className="min-w-0">
+                            <h1 className="text-2xl font-semibold tracking-tight text-slate-900">Open cases</h1>
+                            <p className="mt-1 text-sm text-slate-500">Contacts that still have at least one open case.</p>
                         </div>
-                        <div className="flex items-center gap-2 flex-wrap">
-                            {selectedNumbers.size > 0 && (
-                                <button
-                                    type="button"
-                                    onClick={handleBulkCloseSelected}
-                                    disabled={bulkCloseLoading}
-                                    className="inline-flex items-center gap-2 px-3.5 py-2.5 rounded-xl bg-rose-600 text-white hover:bg-rose-700 font-semibold text-sm shadow-sm disabled:opacity-50 transition-all active:scale-95"
-                                >
-                                    <FiCheckSquare className="h-3.5 w-3.5" />
-                                    {bulkCloseLoading ? 'Closing...' : `Close ${selectedNumbers.size} selected`}
-                                </button>
-                            )}
-                            <button
-                                type="button"
-                                onClick={openCaseCreateModal}
-                                className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-semibold text-sm shadow-sm hover:shadow transition-all active:scale-95"
-                            >
-                                <FiPlus className="h-3.5 w-3.5" />
-                                Create Case
-                            </button>
-                            <div className="flex items-center gap-1.5 text-sm text-slate-500 bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5">
-                                <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                                <span>Total:</span>
-                                <span className="font-semibold text-slate-900">{total}</span>
-                            </div>
-                        </div>
-                    </div>
-                    <div className="bg-white rounded-xl border border-slate-200/80 p-4 shadow-sm">
-                        <div className="flex items-center gap-3">
-                            <div className="relative flex-1">
-                                <FiSearch className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
-                            <input
-                                type="text"
-                                value={search}
-                                onChange={(e) => {
-                                    const value = e.target.value;
-                                    setSearch(value);
-                                    setPageNo(1);
-                                    fetchOpenCases(1, { search: value });
-                                }}
-                                placeholder="Search by name or phone number..."
-                                className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-slate-200 text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-                            />
-                            </div>
-                            <label className="flex items-center gap-2 shrink-0 text-sm text-slate-600">
-                                <FiFilter className="h-4 w-4 text-slate-400" />
-                                <SearchableSelect
-                                    value={caseNameFilter}
+                        <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
+                            <div className="relative">
+                                <FiSearch className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                                <input
+                                    type="text"
+                                    value={search}
                                     onChange={(e) => {
                                         const value = e.target.value;
-                                        setCaseNameFilter(value);
+                                        setSearch(value);
                                         setPageNo(1);
-                                        fetchOpenCases(1, { caseNameFilter: value });
+                                        fetchOpenCases(1, { search: value });
                                     }}
-                                    options={[
-                                        { value: '', label: 'All case names' },
-                                        ...(Array.isArray(defaultCaseNames) ? defaultCaseNames : []).map((name) => ({ value: name, label: name })),
-                                        { value: 'others', label: 'Others' },
-                                    ]}
-                                    placeholder="All case names"
-                                    className="max-w-[220px] rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                                    placeholder="Search name or phone"
+                                    className="h-10 w-full rounded-lg border border-slate-200 bg-white pl-9 pr-3 text-sm text-slate-700 placeholder:text-slate-400 focus:border-indigo-300 focus:outline-none focus:ring-2 focus:ring-indigo-100 sm:w-56"
                                 />
-                            </label>
+                            </div>
+                            <SearchableSelect
+                                value={caseNameFilter}
+                                onChange={(e) => {
+                                    const value = e.target.value;
+                                    setCaseNameFilter(value);
+                                    setPageNo(1);
+                                    fetchOpenCases(1, { caseNameFilter: value });
+                                }}
+                                options={[
+                                    { value: '', label: 'All case names' },
+                                    ...(Array.isArray(defaultCaseNames) ? defaultCaseNames : []).map((name) => ({ value: name, label: name })),
+                                    { value: 'others', label: 'Others' },
+                                ]}
+                                placeholder="All case names"
+                                className="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-700 focus:border-indigo-300 focus:outline-none focus:ring-2 focus:ring-indigo-100 sm:w-52"
+                            />
+                            <div className="flex items-center gap-2">
+                                <button
+                                    type="button"
+                                    onClick={() => fetchOpenCases(pageNo, { search })}
+                                    disabled={loading}
+                                    title="Refresh"
+                                    className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-600 transition hover:border-indigo-200 hover:text-indigo-600 disabled:cursor-not-allowed disabled:opacity-50"
+                                >
+                                    <FiRefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
+                                </button>
+                                {selectedNumbers.size > 0 ? (
+                                    <button
+                                        type="button"
+                                        onClick={handleBulkCloseSelected}
+                                        disabled={bulkCloseLoading}
+                                        className="inline-flex h-10 items-center gap-2 rounded-lg bg-rose-600 px-3.5 text-sm font-semibold text-white transition hover:bg-rose-700 disabled:opacity-50"
+                                    >
+                                        <FiCheckSquare className="h-4 w-4" />
+                                        {bulkCloseLoading ? 'Closing...' : `Close ${selectedNumbers.size}`}
+                                    </button>
+                                ) : null}
+                                <button
+                                    type="button"
+                                    onClick={openCaseCreateModal}
+                                    className="inline-flex h-10 items-center gap-2 rounded-lg bg-indigo-600 px-3.5 text-sm font-semibold text-white transition hover:bg-indigo-700"
+                                >
+                                    <FiPlus className="h-4 w-4" />
+                                    Create case
+                                </button>
+                            </div>
                         </div>
                     </div>
 
@@ -768,54 +758,34 @@ function OpenCaseList() {
                         </div>
                     )}
 
-                    <div className="bg-white rounded-2xl border border-slate-200/80 shadow-sm overflow-hidden">
-                        {/* Desktop table */}
+                    <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
                         <div className="hidden md:block overflow-x-auto">
-                            <table className="w-full divide-y divide-gray-200 dark:divide-gray-800">
-                                <thead className="bg-gradient-to-r from-gray-50 to-gray-100/50 dark:from-gray-900 dark:to-gray-800">
+                            <table className="min-w-full divide-y divide-slate-200">
+                                <thead className="bg-slate-50">
                                     <tr>
-                                        <th className="px-3 py-2.5 text-center text-xs font-semibold text-gray-700 dark:text-gray-200 uppercase tracking-wider border-r border-gray-200/50 dark:border-gray-700/60 w-12">
-                                            #
-                                        </th>
-                                        <th className="px-3 py-2.5 text-center text-xs font-semibold text-gray-700 dark:text-gray-200 uppercase tracking-wider border-r border-gray-200/50 dark:border-gray-700/60 w-10">
+                                        <th className="w-14 px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500 sm:px-5">#</th>
+                                        <th className="w-12 px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
                                             <input type="checkbox" checked={allOnPageSelected} onChange={toggleAllOnPage}
-                                                className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500 h-3.5 w-3.5 cursor-pointer" title="Select all on page" />
+                                                className="h-3.5 w-3.5 cursor-pointer rounded border-slate-300 text-indigo-600 focus:ring-indigo-500" title="Select all on page" />
                                         </th>
-                                        <th className="px-3 py-2.5 text-left text-xs font-semibold text-gray-700 dark:text-gray-200 uppercase tracking-wider border-r border-gray-200/50 dark:border-gray-700/60">
-                                            <div className="flex items-center gap-1.5">
-                                                <FiPhone className="w-3 h-3 text-gray-400" />
-                                                <div>Number &amp; Contact</div>
-                                            </div>
-                                        </th>
-                                        <th className="px-3 py-2.5 text-left text-xs font-semibold text-gray-700 dark:text-gray-200 uppercase tracking-wider border-r border-gray-200/50 dark:border-gray-700/60">
-                                            <div className="flex items-center gap-1.5">
-                                                <FiFileText className="w-3 h-3 text-gray-400" />
-                                                <div>Cases</div>
-                                            </div>
-                                        </th>
-                                        <th className="px-3 py-2.5 text-center text-xs font-semibold text-gray-700 dark:text-gray-200 uppercase tracking-wider">
-                                            <div className="flex items-center justify-center gap-1.5">
-                                                <FiEye className="w-3 h-3 text-gray-400" />
-                                                <div>Actions</div>
-                                            </div>
-                                        </th>
+                                        <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500 sm:px-5">Contact</th>
+                                        <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500 sm:px-5">Cases</th>
+                                        <th className="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wide text-slate-500 sm:px-5"></th>
                                     </tr>
                                 </thead>
-                                <tbody className="bg-white dark:bg-gray-900 divide-y divide-gray-100 dark:divide-gray-800">
+                                <tbody className="divide-y divide-slate-100">
                                     {loading ? (
                                         <TableSkeletonRows rows={8} cells={['index', 'short', 'text', 'text', 'action']} />
                                     ) : casesByNumber.length === 0 ? (
                                         <tr>
-                                            <td colSpan={5} className="px-6 py-10 text-center">
-                                                <div className="flex flex-col items-center justify-center gap-3">
-                                                    <svg className="w-12 h-12 text-gray-300 dark:text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M9 12h3.75M9 15h3.75M9 18h3.75m3 .75H18a2.25 2.25 0 002.25-2.25V6.108c0-1.135-.845-2.098-1.976-2.192a48.424 48.424 0 00-1.123-.08m-5.801 0c-.065.21-.1.433-.1.664 0 .414.336.75.75.75h4.5a.75.75 0 00.75-.75 2.25 2.25 0 00-.1-.664m-5.8 0A2.251 2.251 0 0113.5 2.25H15c1.012 0 1.867.668 2.15 1.586m-5.8 0c-.376.023-.75.05-1.124.08C9.095 4.01 8.25 4.973 8.25 6.108V8.25m0 0H4.875c-.621 0-1.125.504-1.125 1.125v11.25c0 .621.504 1.125 1.125 1.125h9.75c.621 0 1.125-.504 1.125-1.125V9.375c0-.621-.504-1.125-1.125-1.125H8.25zM6.75 12h.008v.008H6.75V12zm0 3h.008v.008H6.75V15zm0 3h.008v.008H6.75V18z" />
-                                                    </svg>
-                                                    <div>
-                                                        <p className="text-gray-500 dark:text-gray-300 font-medium">No open cases found</p>
-                                                        <p className="text-gray-400 dark:text-gray-500 text-sm mt-1">Open cases will appear here once available.</p>
-                                                    </div>
+                                            <td colSpan={5} className="px-6 py-16 text-center">
+                                                <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-indigo-50 text-indigo-600">
+                                                    <FiFileText className="h-6 w-6" />
                                                 </div>
+                                                <h2 className="mt-4 text-base font-semibold text-slate-900">No open cases</h2>
+                                                <p className="mx-auto mt-1 max-w-sm text-sm text-slate-500">
+                                                    {search || caseNameFilter ? 'Nothing matches this search. Try another name or phone number.' : 'Open cases will show here when a contact still needs a reply.'}
+                                                </p>
                                             </td>
                                         </tr>
                                     ) : (
@@ -833,16 +803,16 @@ function OpenCaseList() {
                                             return (
                                                 <tr
                                                     key={item.number || index}
-                                                    className={`hover:bg-gray-50/80 dark:hover:bg-gray-800/80 transition-all duration-150 group ${isChecked ? 'bg-indigo-50/60 dark:bg-indigo-900/10' : ''}`}
+                                                    className={`transition hover:bg-slate-50 ${isChecked ? 'bg-indigo-50/70' : ''}`}
                                                 >
-                                                    <td className="px-3 py-2 border-r border-gray-100 dark:border-gray-800 text-center align-middle text-sm text-gray-600">
+                                                    <td className="whitespace-nowrap px-4 py-3.5 text-center text-sm text-slate-400 sm:px-5">
                                                         {(pageNo - 1) * limit + index + 1}
                                                     </td>
-                                                    <td className="px-3 py-2 border-r border-gray-100 dark:border-gray-800 text-center align-middle">
+                                                    <td className="px-4 py-3.5 text-center align-middle">
                                                         <input type="checkbox" checked={isChecked} onChange={() => toggleNumber(item.number)}
                                                             className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500 h-3.5 w-3.5 cursor-pointer" />
                                                     </td>
-                                                    <td className="px-3 py-2 whitespace-nowrap border-r border-gray-100 dark:border-gray-800 align-middle">
+                                                    <td className="whitespace-nowrap px-4 py-3.5 align-middle sm:px-5">
                                                         <button
                                                             type="button"
                                                             onClick={() => navigate(`/live-chat/${item.number || ''}`)}
@@ -860,7 +830,7 @@ function OpenCaseList() {
                                                             </div>
                                                         </button>
                                                     </td>
-                                                    <td className="px-3 py-2 border-r border-gray-100 dark:border-gray-800 align-middle">
+                                                    <td className="px-4 py-3.5 align-middle sm:px-5">
                                                         {latestCase ? (
                                                             <div className="mb-2 rounded-lg border border-emerald-200/70 dark:border-emerald-900/50 bg-emerald-50/60 dark:bg-emerald-900/20 px-2.5 py-1.5">
                                                                 <div className="text-[10px] font-bold uppercase tracking-wide text-emerald-700 dark:text-emerald-300">Latest case</div>
@@ -903,7 +873,7 @@ function OpenCaseList() {
                                                             </div>
                                                         )}
                                                     </td>
-                                                    <td className="px-3 py-2 whitespace-nowrap text-right align-middle">
+                                                    <td className="px-3 py-3.5 text-right align-middle">
                                                         <RowActionMenu
                                                             items={[
                                                                 {
@@ -1024,23 +994,22 @@ function OpenCaseList() {
                         </div>
 
                         {/* Pagination */}
-                        {!loading && !error && casesByNumber.length > 0 && (
-                            <div className="border-t border-slate-100 dark:border-gray-700 px-4 py-2 bg-slate-50/60 dark:bg-gray-900/40 flex items-center justify-between">
-                                <div className="text-xs text-slate-500 dark:text-slate-400">
-                                    Page {pageNo} of {Math.max(totalPage, 1)} &middot; Total: {total}
-                                    {selectedNumbers.size > 0 && <span className="ml-2 text-indigo-600 dark:text-indigo-300 font-medium">· {selectedNumbers.size} selected</span>}
-                                </div>
+                        {!loading && !error && total > 0 ? (
+                            <>
                                 <Pagination
                                     currentPage={pageNo}
                                     totalPages={Math.max(totalPage, 1)}
                                     totalRecords={total}
                                     pageSize={limit}
                                     onPageChange={handlePageChange}
-                                    showPageSizeSelector={false}
-                                    showGoToPage={true}
+                                    onPageSizeChange={(size) => {
+                                        setPageNo(1);
+                                        setLimit(size);
+                                    }}
+                                    pageSizeOptions={[10, 20, 50, 100]}
                                 />
-                            </div>
-                        )}
+                            </>
+                        ) : null}
                     </div>
                 </div>
 
@@ -1459,7 +1428,7 @@ function OpenCaseList() {
                                     pageSize={caseListLimit}
                                     onPageChange={handleCaseListPageChange}
                                     onPageSizeChange={handleCaseListPageSizeChange}
-                                    pageSizeOptions={[10, 20, 50]}
+                                    pageSizeOptions={[10, 20, 50, 100]}
                                     showPageSizeSelector={true}
                                     showGoToPage={true}
                                 />

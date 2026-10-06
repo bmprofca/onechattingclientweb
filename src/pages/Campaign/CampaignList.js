@@ -343,7 +343,7 @@ const CampaignList = () => {
     };
 
     return (
-        <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
+        <div className="min-h-screen bg-[#f4f6fb] dark:bg-gray-900">
             <Header
                 mobileMenuOpen={mobileMenuOpen}
                 setMobileMenuOpen={setMobileMenuOpen}
@@ -359,28 +359,25 @@ const CampaignList = () => {
 
             {/* Main content */}
             <div className={`pt-16 transition-all duration-300 ease-in-out ${isMinimized ? 'md:pl-20' : 'md:pl-[260px]'}`}>
-                <div className="max-w-8xl mx-auto px-4 sm:px-6 md:px-8 py-6">
+                <div className="w-full px-4 py-5">
                     {/* Page Header */}
-                    <div className="mb-6">
-                        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between">
-                            <div>
-                                <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Campaigns</h1>
-                                <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+                    <div className="mb-5 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                            <div className="min-w-0">
+                                <h1 className="text-2xl font-semibold tracking-tight text-slate-900 dark:text-white">Campaigns</h1>
+                                <p className="mt-1 text-sm text-slate-500 dark:text-gray-400">
                                     Manage and track your WhatsApp campaigns
                                 </p>
                             </div>
-                            <div className="mt-4 sm:mt-0">
+                            <div className="flex items-center gap-2">
                                 <button
                                     onClick={handleCreateCampaign}
-                                    className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-colors"
+                                    className="inline-flex h-10 items-center gap-2 rounded-lg bg-indigo-600 px-3.5 text-sm font-semibold text-white transition hover:bg-indigo-700"
                                 >
                                     <FiPlus className="mr-2" size={18} />
                                     Create Campaign
                                 </button>
                             </div>
                         </div>
-                    </div>
-
 
                     {/* Summary Stats */}
                     <div className="mt-6 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -457,7 +454,7 @@ const CampaignList = () => {
                     )}
 
                     {/* Campaigns Table */}
-                    <div className="bg-white dark:bg-gray-800 shadow rounded-lg overflow-hidden">
+                    <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm dark:border-gray-700 dark:bg-gray-800">
                         <div className="overflow-x-auto">
                             <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
                                 <thead className="bg-gray-50 dark:bg-gray-700">

@@ -976,7 +976,7 @@ function ContactGroupList() {
 
   if (permissions && permissions.view_contact === false) {
     return (
-      <div className="min-h-screen bg-gray-50">
+      <div className="min-h-screen bg-[#f4f6fb]">
         <Header
           mobileMenuOpen={mobileMenuOpen}
           setMobileMenuOpen={setMobileMenuOpen}
@@ -990,7 +990,7 @@ function ContactGroupList() {
           setIsMinimized={setIsMinimized}
         />
         <div className={`pt-16 transition-all duration-300 ease-in-out ${isMinimized ? 'md:pl-20' : 'md:pl-[260px]'}`}>
-          <div className="p-4 sm:p-6 md:p-8">
+          <div className="w-full px-4 py-5">
             <div className="bg-white rounded-lg shadow p-8 text-center">
               <h2 className="text-lg font-semibold text-gray-900">Access Denied</h2>
               <p className="mt-2 text-gray-600">You do not have permission to view group contacts.</p>
@@ -1002,7 +1002,7 @@ function ContactGroupList() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-[#f4f6fb]">
       <Header
         mobileMenuOpen={mobileMenuOpen}
         setMobileMenuOpen={setMobileMenuOpen}
@@ -1017,9 +1017,9 @@ function ContactGroupList() {
       />
 
       <div className={`pt-16 transition-all duration-300 ease-in-out ${isMinimized ? 'md:pl-20' : 'md:pl-[260px]'}`}>
-        <div className="p-4 sm:p-6 md:p-8">
+        <div className="w-full px-4 py-5">
           {/* Header Section */}
-          <div className="mb-8">
+          <div className="mb-5">
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between">
               <div>
                 <div className="flex items-center gap-3 mb-2">
@@ -1031,13 +1031,13 @@ function ContactGroupList() {
                     <FiArrowLeft className="h-5 w-5" />
                   </button>
                   <FiUsers className="h-6 w-6 text-indigo-600" />
-                  <h1 className="text-base font-bold text-gray-900">
+                  <h1 className="text-2xl font-semibold tracking-tight text-slate-900">
                     {getGroupName()} - Contacts
                   </h1>
                 </div>
               </div>
 
-              <div className="flex flex-wrap gap-3 mt-4 sm:mt-0">
+              <div className="flex flex-wrap items-center gap-2">
                 <button
                   onClick={() => {
                     setShowAddModal(true);

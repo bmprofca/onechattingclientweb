@@ -260,7 +260,7 @@ const AutoReply = () => {
     ];
 
     return (
-        <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
+        <div className="min-h-screen bg-[#f4f6fb] dark:bg-gray-900">
             <Header
                 mobileMenuOpen={mobileMenuOpen}
                 setMobileMenuOpen={setMobileMenuOpen}
@@ -276,17 +276,17 @@ const AutoReply = () => {
 
             {/* Main content */}
             <div className={`pt-16 transition-all duration-300 ease-in-out ${isMinimized ? 'md:pl-20' : 'md:pl-[260px]'}`}>
-                <div className="max-w-8xl mx-auto px-4 sm:px-6 md:px-8 py-6">
+                <div className="w-full px-4 py-5">
                     {/* Page Header */}
                     <div className="mb-6">
                         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between">
                             <div>
-                                <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Auto Reply</h1>
+                                <h1 className="text-2xl font-semibold tracking-tight text-slate-900 dark:text-white">Auto Reply</h1>
                                 <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
                                     Automate responses to incoming WhatsApp messages
                                 </p>
                             </div>
-                            <div className="mt-4 sm:mt-0 flex items-center space-x-3">
+                            <div className="flex items-center gap-2">
                                 <button
                                     onClick={handleToggleAutoReply}
                                     className={`inline-flex items-center px-4 py-2 rounded-md shadow-sm text-sm font-medium transition-colors ${autoReplyEnabled
@@ -398,7 +398,7 @@ const AutoReply = () => {
                     </div>
 
                     {/* Rules List */}
-                    <div className="bg-white dark:bg-gray-800 shadow rounded-lg overflow-hidden">
+                    <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm dark:border-gray-700 dark:bg-gray-800">
                         {sortedRules.length === 0 ? (
                             <div className="p-12 text-center">
                                 <FiMessageSquare className="mx-auto h-12 w-12 text-gray-400 mb-4" />

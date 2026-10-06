@@ -557,7 +557,7 @@ function ContactGroup() {
 
   if (permissions && permissions.view_contact === false) {
     return (
-      <div className="min-h-screen bg-gray-50">
+      <div className="min-h-screen bg-[#f4f6fb]">
         <Header
           mobileMenuOpen={mobileMenuOpen}
           setMobileMenuOpen={setMobileMenuOpen}
@@ -572,7 +572,7 @@ function ContactGroup() {
         />
         <div className={`pt-16 transition-all duration-300 ease-in-out ${isMinimized ? 'md:pl-20' : 'md:pl-[260px]'
           }`}>
-          <div className="p-4 sm:p-6 md:p-8">
+          <div className="w-full px-4 py-5">
             <div className="bg-white rounded-lg shadow p-8 text-center">
               <h2 className="text-lg font-semibold text-gray-900">Access Denied</h2>
               <p className="mt-2 text-gray-600">You do not have permission to view contact groups.</p>
@@ -584,7 +584,7 @@ function ContactGroup() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-[#f4f6fb]">
       <Header
         mobileMenuOpen={mobileMenuOpen}
         setMobileMenuOpen={setMobileMenuOpen}
@@ -600,18 +600,18 @@ function ContactGroup() {
 
       <div className={`pt-16 transition-all duration-300 ease-in-out ${isMinimized ? 'md:pl-20' : 'md:pl-[260px]'
         }`}>
-        <div className="p-4 sm:p-6 md:p-8">
+        <div className="w-full px-4 py-5">
           {/* Header Section */}
-          <div className="mb-8">
+          <div className="mb-5">
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between">
               <div>
                 <div className="flex items-center gap-3 mb-2">
-                  <h1 className="text-base font-bold text-gray-900">Group Management</h1>
+                  <h1 className="text-2xl font-semibold tracking-tight text-slate-900">Group Management</h1>
                 </div>
                 <p className="text-gray-600 text-sm">Manage your contact groups and organize your contacts ({totalGroupCount} groups)</p>
               </div>
 
-              <div className="flex flex-wrap gap-3 mt-4 sm:mt-0">
+              <div className="flex flex-wrap items-center gap-2">
 
 
                 <button
@@ -626,7 +626,7 @@ function ContactGroup() {
           </div>
 
           {/* Groups Table */}
-          <div className="bg-white shadow rounded-lg overflow-hidden">
+          <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
             <div className="px-4 py-5 sm:p-6">
               {loading ? (
                 <table className="min-w-full">

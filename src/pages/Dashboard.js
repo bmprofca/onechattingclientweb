@@ -289,7 +289,7 @@ function Dashboard() {
         };
 
         fetchDashboardData();
-    }, [tokens]);
+    }, [tokens?.token, tokens?.username, tokens?.selected_project_id]);
 
     // Prevent background scrolling when mobile menu is open
     useEffect(() => {
@@ -448,7 +448,7 @@ function Dashboard() {
     ];
 
     return (
-        <div className="min-h-screen bg-gray-50">
+        <div className="min-h-screen bg-[#f4f6fb]">
             <Header
                 mobileMenuOpen={mobileMenuOpen}
                 setMobileMenuOpen={setMobileMenuOpen}
@@ -464,7 +464,7 @@ function Dashboard() {
 
             {/* Main content */}
             <div className={`pt-16 transition-all duration-300 ease-in-out ${isMinimized ? 'md:pl-20' : 'md:pl-[260px]'}`}>
-                <div className="max-w-8xl mx-auto px-4 sm:px-6 md:px-8 py-6">
+                <div className="w-full px-4 py-5">
 
                     {!hasSelectedProject && (
                         <NewUserWelcome onCreateProject={() => setShowCreateModal(true)} />
@@ -522,7 +522,7 @@ function Dashboard() {
 
                     {/* Campaign Message Analytics */}
                     {hasSelectedProject && !loading && !error && dashboardData?.campaign?.message && (
-                        <div className="mb-8">
+                        <div className="mb-5">
                             <div className="bg-white rounded-xl shadow p-6">
                                 <h3 className="text-lg font-semibold text-gray-900 mb-6 flex items-center">
                                     <FiBarChart2 className="mr-2 text-blue-500" />

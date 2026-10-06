@@ -1,5 +1,6 @@
 import React from 'react';
 import { FiX, FiChevronRight } from 'react-icons/fi';
+import WhatsAppText from '../WhatsAppText';
 
 export default function InteractiveOptionsModal({
     isOpen,
@@ -34,7 +35,7 @@ export default function InteractiveOptionsModal({
                         </h3>
                         {bodyText && (
                             <p className="mt-0.5 text-xs text-gray-500 dark:text-gray-400 line-clamp-1">
-                                {bodyText}
+                                <WhatsAppText text={bodyText} />
                             </p>
                         )}
                     </div>

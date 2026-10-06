@@ -881,7 +881,7 @@ const Layout = () => {
   const [isMinimized, setIsMinimized] = useState(false);
 
   return (
-    <div className="min-h-screen bg-slate-50 font-sans text-slate-900">
+    <div className="min-h-screen bg-[#f4f6fb] font-sans text-slate-900">
       <Header
         mobileMenuOpen={mobileMenuOpen}
         setMobileMenuOpen={setMobileMenuOpen}
@@ -900,7 +900,7 @@ const Layout = () => {
         className={`pt-16 transition-all duration-300 ease-in-out ${isMinimized ? 'md:pl-20' : 'md:pl-[260px]'
           }`}
       >
-        <div className="p-4 sm:p-6 lg:p-8 max-w-8xl mx-auto animate-in fade-in duration-500">
+        <div className="w-full px-4 py-5 animate-in fade-in duration-500">
           <Outlet />
         </div>
       </main>

@@ -271,10 +271,10 @@ const MyProfile = () => {
                     setIsMinimized={setIsMinimized}
                 />
 
-                <main className="mt-16 flex-1 overflow-y-auto p-4 sm:p-6">
+                <main className="mt-16 flex-1 overflow-y-auto px-4 py-5">
                     <div className="w-full">
                         <div className="mb-6">
-                            <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
+                            <h1 className="text-2xl font-semibold tracking-tight text-slate-900 dark:text-white">
                                 My Profile
                             </h1>
                             <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">

@@ -72,6 +72,7 @@ import LocationPreview from '../component/Conversation/LocationPreview';
 import ContactPreview from '../component/Conversation/ContactPreview';
 import { SearchChatModal } from '../component/Modals/Conversation/SearchChatModal';
 import TemplateMessageRenderer from '../component/Conversation/TemplateMessageRender';
+import WhatsAppText from '../component/WhatsAppText';
 import { buildTemplateDisplayMessage } from '../utils/templateMessageDisplay';
 import Pagination from '../component/Pagination';
 import InteractiveMessageRenderer from '../component/Conversation/InteractiveMessageRenderer';
@@ -480,14 +481,14 @@ const MessageItem = ({ msg, activeChat, displayName, darkMode, renderFilePreview
                                                         if (replyMsg.is_template && replyMsg.template) {
                                                             const text = buildTemplateDisplayMessage(replyMsg.template, replyMsg.component);
                                                             if (text) {
-                                                                return <span>{text}</span>;
+                                                                return <WhatsAppText text={text} />;
                                                             }
                                                             return <span>Template message</span>;
                                                         }
 
                                                         // Text message
                                                         if (replyMsg.message) {
-                                                            return <span>{replyMsg.message}</span>;
+                                                            return <WhatsAppText text={replyMsg.message} />;
                                                         }
 
                                                         return <span>Message</span>;
@@ -532,13 +533,13 @@ const MessageItem = ({ msg, activeChat, displayName, darkMode, renderFilePreview
                                     }}
                                 />
                             ) : msg.message_type === 'text' ? (
-                                <p className="p-1 whitespace-pre-wrap break-words text-sm sm:text-base">{msg.message}</p>
+                                <p className="p-1 whitespace-pre-wrap break-words text-sm sm:text-base"><WhatsAppText text={msg.message} /></p>
                             ) : (
                                 <div className="space-y-2">
                                     {renderFilePreview(msg, { onAudioTimeChange: handleAudioTimeChange })}
                                     {msg.message && msg.message.trim() && (
                                         <p className="whitespace-pre-wrap break-words text-sm sm:text-base">
-                                            {msg.message}
+                                            <WhatsAppText text={msg.message} />
                                         </p>
                                     )}
                                 </div>
@@ -4306,7 +4307,7 @@ function Conversation({ activeChat, tokens, onBack, darkMode, dbAvailable, socke
                                         pageSize={caseListLimit}
                                         onPageChange={handleCaseListPageChange}
                                         onPageSizeChange={handleCaseListPageSizeChange}
-                                        pageSizeOptions={[10, 20, 50]}
+                                        pageSizeOptions={[10, 20, 50, 100]}
                                         showPageSizeSelector={true}
                                         showGoToPage={true}
                                     />

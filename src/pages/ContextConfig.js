@@ -832,11 +832,11 @@ function ContextConfig() {
 
     if (!isOwner) {
         return (
-            <div className="min-h-screen bg-slate-50">
+            <div className="min-h-screen bg-[#f4f6fb]">
                 <Header mobileMenuOpen={mobileMenuOpen} setMobileMenuOpen={setMobileMenuOpen} isMinimized={isMinimized} setIsMinimized={setIsMinimized} />
                 <Sidebar mobileMenuOpen={mobileMenuOpen} setMobileMenuOpen={setMobileMenuOpen} isMinimized={isMinimized} setIsMinimized={setIsMinimized} />
                 <div className={`pt-16 transition-all duration-300 ease-in-out ${isMinimized ? 'md:pl-20' : 'md:pl-[260px]'}`}>
-                    <div className="max-w-8xl mx-auto px-4 sm:px-6 md:px-8 py-8">
+                    <div className="w-full px-4 py-5">
                         <div className="max-w-2xl mx-auto mt-12 rounded-2xl border border-slate-200 bg-white p-8 shadow-xs text-center">
                             <FiLock className="w-14 h-14 mx-auto text-slate-300 mb-4" />
                             <h2 className="text-xl font-semibold text-slate-800 mb-2">Access denied</h2>
@@ -862,11 +862,11 @@ function ContextConfig() {
     const CurrentIcon = currentTabConf.icon;
 
     return (
-        <div className="min-h-screen bg-slate-50/60 pb-24">
+        <div className="min-h-screen bg-[#f4f6fb]/60 pb-24">
             <Header mobileMenuOpen={mobileMenuOpen} setMobileMenuOpen={setMobileMenuOpen} isMinimized={isMinimized} setIsMinimized={setIsMinimized} />
             <Sidebar mobileMenuOpen={mobileMenuOpen} setMobileMenuOpen={setMobileMenuOpen} isMinimized={isMinimized} setIsMinimized={setIsMinimized} />
             <div className={`pt-16 transition-all duration-300 ease-in-out ${isMinimized ? 'md:pl-20' : 'md:pl-[260px]'}`}>
-                <div className="w-full px-4 sm:px-6 md:px-8 py-8">
+                <div className="w-full px-4 py-5">
                     
                     {/* Header bar */}
                     <div className="mb-6">

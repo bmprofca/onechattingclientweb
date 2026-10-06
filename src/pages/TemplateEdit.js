@@ -905,7 +905,7 @@ function TemplateEdit() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50">
+      <div className="min-h-screen bg-[#f4f6fb]">
         <Header
           mobileMenuOpen={mobileMenuOpen}
           setMobileMenuOpen={setMobileMenuOpen}
@@ -920,7 +920,7 @@ function TemplateEdit() {
         />
         <div className={`pt-16 transition-all duration-300 ease-in-out ${isMinimized ? 'md:pl-20' : 'md:pl-[260px]'
           }`}>
-          <div className="max-w-8xl mx-auto px-4 sm:px-6 md:px-8 py-6">
+          <div className="w-full px-4 py-5">
             <div className="flex items-center justify-center h-64">
               <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600"></div>
               <span className="ml-3 text-lg text-gray-600">Loading template...</span>
@@ -932,7 +932,7 @@ function TemplateEdit() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-[#f4f6fb]">
       <Header
         mobileMenuOpen={mobileMenuOpen}
         setMobileMenuOpen={setMobileMenuOpen}
@@ -949,7 +949,7 @@ function TemplateEdit() {
       {/* Main content */}
       <div className={`pt-16 transition-all duration-300 ease-in-out ${isMinimized ? 'md:pl-20' : 'md:pl-[260px]'
         }`}>
-        <div className="max-w-8xl mx-auto px-4 sm:px-6 md:px-8 py-6">
+        <div className="w-full px-4 py-5">
           {/* Page header */}
           <div className="mb-6">
             <div className="flex items-center mb-4">
@@ -960,7 +960,7 @@ function TemplateEdit() {
                 <FiArrowLeft size={20} />
               </button>
               <div>
-                <h2 className="text-2xl font-bold text-gray-900">Edit WhatsApp Template</h2>
+                <h2 className="text-2xl font-semibold tracking-tight text-slate-900">Edit WhatsApp Template</h2>
                 <p className="mt-1 text-sm text-gray-600">
                   Edit your WhatsApp message template
                 </p>

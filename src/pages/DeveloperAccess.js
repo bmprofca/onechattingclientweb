@@ -5,6 +5,7 @@ import { useNavigate } from 'react-router-dom';
 import { useSelector, useDispatch } from 'react-redux';
 import axios from 'axios';
 import { Header, Sidebar } from '../component/Menu';
+import Pagination from '../component/Pagination';
 import { fetchProjectInfo } from '../store/projectSlice';
 import {
     FiCode,
@@ -283,6 +284,8 @@ function DeveloperAccess() {
     const [projectToken, setProjectToken] = useState('');
     const [projectTokenLoading, setProjectTokenLoading] = useState(false);
     const [mappedUsers, setMappedUsers] = useState([]);
+    const [userPage, setUserPage] = useState(1);
+    const [userPageSize, setUserPageSize] = useState(20);
     const [userTokenLoading, setUserTokenLoading] = useState({});
     const [confirmModal, setConfirmModal] = useState({
         open: false,
@@ -549,11 +552,11 @@ function DeveloperAccess() {
 
     if (!isOwner) {
         return (
-            <div className="min-h-screen bg-slate-50">
+            <div className="min-h-screen bg-[#f4f6fb]">
                 <Header mobileMenuOpen={mobileMenuOpen} setMobileMenuOpen={setMobileMenuOpen} isMinimized={isMinimized} setIsMinimized={setIsMinimized} />
                 <Sidebar mobileMenuOpen={mobileMenuOpen} setMobileMenuOpen={setMobileMenuOpen} isMinimized={isMinimized} setIsMinimized={setIsMinimized} />
                 <div className={`pt-16 transition-all duration-300 ease-in-out ${isMinimized ? 'md:pl-20' : 'md:pl-[260px]'}`}>
-                    <div className="max-w-8xl mx-auto px-4 sm:px-6 md:px-8 py-8">
+                    <div className="w-full px-4 py-5">
                         <div className="max-w-2xl mx-auto mt-12 rounded-xl border border-slate-200 bg-white p-8 shadow-sm text-center">
                             <FiLock className="w-14 h-14 mx-auto text-slate-300 mb-4" />
                             <h2 className="text-xl font-semibold text-slate-800 mb-2">Access denied</h2>
@@ -572,12 +575,16 @@ function DeveloperAccess() {
         );
     }
 
+    const userPageCount = Math.max(1, Math.ceil(mappedUsers.length / userPageSize) || 1);
+    const safeUserPage = Math.min(userPage, userPageCount);
+    const pagedUsers = mappedUsers.slice((safeUserPage - 1) * userPageSize, safeUserPage * userPageSize);
+
     return (
-        <div className="min-h-screen bg-slate-50">
+        <div className="min-h-screen bg-[#f4f6fb]">
             <Header mobileMenuOpen={mobileMenuOpen} setMobileMenuOpen={setMobileMenuOpen} isMinimized={isMinimized} setIsMinimized={setIsMinimized} />
             <Sidebar mobileMenuOpen={mobileMenuOpen} setMobileMenuOpen={setMobileMenuOpen} isMinimized={isMinimized} setIsMinimized={setIsMinimized} />
             <div className={`pt-16 transition-all duration-300 ease-in-out ${isMinimized ? 'md:pl-20' : 'md:pl-[260px]'}`}>
-                <div className="max-w-8xl mx-auto px-4 sm:px-6 md:px-8 py-8">
+                <div className="w-full px-4 py-5">
                     <div className="mb-8 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
                         <h1 className="text-2xl font-bold text-slate-800 flex items-center gap-2">
                             <FiCode className="w-7 h-7 text-indigo-600" />
@@ -688,10 +695,10 @@ function DeveloperAccess() {
                                                     </td>
                                                 </tr>
                                             ) : (
-                                                mappedUsers.map((user, index) => (
+                                                pagedUsers.map((user, index) => (
                                                     <UserTokenRow
                                                         key={user.unique_id}
-                                                        serialNo={index + 1}
+                                                        serialNo={(safeUserPage - 1) * userPageSize + index + 1}
                                                         user={user}
                                                         loading={Boolean(userTokenLoading[user.unique_id])}
                                                         onRegenerate={() => requestUserTokenRegenerate(user)}
@@ -703,6 +710,20 @@ function DeveloperAccess() {
                                         </tbody>
                                     </table>
                                 </div>
+                                {mappedUsers.length > 0 ? (
+                                    <Pagination
+                                        currentPage={safeUserPage}
+                                        totalPages={userPageCount}
+                                        totalRecords={mappedUsers.length}
+                                        pageSize={userPageSize}
+                                        onPageChange={setUserPage}
+                                        onPageSizeChange={(size) => {
+                                            setUserPageSize(size);
+                                            setUserPage(1);
+                                        }}
+                                        pageSizeOptions={[10, 20, 50, 100]}
+                                    />
+                                ) : null}
                             </div>
                         </div>
                     )}

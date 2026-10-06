@@ -6,6 +6,7 @@ import RecordDetailsModal from '../component/table/RecordDetailsModal';
 import { TableSkeletonRows } from '../component/table/TableSkeleton';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Header, Sidebar } from '../component/Menu';
+import Pagination from '../component/Pagination';
 import toast from 'react-hot-toast';
 import { getSubscriptionPacks, purchasePlan } from '../api/auth';
 
@@ -74,6 +75,8 @@ function MySubscription() {
     });
     const [subscriptionPackage, setSubscriptionPackage] = useState(null); // { monthly: { amount, package_id }, yearly: { amount, package_id } }
     const [packageRecord, setPackageRecord] = useState([]); // [{ project_id, project_name, has_package_record, end_date? }]
+    const [projectPage, setProjectPage] = useState(1);
+    const [projectPageSize, setProjectPageSize] = useState(20);
     // Selected projects for renewal: { [project_id]: 'monthly' | 'yearly' }
     const [selectedForRenewal, setSelectedForRenewal] = useState({});
     const [loading, setLoading] = useState(true);
@@ -85,6 +88,13 @@ function MySubscription() {
 
     const navigate = useNavigate();
     const paymentSectionRef = useRef(null);
+
+    const projectPageCount = Math.max(1, Math.ceil(packageRecord.length / projectPageSize) || 1);
+    const safeProjectPage = Math.min(projectPage, projectPageCount);
+    const pagedProjects = packageRecord.slice(
+        (safeProjectPage - 1) * projectPageSize,
+        safeProjectPage * projectPageSize
+    );
 
     // Persist sidebar minimized state
     useEffect(() => {
@@ -286,7 +296,7 @@ function MySubscription() {
     };
 
     return (
-        <div className="min-h-screen bg-gray-50">
+        <div className="min-h-screen bg-[#f4f6fb]">
             <Header
                 mobileMenuOpen={mobileMenuOpen}
                 setMobileMenuOpen={setMobileMenuOpen}
@@ -302,10 +312,10 @@ function MySubscription() {
 
             {/* Main content */}
             <div className={`pt-16 transition-all duration-300 ease-in-out ${isMinimized ? 'md:pl-20' : 'md:pl-[260px]'}`}>
-                <div className="max-w-8xl mx-auto px-4 sm:px-6 md:px-8 py-6">
+                <div className="w-full px-4 py-5">
                     {/* Page header */}
                     <div className="mb-6">
-                        <h1 className="text-2xl md:text-3xl font-bold text-gray-900 dark:text-white">My Subscription</h1>
+                        <h1 className="text-2xl font-semibold tracking-tight text-slate-900 dark:text-white">My Subscription</h1>
                         <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">Plans are per project. View package pricing and project validity below.</p>
                     </div>
 
@@ -397,7 +407,7 @@ function MySubscription() {
                                                         </td>
                                                     </tr>
                                                 ) : (
-                                                    packageRecord.map((record, index) => {
+                                                    pagedProjects.map((record, index) => {
                                                         const isSelected = !!selectedForRenewal[record.project_id];
                                                         const cycle = selectedForRenewal[record.project_id] || 'monthly';
                                                         const renewalAmount = getAmountForCycle(cycle);
@@ -407,7 +417,7 @@ function MySubscription() {
                                                                 key={record.project_id}
                                                                 className="bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700/40 transition-colors"
                                                             >
-                                                                <td className="pl-5 pr-2 py-3 text-center text-sm text-gray-500 dark:text-gray-400">{index + 1}</td>
+                                                                <td className="pl-5 pr-2 py-3 text-center text-sm text-gray-500 dark:text-gray-400">{(safeProjectPage - 1) * projectPageSize + index + 1}</td>
                                                                 <td className="pl-5 pr-3 py-3 align-middle">
                                                                     <AnimatedCheckbox
                                                                         checked={isSelected}
@@ -494,6 +504,20 @@ function MySubscription() {
                                             </tbody>
                                         </table>
                                     </div>
+                                    {packageRecord.length > 0 ? (
+                                        <Pagination
+                                            currentPage={safeProjectPage}
+                                            totalPages={projectPageCount}
+                                            totalRecords={packageRecord.length}
+                                            pageSize={projectPageSize}
+                                            onPageChange={setProjectPage}
+                                            onPageSizeChange={(size) => {
+                                                setProjectPageSize(size);
+                                                setProjectPage(1);
+                                            }}
+                                            pageSizeOptions={[10, 20, 50, 100]}
+                                        />
+                                    ) : null}
                                 </div>
                             </div>
 

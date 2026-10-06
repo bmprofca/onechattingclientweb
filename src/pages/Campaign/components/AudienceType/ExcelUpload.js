@@ -1,6 +1,7 @@
 import React, { useState, useRef } from 'react';
 import { API_BASE_URL } from '../../../../config/api';
-import { Upload, Phone, User, CheckCircle, AlertCircle, FileText, Download, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Upload, Phone, User, CheckCircle, AlertCircle, FileText, Download } from 'lucide-react';
+import Pagination from '../../../../component/Pagination';
 import axios from 'axios';
 import { parseExcelFile, extractContacts } from '../../utils/excelParser';
 import { uploadFile } from '../../../../utils/uploadFile';
@@ -25,7 +26,7 @@ export default function ExcelUpload({
   const [success, setSuccess] = useState('');
   const [uploadedFileUrl, setUploadedFileUrl] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
-  const [itemsPerPage] = useState(5);
+  const [itemsPerPage, setItemsPerPage] = useState(10);
   const fileInputRef = useRef(null);
 
   const uploadFileToServer = async (fileToUpload) => {
@@ -266,18 +267,6 @@ export default function ExcelUpload({
         const endIndex = startIndex + itemsPerPage;
         const currentContacts = contacts.slice(startIndex, endIndex);
 
-        const handlePreviousPage = () => {
-          if (currentPage > 1) {
-            setCurrentPage(currentPage - 1);
-          }
-        };
-
-        const handleNextPage = () => {
-          if (currentPage < totalPages) {
-            setCurrentPage(currentPage + 1);
-          }
-        };
-
         return (
           <div className="bg-indigo-50 border border-indigo-200 rounded-lg p-6">
             <div className="flex items-center justify-between mb-4">
@@ -333,96 +322,20 @@ export default function ExcelUpload({
                 </table>
               </div>
 
-              {/* Pagination */}
-              {totalPages > 1 && (
-                <div className="bg-gray-50 px-4 py-3 flex items-center justify-between border-t border-gray-200">
-                  <div className="flex-1 flex justify-between sm:hidden">
-                    <button
-                      onClick={handlePreviousPage}
-                      disabled={currentPage === 1}
-                      className={`relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md ${currentPage === 1
-                          ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
-                          : 'bg-white text-gray-700 hover:bg-gray-50'
-                        }`}
-                    >
-                      Previous
-                    </button>
-                    <button
-                      onClick={handleNextPage}
-                      disabled={currentPage === totalPages}
-                      className={`ml-3 relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md ${currentPage === totalPages
-                          ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
-                          : 'bg-white text-gray-700 hover:bg-gray-50'
-                        }`}
-                    >
-                      Next
-                    </button>
-                  </div>
-                  <div className="hidden sm:flex-1 sm:flex sm:items-center sm:justify-between">
-                    <div>
-                      <p className="text-sm text-gray-700">
-                        Showing <span className="font-medium">{startIndex + 1}</span> to{' '}
-                        <span className="font-medium">{Math.min(endIndex, contacts.length)}</span> of{' '}
-                        <span className="font-medium">{contacts.length}</span> contacts
-                      </p>
-                    </div>
-                    <div>
-                      <nav className="relative z-0 inline-flex rounded-md shadow-sm -space-x-px" aria-label="Pagination">
-                        <button
-                          onClick={handlePreviousPage}
-                          disabled={currentPage === 1}
-                          className={`relative inline-flex items-center px-2 py-2 rounded-l-md border border-gray-300 text-sm font-medium ${currentPage === 1
-                              ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
-                              : 'bg-white text-gray-500 hover:bg-gray-50'
-                            }`}
-                        >
-                          <ChevronLeft className="h-5 w-5" />
-                        </button>
-                        {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => {
-                          if (
-                            page === 1 ||
-                            page === totalPages ||
-                            (page >= currentPage - 1 && page <= currentPage + 1)
-                          ) {
-                            return (
-                              <button
-                                key={page}
-                                onClick={() => setCurrentPage(page)}
-                                className={`relative inline-flex items-center px-4 py-2 border text-sm font-medium ${currentPage === page
-                                    ? 'z-10 bg-indigo-50 border-indigo-500 text-indigo-600'
-                                    : 'bg-white border-gray-300 text-gray-500 hover:bg-gray-50'
-                                  }`}
-                              >
-                                {page}
-                              </button>
-                            );
-                          } else if (page === currentPage - 2 || page === currentPage + 2) {
-                            return (
-                              <span
-                                key={page}
-                                className="relative inline-flex items-center px-4 py-2 border border-gray-300 bg-white text-sm font-medium text-gray-700"
-                              >
-                                ...
-                              </span>
-                            );
-                          }
-                          return null;
-                        })}
-                        <button
-                          onClick={handleNextPage}
-                          disabled={currentPage === totalPages}
-                          className={`relative inline-flex items-center px-2 py-2 rounded-r-md border border-gray-300 text-sm font-medium ${currentPage === totalPages
-                              ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
-                              : 'bg-white text-gray-500 hover:bg-gray-50'
-                            }`}
-                        >
-                          <ChevronRight className="h-5 w-5" />
-                        </button>
-                      </nav>
-                    </div>
-                  </div>
-                </div>
-              )}
+              {contacts.length > 0 ? (
+                <Pagination
+                  currentPage={Math.min(currentPage, totalPages)}
+                  totalPages={totalPages}
+                  totalRecords={contacts.length}
+                  pageSize={itemsPerPage}
+                  onPageChange={setCurrentPage}
+                  onPageSizeChange={(size) => {
+                    setItemsPerPage(size);
+                    setCurrentPage(1);
+                  }}
+                  pageSizeOptions={[10, 20, 50, 100]}
+                />
+              ) : null}
             </div>
           </div>
         );

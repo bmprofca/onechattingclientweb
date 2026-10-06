@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Header, Sidebar } from '../component/Menu';
+import Pagination from '../component/Pagination';
 import {
     Users,
     Plus,
@@ -10,16 +11,12 @@ import {
     Phone,
     Mail,
     Briefcase,
-    Tag,
     FileText,
     X,
     Check,
     Download,
     RefreshCw,
     Heart,
-    MapPin,
-    UserCheck,
-    AlertCircle,
     QrCode
 } from 'lucide-react';
 import toast from 'react-hot-toast';
@@ -29,7 +26,6 @@ import {
     updateScannedUser,
     deleteScannedUser
 } from '../api/scannedUsers';
-import { getProjectQRCodes } from '../api/qrcode';
 import RowActionMenu from '../component/table/RowActionMenu';
 import RecordDetailsModal from '../component/table/RecordDetailsModal';
 import { TableSkeletonRows } from '../component/table/TableSkeleton';
@@ -60,8 +56,7 @@ export default function ScannedUsers() {
     const [users, setUsers] = useState([]);
     const [loading, setLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState('');
-    const [pagination, setPagination] = useState({ page: 1, limit: 15, total: 0, total_pages: 1 });
-    const [qrCodes, setQrCodes] = useState([]);
+    const [pagination, setPagination] = useState({ page: 1, limit: 20, total: 0, total_pages: 1 });
 
     // Modal state
     const [modalOpen, setModalOpen] = useState(false);
@@ -88,7 +83,7 @@ export default function ScannedUsers() {
     const projectId = userData?.selected_project_id;
 
     // Fetch scanned users
-    const fetchUsers = useCallback(async (page = 1, search = searchTerm) => {
+    const fetchUsers = useCallback(async (page = 1, search = searchTerm, limit = pagination.limit) => {
         if (!projectId) {
             setLoading(false);
             return;
@@ -100,13 +95,19 @@ export default function ScannedUsers() {
                 project_id: projectId,
                 search: search,
                 page: page,
-                limit: pagination.limit
+                limit
             });
 
             if (!res.error && res.data) {
                 setUsers(res.data);
                 if (res.pagination) {
-                    setPagination(res.pagination);
+                    const returnedLimit = Number(res.pagination.limit);
+                    const allowedLimits = [10, 20, 50, 100];
+                    setPagination((prev) => ({
+                        ...prev,
+                        ...res.pagination,
+                        limit: allowedLimits.includes(returnedLimit) ? returnedLimit : limit
+                    }));
                 }
             } else {
                 toast.error(res.error || 'Failed to load scanned users');
@@ -118,22 +119,6 @@ export default function ScannedUsers() {
             setLoading(false);
         }
     }, [projectId, pagination.limit, searchTerm]);
-
-    // Fetch project QR codes for linking in form
-    useEffect(() => {
-        const fetchQrs = async () => {
-            if (!projectId) return;
-            try {
-                const res = await getProjectQRCodes({ project_id: projectId });
-                if (!res.error && res.qr_codes) {
-                    setQrCodes(res.qr_codes);
-                }
-            } catch (e) {
-                console.error('Error fetching QR codes:', e);
-            }
-        };
-        fetchQrs();
-    }, [projectId]);
 
     useEffect(() => {
         fetchUsers(1, searchTerm);
@@ -284,7 +269,7 @@ export default function ScannedUsers() {
     };
 
     return (
-        <div className="min-h-screen bg-slate-50 font-sans text-slate-900">
+        <div className="min-h-screen bg-[#f4f6fb] font-sans text-slate-900">
             <Header
                 mobileMenuOpen={mobileMenuOpen}
                 setMobileMenuOpen={setMobileMenuOpen}
@@ -299,140 +284,73 @@ export default function ScannedUsers() {
             />
 
             <main className={`pt-16 transition-all duration-300 ease-in-out ${isMinimized ? 'md:pl-20' : 'md:pl-[260px]'}`}>
-                <div className="p-4 sm:p-6 lg:p-8 max-w-8xl mx-auto space-y-6">
-
-                    {/* Top Header Card */}
-                    <div className="bg-white rounded-2xl border border-slate-200/80 shadow-sm p-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-                        <div>
-                            <div className="flex items-center gap-2 text-xs font-semibold text-indigo-600 uppercase tracking-wider mb-1">
-                                <QrCode className="w-4 h-4" />
-                                <span>QR Code Management</span>
-                            </div>
-                            <h1 className="text-2xl font-bold text-slate-900 tracking-tight flex items-center gap-3">
-                                Scanned Users
-                                <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-indigo-50 text-indigo-700 border border-indigo-200">
-                                    {pagination.total} Records
-                                </span>
-                            </h1>
-                            <p className="text-sm text-slate-500 mt-1">
-                                View and manage customer profiles captured through QR scans or added manually.
-                            </p>
+                <div className="w-full px-4 py-5">
+                    <div className="mb-5 flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+                        <div className="min-w-0">
+                            <h1 className="text-2xl font-semibold tracking-tight text-slate-900">Scanned users</h1>
+                            <p className="mt-1 text-sm text-slate-500">People who scanned a project QR code, or were added by hand.</p>
                         </div>
-
-                        <div className="flex items-center gap-3 flex-wrap">
-                            <button
-                                onClick={exportCsv}
-                                className="inline-flex items-center gap-2 px-3.5 py-2.5 rounded-xl border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 font-medium text-sm transition-all shadow-sm active:scale-95"
-                            >
-                                <Download className="w-4 h-4 text-slate-500" />
-                                <span>Export CSV</span>
-                            </button>
-
-                            <button
-                                onClick={() => fetchUsers(pagination.page, searchTerm)}
-                                className="inline-flex items-center gap-2 px-3.5 py-2.5 rounded-xl border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 font-medium text-sm transition-all shadow-sm active:scale-95"
-                                title="Refresh"
-                            >
-                                <RefreshCw className={`w-4 h-4 text-slate-500 ${loading ? 'animate-spin' : ''}`} />
-                            </button>
-
-                            <button
-                                onClick={handleOpenAddModal}
-                                className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-semibold text-sm shadow-sm hover:shadow transition-all active:scale-95"
-                            >
-                                <Plus className="w-4 h-4" />
-                                <span>Add Scanned User</span>
-                            </button>
-                        </div>
-                    </div>
-
-                    {/* Stats Row */}
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                        <div className="bg-white rounded-xl border border-slate-200/80 p-5 shadow-sm flex items-center justify-between">
-                            <div>
-                                <p className="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-1">Total Scanned</p>
-                                <p className="text-2xl font-bold text-slate-900">{pagination.total}</p>
-                            </div>
-                            <div className="w-12 h-12 rounded-xl bg-indigo-50 flex items-center justify-center text-indigo-600">
-                                <Users className="w-6 h-6" />
-                            </div>
-                        </div>
-
-                        <div className="bg-white rounded-xl border border-slate-200/80 p-5 shadow-sm flex items-center justify-between">
-                            <div>
-                                <p className="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-1">Active Profiles</p>
-                                <p className="text-2xl font-bold text-emerald-600">{pagination.total}</p>
-                            </div>
-                            <div className="w-12 h-12 rounded-xl bg-emerald-50 flex items-center justify-center text-emerald-600">
-                                <UserCheck className="w-6 h-6" />
-                            </div>
-                        </div>
-
-                        <div className="bg-white rounded-xl border border-slate-200/80 p-5 shadow-sm flex items-center justify-between">
-                            <div>
-                                <p className="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-1">Active QR Codes</p>
-                                <p className="text-2xl font-bold text-amber-600">{qrCodes.length}</p>
-                            </div>
-                            <div className="w-12 h-12 rounded-xl bg-amber-50 flex items-center justify-center text-amber-600">
-                                <QrCode className="w-6 h-6" />
-                            </div>
-                        </div>
-
-                        <div className="bg-white rounded-xl border border-slate-200/80 p-5 shadow-sm flex items-center justify-between">
-                            <div>
-                                <p className="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-1">With Birthday/Anniv</p>
-                                <p className="text-2xl font-bold text-pink-600">
-                                    {users.filter(u => u.dob || u.anniversary).length}
-                                </p>
-                            </div>
-                            <div className="w-12 h-12 rounded-xl bg-pink-50 flex items-center justify-center text-pink-600">
-                                <Heart className="w-6 h-6" />
-                            </div>
-                        </div>
-                    </div>
-
-                    {/* Search Bar */}
-                    <div className="bg-white rounded-xl border border-slate-200/80 p-4 shadow-sm">
-                        <form onSubmit={handleSearchSubmit} className="flex gap-3">
-                            <div className="relative flex-1">
-                                <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                        <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
+                            <form onSubmit={handleSearchSubmit} className="relative">
+                                <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
                                 <input
                                     type="text"
-                                    placeholder="Search by name, mobile, email, company, or tags..."
+                                    placeholder="Search name, mobile, or email"
                                     value={searchTerm}
                                     onChange={(e) => setSearchTerm(e.target.value)}
-                                    className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-sm"
+                                    className="h-10 w-full rounded-lg border border-slate-200 bg-white pl-9 pr-3 text-sm text-slate-700 placeholder:text-slate-400 focus:border-indigo-300 focus:outline-none focus:ring-2 focus:ring-indigo-100 sm:w-64"
                                 />
-                            </div>
-                            <button
-                                type="submit"
-                                className="px-5 py-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-semibold text-sm transition-all shadow-sm"
-                            >
-                                Search
-                            </button>
-                            {searchTerm && (
+                            </form>
+                            <div className="flex items-center gap-2">
+                                {searchTerm ? (
+                                    <button
+                                        type="button"
+                                        onClick={() => {
+                                            setSearchTerm('');
+                                            fetchUsers(1, '');
+                                        }}
+                                        className="inline-flex h-10 items-center rounded-lg border border-slate-200 bg-white px-3 text-sm font-medium text-slate-600 transition hover:bg-slate-50"
+                                    >
+                                        Clear
+                                    </button>
+                                ) : null}
                                 <button
                                     type="button"
-                                    onClick={() => {
-                                        setSearchTerm('');
-                                        fetchUsers(1, '');
-                                    }}
-                                    className="px-4 py-2.5 rounded-xl border border-slate-200 text-slate-600 hover:bg-slate-50 font-medium text-sm transition-all"
+                                    onClick={exportCsv}
+                                    className="inline-flex h-10 items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 text-sm font-medium text-slate-600 transition hover:bg-slate-50"
                                 >
-                                    Clear
+                                    <Download className="h-4 w-4" />
+                                    Export
                                 </button>
-                            )}
-                        </form>
+                                <button
+                                    type="button"
+                                    onClick={() => fetchUsers(pagination.page, searchTerm)}
+                                    disabled={loading}
+                                    title="Refresh"
+                                    className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-600 transition hover:border-indigo-200 hover:text-indigo-600 disabled:cursor-not-allowed disabled:opacity-50"
+                                >
+                                    <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={handleOpenAddModal}
+                                    className="inline-flex h-10 items-center gap-2 rounded-lg bg-indigo-600 px-3.5 text-sm font-semibold text-white transition hover:bg-indigo-700"
+                                >
+                                    <Plus className="h-4 w-4" />
+                                    Add user
+                                </button>
+                            </div>
+                        </div>
                     </div>
 
                     {/* Scanned Users Table */}
-                    <div className="bg-white rounded-2xl border border-slate-200/80 shadow-sm overflow-hidden">
+                    <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
                         {loading ? (
                             <table className="w-full">
-                                <thead className="bg-slate-50/80 text-xs uppercase tracking-wider text-slate-500 font-semibold border-b border-slate-200">
+                                <thead className="bg-slate-50">
                                     <tr>
-                                        {['#', 'User', 'Contact', 'Special Dates', 'QR Source', 'Date Added', ''].map((label) => (
-                                            <th key={label || 'actions'} className="px-4 py-4 text-left">{label}</th>
+                                        {['#', 'User', 'Contact', 'Special dates', 'QR source', 'Added', ''].map((label) => (
+                                            <th key={label || 'actions'} className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500 sm:px-5">{label}</th>
                                         ))}
                                     </tr>
                                 </thead>
@@ -441,36 +359,35 @@ export default function ScannedUsers() {
                                 </tbody>
                             </table>
                         ) : users.length === 0 ? (
-                            <div className="p-12 text-center max-w-md mx-auto">
-                                <div className="w-16 h-16 rounded-2xl bg-indigo-50 text-indigo-600 flex items-center justify-center mx-auto mb-4">
-                                    <Users className="w-8 h-8" />
+                            <div className="px-6 py-16 text-center">
+                                <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-indigo-50 text-indigo-600">
+                                    <Users className="h-6 w-6" />
                                 </div>
-                                <h3 className="text-lg font-bold text-slate-900 mb-1">No scanned users found</h3>
-                                <p className="text-sm text-slate-500 mb-6">
+                                <h2 className="mt-4 text-base font-semibold text-slate-900">No scanned users</h2>
+                                <p className="mx-auto mt-1 max-w-sm text-sm text-slate-500">
                                     {searchTerm
-                                        ? 'No records match your search filter. Try different keywords.'
-                                        : 'When customers scan your WhatsApp QR code or you add them manually, they will appear here.'}
+                                        ? 'Nothing matches this search. Try another name or number.'
+                                        : 'People show up here after they scan a project QR code, or after you add them.'}
                                 </p>
-                                <button
-                                    onClick={handleOpenAddModal}
-                                    className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-semibold text-sm shadow-sm transition-all"
-                                >
-                                    <Plus className="w-4 h-4" />
-                                    <span>Add First User</span>
-                                </button>
+                                {!searchTerm ? (
+                                    <button
+                                        type="button"
+                                        onClick={handleOpenAddModal}
+                                        className="mt-5 inline-flex h-10 items-center gap-2 rounded-lg bg-indigo-600 px-3.5 text-sm font-semibold text-white transition hover:bg-indigo-700"
+                                    >
+                                        <Plus className="h-4 w-4" />
+                                        Add user
+                                    </button>
+                                ) : null}
                             </div>
                         ) : (
                             <div className="overflow-x-auto">
-                                <table className="w-full text-left text-sm text-slate-600">
-                                    <thead className="bg-slate-50/80 text-xs uppercase tracking-wider text-slate-500 font-semibold border-b border-slate-200">
+                                <table className="min-w-full divide-y divide-slate-200">
+                                    <thead className="bg-slate-50">
                                         <tr>
-                                            <th className="w-14 px-4 py-4 text-center">#</th>
-                                            <th className="px-6 py-4">User</th>
-                                            <th className="px-6 py-4">Contact</th>
-                                            <th className="px-6 py-4">Special Dates</th>
-                                            <th className="px-6 py-4">QR Source</th>
-                                            <th className="px-6 py-4">Date Added</th>
-                                            <th className="w-16 px-3 py-4 text-right">Actions</th>
+                                            {['#', 'User', 'Contact', 'Special dates', 'QR source', 'Added', ''].map((label) => (
+                                                <th key={label || 'actions'} className={`px-4 py-3 text-xs font-semibold uppercase tracking-wide text-slate-500 sm:px-5 ${label === '' ? 'text-right' : 'text-left'}`}>{label}</th>
+                                            ))}
                                         </tr>
                                     </thead>
                                     <tbody className="divide-y divide-slate-100">
@@ -483,7 +400,7 @@ export default function ScannedUsers() {
                                                 .slice(0, 2);
 
                                             return (
-                                                <tr key={user.scan_id || user.id} className="hover:bg-slate-50/60 transition-colors">
+                                                <tr key={user.scan_id || user.id} className="transition hover:bg-slate-50">
                                                     <td className="px-4 py-4 text-center text-sm text-slate-500">{(pagination.page - 1) * pagination.limit + index + 1}</td>
                                                     <td className="px-6 py-4">
                                                         <div className="flex items-center gap-3">
@@ -592,30 +509,20 @@ export default function ScannedUsers() {
                             </div>
                         )}
 
-                        {/* Pagination Footer */}
-                        {!loading && users.length > 0 && (
-                            <div className="px-6 py-3 border-t border-slate-200 bg-slate-50/60 flex items-center justify-between text-xs text-slate-500">
-                                <p>
-                                    Page <strong>{pagination.page}</strong> of <strong>{pagination.total_pages}</strong> · Total: {pagination.total}
-                                </p>
-                                <div className="flex items-center gap-2">
-                                    <button
-                                        disabled={pagination.page <= 1}
-                                        onClick={() => fetchUsers(pagination.page - 1, searchTerm)}
-                                        className="px-3 py-1.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed text-xs font-semibold"
-                                    >
-                                        Previous
-                                    </button>
-                                    <button
-                                        disabled={pagination.page >= pagination.total_pages}
-                                        onClick={() => fetchUsers(pagination.page + 1, searchTerm)}
-                                        className="px-3 py-1.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed text-xs font-semibold"
-                                    >
-                                        Next
-                                    </button>
-                                </div>
-                            </div>
-                        )}
+                        {!loading && pagination.total > 0 ? (
+                            <Pagination
+                                currentPage={pagination.page}
+                                totalPages={pagination.total_pages}
+                                totalRecords={pagination.total}
+                                pageSize={pagination.limit}
+                                onPageChange={(page) => fetchUsers(page, searchTerm)}
+                                onPageSizeChange={(size) => {
+                                    setPagination((prev) => ({ ...prev, limit: size, page: 1 }));
+                                    fetchUsers(1, searchTerm, size);
+                                }}
+                                pageSizeOptions={[10, 20, 50, 100]}
+                            />
+                        ) : null}
                     </div>
                 </div>
             </main>

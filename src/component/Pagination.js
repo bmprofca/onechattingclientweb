@@ -1,5 +1,4 @@
 import React, { useState } from 'react';
-import SearchableSelect from './SearchableSelect';
 import {
   FiChevronLeft,
   FiChevronRight,
@@ -113,10 +112,36 @@ function Pagination({
 
   const pageNumbers = getPageNumbers();
 
+  const resultsLabel = (
+    <>
+      Showing <span className="font-semibold text-gray-900">{startRecord}</span> to{' '}
+      <span className="font-semibold text-gray-900">{endRecord}</span> of{' '}
+      <span className="font-semibold text-gray-900">{totalRecords}</span> results
+      <span className="text-gray-300"> · </span>
+      <span className="font-semibold text-gray-900">{totalPages}</span> {totalPages === 1 ? 'page' : 'pages'}
+    </>
+  );
+
+  const renderPageSizeSelect = (id) => (
+    <select
+      id={id}
+      aria-label="Rows per page"
+      value={pageSize}
+      onChange={handlePageSizeChange}
+      className="h-8 rounded-md border border-gray-300 bg-white pl-2 pr-7 text-sm text-gray-800 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+    >
+      {pageSizeOptions.map((size) => (
+        <option key={size} value={size}>{size}</option>
+      ))}
+    </select>
+  );
+
+  const navButtonClass = 'inline-flex h-8 w-8 items-center justify-center rounded-md border border-gray-300 bg-white text-gray-700 hover:border-gray-400 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:border-gray-300 disabled:hover:bg-white';
+
   if (totalPages <= 0 || totalRecords === 0) {
     return (
       <div className="bg-white border-t border-gray-200">
-        <div className="px-4 py-4">
+        <div className="px-4 py-2.5">
           <div className="text-sm text-gray-600 text-center">
             No results found
           </div>
@@ -127,30 +152,20 @@ function Pagination({
 
   return (
     <div className="bg-white border-t border-gray-200">
-      {/* Main Pagination Container */}
-      <div className="px-4 py-4">
+      <div className="px-4 py-2.5">
         {/* Desktop Layout */}
-        <div className="hidden md:flex items-center justify-between gap-6">
-          {/* Left: Records Info & Page Size */}
-          <div className="flex items-center gap-4">
-            <div className="text-sm text-gray-700 font-medium">
-              Showing <span className="text-gray-900 font-semibold">{startRecord}</span> to{' '}
-              <span className="text-gray-900 font-semibold">{endRecord}</span> of{' '}
-              <span className="text-gray-900 font-semibold">{totalRecords}</span> results
+        <div className="hidden md:flex items-center justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <div className="text-sm text-gray-600 whitespace-nowrap">
+              {resultsLabel}
             </div>
 
             {showPageSizeSelector && onPageSizeChange && (
-              <div className="flex items-center gap-2 ml-2">
+              <div className="flex items-center gap-2">
                 <label htmlFor="pageSize" className="text-sm text-gray-600 whitespace-nowrap">
                   Show:
                 </label>
-                <SearchableSelect
-                  id="pageSize"
-                  value={pageSize}
-                  onChange={handlePageSizeChange}
-                  options={pageSizeOptions.map((size) => ({ value: size, label: String(size) }))}
-                  className="border border-gray-300 rounded-md px-3 py-1.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-colors"
-                />
+                {renderPageSizeSelect('pageSize')}
               </div>
             )}
           </div>
@@ -161,7 +176,7 @@ function Pagination({
             <button
               onClick={() => handlePageChange(1)}
               disabled={currentPage === 1}
-              className="p-2 rounded-md border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 hover:border-gray-400 disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-white disabled:hover:border-gray-300 transition-all"
+              className={navButtonClass}
               title="First page"
             >
               <FiChevronsLeft className="h-4 w-4" />
@@ -171,7 +186,7 @@ function Pagination({
             <button
               onClick={() => handlePageChange(currentPage - 1)}
               disabled={currentPage === 1}
-              className="p-2 rounded-md border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 hover:border-gray-400 disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-white disabled:hover:border-gray-300 transition-all"
+              className={navButtonClass}
               title="Previous page"
             >
               <FiChevronLeft className="h-4 w-4" />
@@ -195,11 +210,10 @@ function Pagination({
                   <button
                     key={page}
                     onClick={() => handlePageChange(page)}
-                    className={`min-w-[2.5rem] h-9 px-3 rounded-md text-sm font-medium transition-all ${
-                      currentPage === page
+                    className={`min-w-[2rem] h-8 px-2 rounded-md text-sm font-medium transition-all ${currentPage === page
                         ? 'bg-indigo-600 text-white shadow-sm hover:bg-indigo-700'
                         : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50 hover:border-gray-400'
-                    }`}
+                      }`}
                   >
                     {page}
                   </button>
@@ -211,7 +225,7 @@ function Pagination({
             <button
               onClick={() => handlePageChange(currentPage + 1)}
               disabled={currentPage === totalPages}
-              className="p-2 rounded-md border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 hover:border-gray-400 disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-white disabled:hover:border-gray-300 transition-all"
+              className={navButtonClass}
               title="Next page"
             >
               <FiChevronRight className="h-4 w-4" />
@@ -221,7 +235,7 @@ function Pagination({
             <button
               onClick={() => handlePageChange(totalPages)}
               disabled={currentPage === totalPages}
-              className="p-2 rounded-md border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 hover:border-gray-400 disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-white disabled:hover:border-gray-300 transition-all"
+              className={navButtonClass}
               title="Last page"
             >
               <FiChevronsRight className="h-4 w-4" />
@@ -230,53 +244,40 @@ function Pagination({
 
           {/* Right: Go to Page */}
           {showGoToPage && (
-            <div className="flex items-center gap-3">
-              <div className="flex items-center gap-2 bg-gray-50 rounded-lg px-3 py-2 border border-gray-200">
-                <label htmlFor="goToPage" className="text-sm text-gray-600 whitespace-nowrap font-medium">
-                  Go to:
-                </label>
-                <div className="relative">
-                  <input
-                    id="goToPage"
-                    type="number"
-                    min="1"
-                    max={totalPages}
-                    value={goToPageInput}
-                    onChange={handleInputChange}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter') {
-                        handleGoToPage();
-                      }
-                    }}
-                    placeholder={`1-${totalPages}`}
-                    className={`w-20 px-2 py-1.5 border rounded-md text-sm text-center focus:outline-none focus:ring-2 transition-all ${
-                      inputError
-                        ? 'border-red-500 focus:ring-red-500 bg-red-50'
-                        : 'border-gray-300 focus:ring-indigo-500 focus:border-indigo-500 bg-white'
-                    }`}
-                  />
-                </div>
-                <button
-                  onClick={handleGoToPage}
-                  className="p-1.5 text-white bg-indigo-600 rounded-md hover:bg-indigo-700 transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-1"
-                  title="Go to page"
-                >
-                  <FiCornerDownLeft className="h-4 w-4" />
-                </button>
-              </div>
-              <div className="text-xs text-gray-500">
-                of <span className="font-semibold text-gray-700">{totalPages}</span> pages
-              </div>
+            <div className="flex items-center gap-1.5">
+              <input
+                id="goToPage"
+                type="number"
+                min="1"
+                max={totalPages}
+                value={goToPageInput}
+                onChange={handleInputChange}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') handleGoToPage();
+                }}
+                placeholder={`1-${totalPages}`}
+                aria-label="Page number"
+                className={`h-8 w-16 rounded-md border px-2 text-center text-sm focus:outline-none focus:ring-2 ${inputError
+                  ? 'border-red-500 bg-red-50 focus:ring-red-500'
+                  : 'border-gray-300 bg-white focus:border-indigo-500 focus:ring-indigo-500'
+                }`}
+              />
+              <button
+                type="button"
+                onClick={handleGoToPage}
+                className="inline-flex h-8 w-8 items-center justify-center rounded-md bg-indigo-600 text-white hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                title="Go to page"
+              >
+                <FiCornerDownLeft className="h-4 w-4" />
+              </button>
             </div>
           )}
         </div>
 
         {/* Mobile Layout */}
-        <div className="flex md:hidden flex-col gap-4">
-          {/* Records Info */}
-          <div className="text-sm text-gray-700 text-center">
-            <span className="font-medium">{startRecord}-{endRecord}</span> of{' '}
-            <span className="font-semibold">{totalRecords}</span> results
+        <div className="flex md:hidden flex-col gap-2">
+          <div className="text-center text-sm text-gray-600">
+            {resultsLabel}
           </div>
 
           {/* Navigation Controls */}
@@ -286,7 +287,7 @@ function Pagination({
               <button
                 onClick={() => handlePageChange(1)}
                 disabled={currentPage === 1}
-                className="p-2 rounded-md border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed transition-all"
+                className={navButtonClass}
                 title="First page"
               >
                 <FiChevronsLeft className="h-4 w-4" />
@@ -294,7 +295,7 @@ function Pagination({
               <button
                 onClick={() => handlePageChange(currentPage - 1)}
                 disabled={currentPage === 1}
-                className="p-2 rounded-md border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed transition-all"
+                className={navButtonClass}
                 title="Previous"
               >
                 <FiChevronLeft className="h-4 w-4" />
@@ -302,10 +303,9 @@ function Pagination({
             </div>
 
             {/* Current Page Display */}
-            <div className="flex items-center gap-2 px-4 py-2 bg-indigo-50 rounded-lg border border-indigo-200">
-              <span className="text-sm text-gray-600">Page</span>
-              <span className="text-base font-bold text-indigo-600">{currentPage}</span>
-              <span className="text-sm text-gray-400">of</span>
+            <div className="flex h-8 items-center gap-1.5 rounded-md border border-indigo-200 bg-indigo-50 px-3">
+              <span className="text-sm font-semibold text-indigo-600">{currentPage}</span>
+              <span className="text-sm text-gray-400">/</span>
               <span className="text-sm font-semibold text-gray-700">{totalPages}</span>
             </div>
 
@@ -314,7 +314,7 @@ function Pagination({
               <button
                 onClick={() => handlePageChange(currentPage + 1)}
                 disabled={currentPage === totalPages}
-                className="p-2 rounded-md border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed transition-all"
+                className={navButtonClass}
                 title="Next"
               >
                 <FiChevronRight className="h-4 w-4" />
@@ -322,7 +322,7 @@ function Pagination({
               <button
                 onClick={() => handlePageChange(totalPages)}
                 disabled={currentPage === totalPages}
-                className="p-2 rounded-md border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed transition-all"
+                className={navButtonClass}
                 title="Last page"
               >
                 <FiChevronsRight className="h-4 w-4" />
@@ -332,7 +332,7 @@ function Pagination({
 
           {/* Go to Page - Mobile */}
           {showGoToPage && (
-            <div className="flex items-center justify-center gap-2">
+            <div className="flex items-center justify-center gap-1.5">
               <input
                 type="number"
                 min="1"
@@ -340,22 +340,22 @@ function Pagination({
                 value={goToPageInput}
                 onChange={handleInputChange}
                 onKeyDown={(e) => {
-                  if (e.key === 'Enter') {
-                    handleGoToPage();
-                  }
+                  if (e.key === 'Enter') handleGoToPage();
                 }}
                 placeholder={`1-${totalPages}`}
-                className={`w-24 px-3 py-2 border rounded-md text-sm text-center focus:outline-none focus:ring-2 transition-all ${
-                  inputError
-                    ? 'border-red-500 focus:ring-red-500 bg-red-50'
-                    : 'border-gray-300 focus:ring-indigo-500 bg-white'
+                aria-label="Page number"
+                className={`h-8 w-16 rounded-md border px-2 text-center text-sm focus:outline-none focus:ring-2 ${inputError
+                  ? 'border-red-500 bg-red-50 focus:ring-red-500'
+                  : 'border-gray-300 bg-white focus:ring-indigo-500'
                 }`}
               />
               <button
+                type="button"
                 onClick={handleGoToPage}
-                className="px-4 py-2 text-sm font-medium text-white bg-indigo-600 rounded-md hover:bg-indigo-700 transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                className="inline-flex h-8 w-8 items-center justify-center rounded-md bg-indigo-600 text-white hover:bg-indigo-700"
+                title="Go to page"
               >
-                Go
+                <FiCornerDownLeft className="h-4 w-4" />
               </button>
             </div>
           )}
@@ -363,13 +363,8 @@ function Pagination({
           {/* Page Size Selector - Mobile */}
           {showPageSizeSelector && onPageSizeChange && (
             <div className="flex items-center justify-center gap-2">
-              <label className="text-sm text-gray-600">Show:</label>
-              <SearchableSelect
-                value={pageSize}
-                onChange={handlePageSizeChange}
-                options={pageSizeOptions.map((size) => ({ value: size, label: `${size} per page` }))}
-                className="border border-gray-300 rounded-md px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
-              />
+              <label htmlFor="pageSizeMobile" className="text-sm text-gray-600">Show:</label>
+              {renderPageSizeSelect('pageSizeMobile')}
             </div>
           )}
         </div>
