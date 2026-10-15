@@ -343,7 +343,7 @@ const CampaignList = () => {
     };
 
     return (
-        <div className="min-h-screen bg-[#f4f6fb] dark:bg-gray-900">
+        <div className="min-h-screen bg-surface-ground dark:bg-gray-900">
             <Header
                 mobileMenuOpen={mobileMenuOpen}
                 setMobileMenuOpen={setMobileMenuOpen}
@@ -359,13 +359,13 @@ const CampaignList = () => {
 
             {/* Main content */}
             <div className={`pt-16 transition-all duration-300 ease-in-out ${isMinimized ? 'md:pl-20' : 'md:pl-[260px]'}`}>
-                <div className="w-full px-4 py-5">
+                <div className="w-full max-w-[1320px] px-4 sm:px-7 py-7">
                     {/* Page Header */}
                     <div className="mb-5 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                             <div className="min-w-0">
-                                <h1 className="text-2xl font-semibold tracking-tight text-slate-900 dark:text-white">Campaigns</h1>
+                                <h1 className="text-[26px] leading-tight font-extrabold tracking-tight text-ink dark:text-white">Campaigns</h1>
                                 <p className="mt-1 text-sm text-slate-500 dark:text-gray-400">
-                                    Manage and track your WhatsApp campaigns
+                                    Send approved templates to contacts, groups, Excel lists or Google Sheets.
                                 </p>
                             </div>
                             <div className="flex items-center gap-2">
@@ -381,25 +381,25 @@ const CampaignList = () => {
 
                     {/* Summary Stats */}
                     <div className="mt-6 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                        <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4">
+                        <div className="bg-white dark:bg-gray-800 rounded-card border border-line dark:border-gray-700 p-4">
                             <div className="text-sm font-medium text-gray-500 dark:text-gray-400">Total Campaigns</div>
-                            <div className="mt-2 text-2xl font-bold text-gray-900 dark:text-white">{campaigns.length}</div>
+                            <div className="mt-2 text-[26px] font-mono font-semibold tracking-tight text-gray-900 dark:text-white">{campaigns.length}</div>
                         </div>
-                        <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4">
+                        <div className="bg-white dark:bg-gray-800 rounded-card border border-line dark:border-gray-700 p-4">
                             <div className="text-sm font-medium text-gray-500 dark:text-gray-400">Completed</div>
-                            <div className="mt-2 text-2xl font-bold text-green-600 dark:text-green-400">
+                            <div className="mt-2 text-[26px] font-mono font-semibold tracking-tight text-green-600 dark:text-green-400">
                                 {campaigns.filter(c => c.status === 'completed').length}
                             </div>
                         </div>
-                        <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4">
+                        <div className="bg-white dark:bg-gray-800 rounded-card border border-line dark:border-gray-700 p-4">
                             <div className="text-sm font-medium text-gray-500 dark:text-gray-400">Pending</div>
-                            <div className="mt-2 text-2xl font-bold text-blue-600 dark:text-blue-400">
+                            <div className="mt-2 text-[26px] font-mono font-semibold tracking-tight text-blue-600 dark:text-blue-400">
                                 {campaigns.filter(c => c.status === 'scheduled' || c.status === 'pending').length}
                             </div>
                         </div>
-                        <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4">
+                        <div className="bg-white dark:bg-gray-800 rounded-card border border-line dark:border-gray-700 p-4">
                             <div className="text-sm font-medium text-gray-500 dark:text-gray-400">Total Recipients</div>
-                            <div className="mt-2 text-2xl font-bold text-gray-900 dark:text-white">
+                            <div className="mt-2 text-[26px] font-mono font-semibold tracking-tight text-gray-900 dark:text-white">
                                 {campaigns.reduce((sum, c) => sum + c.recipients, 0).toLocaleString()}
                             </div>
                         </div>
@@ -408,7 +408,7 @@ const CampaignList = () => {
 
 
                     {/* Search and Filter Bar */}
-                    <div className="bg-white dark:bg-gray-800 rounded-lg shadow mb-6 p-4 mt-6">
+                    <div className="bg-white dark:bg-gray-800 rounded-card border border-line dark:border-gray-700 mb-6 p-4 mt-6">
                         <div className="flex flex-col sm:flex-row gap-4">
                             {/* Search */}
                             <div className="flex-1">
@@ -454,7 +454,7 @@ const CampaignList = () => {
                     )}
 
                     {/* Campaigns Table */}
-                    <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm dark:border-gray-700 dark:bg-gray-800">
+                    <div className="overflow-hidden rounded-card border border-line bg-white dark:border-gray-700 dark:bg-gray-800">
                         <div className="overflow-x-auto">
                             <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
                                 <thead className="bg-gray-50 dark:bg-gray-700">

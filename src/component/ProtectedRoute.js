@@ -3,9 +3,19 @@ import { Navigate, useNavigate } from 'react-router-dom';
 import { checkSession } from '../api/auth';
 import toast from 'react-hot-toast';
 
+// Remember a successful session check for a few minutes so moving between pages
+// renders immediately instead of flashing a full-screen "Loading..." each time.
+const SESSION_CACHE_MS = 5 * 60 * 1000;
+let lastVerifiedToken = null;
+let lastVerifiedAt = 0;
+
 const ProtectedRoute = ({ children, requiresProject = false }) => {
   const navigate = useNavigate();
-  const [isSessionValid, setIsSessionValid] = useState(null); // null = loading
+  const cachedToken = (() => {
+    try { return JSON.parse(localStorage.getItem('userData'))?.token || null; } catch (e) { return null; }
+  })();
+  const recentlyVerified = Boolean(cachedToken) && cachedToken === lastVerifiedToken && (Date.now() - lastVerifiedAt) < SESSION_CACHE_MS;
+  const [isSessionValid, setIsSessionValid] = useState(recentlyVerified ? true : null); // null = loading
 
   // Get user data from localStorage
   const getUserData = () => {
@@ -26,14 +36,18 @@ const ProtectedRoute = ({ children, requiresProject = false }) => {
         setIsSessionValid(false);
         return;
       }
+      if (recentlyVerified) return;
 
       try {
         const response = await checkSession();
         if (response.error && response.error.toLowerCase() === "session expired") {
           localStorage.removeItem('userData');
+          lastVerifiedToken = null;
           toast.error("Session expired. Please login again.");
           setIsSessionValid(false);
         } else {
+          lastVerifiedToken = userData?.token || null;
+          lastVerifiedAt = Date.now();
           setIsSessionValid(true);
         }
       } catch (error) {

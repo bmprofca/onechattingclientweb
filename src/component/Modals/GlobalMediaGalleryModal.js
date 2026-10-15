@@ -573,7 +573,7 @@ function GlobalMediaGalleryModal({ isOpen, onClose, tokens, onChatSelect }) {
     const previewFileName = previewItem ? resolveFileName(previewItem) : null;
     const useGridLayout = GRID_TABS.has(activeTab);
 
-    if (!isOpen || typeof document === 'undefined') return null;
+    if (typeof document === 'undefined') return null;
 
     return createPortal(
         <>
@@ -797,6 +797,7 @@ function GlobalMediaGalleryModal({ isOpen, onClose, tokens, onChatSelect }) {
             <AnimatePresence>
                 {previewItem && previewType === 'location' && (
                     <LocationPreviewModal
+                        key="location-preview"
                         item={previewItem}
                         fileName={previewFileName}
                         onClose={() => setPreviewItem(null)}
@@ -804,6 +805,7 @@ function GlobalMediaGalleryModal({ isOpen, onClose, tokens, onChatSelect }) {
                 )}
                 {previewItem && previewType === 'pdf' && (
                     <PdfPreviewModal
+                        key="pdf-preview"
                         item={previewItem}
                         fileName={previewFileName}
                         onClose={() => setPreviewItem(null)}
@@ -811,17 +813,15 @@ function GlobalMediaGalleryModal({ isOpen, onClose, tokens, onChatSelect }) {
                 )}
             </AnimatePresence>
 
-            {previewItem && ['image', 'video', 'audio'].includes(previewType) && (
-                <MediaModal
-                    isOpen
-                    onClose={() => setPreviewItem(null)}
-                    mediaItem={{
-                        serverUrl: previewItem.media_url,
-                        name: previewFileName,
-                    }}
-                    type={previewType}
-                />
-            )}
+            <MediaModal
+                isOpen={Boolean(previewItem && ['image', 'video', 'audio'].includes(previewType))}
+                onClose={() => setPreviewItem(null)}
+                mediaItem={previewItem ? {
+                    serverUrl: previewItem.media_url,
+                    name: previewFileName,
+                } : null}
+                type={previewType}
+            />
             <RecordDetailsModal
                 isOpen={Boolean(mediaDetail)}
                 onClose={() => setMediaDetail(null)}

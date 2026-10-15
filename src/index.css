@@ -27,15 +27,14 @@ body,
 
 body {
   margin: 0;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
-    'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
-    sans-serif;
+  font-family: 'Plus Jakarta Sans', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  color: #171426;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   min-height: 100vh;
   min-height: 100dvh;
   overflow-x: hidden;
-  background-color: #f9fafb;
+  background-color: #F6F5FA;
   -webkit-text-size-adjust: 100%;
   touch-action: manipulation;
   overscroll-behavior-y: contain;
@@ -52,8 +51,8 @@ body {
   font-weight: 500;
 }
 
-.btn-primary { color: white; background: #4f46e5; }
-.btn-primary:hover { background: #4338ca; }
+.btn-primary { color: white; background: #6C5CE7; }
+.btn-primary:hover { background: #5847D6; }
 .btn-secondary { color: #334155; background: white; border: 1px solid #e2e8f0; }
 .btn-secondary:hover { background: #f8fafc; }
 .btn-primary:disabled, .btn-secondary:disabled { opacity: 0.5; cursor: not-allowed; }
@@ -96,4 +95,339 @@ body.chat-composer-focused {
 code {
   font-family: source-code-pro, Menlo, Monaco, Consolas, 'Courier New',
     monospace;
+}
+
+
+/* ===== OneChatting design system ===== */
+:root {
+  --oc-ink: #171426;
+  --oc-muted: #5E5A75;
+  --oc-line: #E7E5F0;
+  --oc-ground: #F6F5FA;
+  --oc-brand: #6C5CE7;
+  --oc-brand-dark: #5847D6;
+}
+code, kbd, pre, samp { font-family: 'IBM Plex Mono', ui-monospace, monospace; }
+:focus-visible { outline: 2px solid #6C5CE7; outline-offset: 2px; }
+::selection { background: #D9D3FA; color: #171426; }
+
+@layer components {
+  .oc-card { @apply bg-white border border-line rounded-card; }
+  .oc-page-title { @apply text-[26px] leading-tight font-extrabold tracking-tight text-ink; }
+  .oc-page-sub { @apply mt-1.5 text-sm text-ink-500; }
+  .oc-btn { @apply inline-flex items-center justify-center gap-2 h-[38px] px-3.5 rounded-[9px] text-[13px] font-semibold transition-colors disabled:opacity-50 disabled:cursor-not-allowed; }
+  .oc-btn-primary { @apply oc-btn bg-brand-600 text-white hover:bg-brand-700; }
+  .oc-btn-ghost { @apply oc-btn bg-white text-ink border border-[#E1DFEC] hover:bg-surface-soft; }
+  .oc-btn-dark { @apply oc-btn bg-ink text-white hover:bg-ink-900; }
+  .oc-input { @apply w-full h-[42px] px-3 rounded-[9px] border border-line-strong bg-white text-sm text-ink placeholder:text-ink-400 outline-none focus:border-brand-600 focus:ring-[3px] focus:ring-brand-600/20; }
+  .oc-label { @apply block text-[13px] font-semibold text-ink mb-1.5; }
+  .oc-badge { @apply inline-flex items-center rounded-md px-2 py-0.5 text-[11px] font-bold; }
+  .oc-th { @apply text-left text-xs font-bold text-ink-500 px-3.5 py-3 bg-surface-soft border-b border-[#ECEAF3] whitespace-nowrap; }
+  .oc-td { @apply px-3.5 py-3 border-b border-[#F3F2F8] align-middle; }
+  .oc-num { @apply font-mono font-semibold tracking-tight; }
+}
+
+/* ===== Dark theme adapter =====
+   Light-only utilities are remapped for `.dark`. :where() keeps specificity low,
+   so any explicit `dark:` class in a component still takes priority.
+   Hover rules use `.dark .hover\:x:hover` because Tailwind emits variant rules
+   after this file; explicit `dark:hover:` classes still win (same specificity, later). */
+:where(.dark) body { background-color: #0F0D1A; color: #EEEDF6; }
+:where(.dark) ::selection { background: #3A3270; color: #fff; }
+:where(.dark) input::placeholder, :where(.dark) textarea::placeholder { color: #7D7995; }
+:where(.dark) input:not([type="checkbox"]):not([type="radio"]):not([class*="bg-"]),
+:where(.dark) select:not([class*="bg-"]),
+:where(.dark) textarea:not([class*="bg-"]) { background-color: #211E33; color: #EEEDF6; border-color: #3A3552; }
+:where(.dark) .oc-card { background-color: #19172A; border-color: #2E2A44; }
+:where(.dark) .bg-white,
+:where(.dark) .bg-surface { background-color: #19172A; }
+:where(.dark) .bg-white\/95,
+:where(.dark) .bg-white\/90,
+:where(.dark) .bg-white\/80 { background-color: rgba(25,23,42,0.92); }
+:where(.dark) .bg-surface-soft,
+:where(.dark) .bg-gray-50,
+:where(.dark) .bg-slate-50,
+:where(.dark) .bg-\[\#FAFAFD\],
+:where(.dark) .bg-gray-50\/50,
+:where(.dark) .bg-slate-50\/50 { background-color: #211E33; }
+:where(.dark) .bg-surface-ground,
+:where(.dark) .bg-\[\#F6F5FA\],
+:where(.dark) .bg-\[\#f9fafb\] { background-color: #0F0D1A; }
+:where(.dark) .bg-gray-100,
+:where(.dark) .bg-slate-100,
+:where(.dark) .bg-line-soft,
+:where(.dark) .bg-\[\#F3F2FA\],
+:where(.dark) .bg-\[\#F0EEF6\],
+:where(.dark) .bg-\[\#ECEAF3\] { background-color: #2A2640; }
+:where(.dark) .bg-gray-200,
+:where(.dark) .bg-slate-200,
+:where(.dark) .bg-line,
+:where(.dark) .bg-gray-300,
+:where(.dark) .bg-slate-300 { background-color: #3A3552; }
+:where(.dark) .bg-brand-50,
+:where(.dark) .bg-indigo-50,
+:where(.dark) .bg-brand-50\/40,
+:where(.dark) .bg-indigo-50\/50,
+:where(.dark) .bg-violet-50,
+:where(.dark) .bg-purple-50 { background-color: rgba(108,92,231,0.16); }
+:where(.dark) .bg-brand-100,
+:where(.dark) .bg-indigo-100,
+:where(.dark) .bg-brand-200,
+:where(.dark) .bg-indigo-200 { background-color: rgba(108,92,231,0.26); }
+:where(.dark) .bg-red-50,
+:where(.dark) .bg-rose-50,
+:where(.dark) .bg-red-100,
+:where(.dark) .bg-rose-100 { background-color: rgba(239,68,68,0.14); }
+:where(.dark) .bg-green-50,
+:where(.dark) .bg-emerald-50,
+:where(.dark) .bg-green-100,
+:where(.dark) .bg-emerald-100,
+:where(.dark) .bg-teal-50 { background-color: rgba(16,185,129,0.14); }
+:where(.dark) .bg-amber-50,
+:where(.dark) .bg-yellow-50,
+:where(.dark) .bg-amber-100,
+:where(.dark) .bg-yellow-100,
+:where(.dark) .bg-orange-50,
+:where(.dark) .bg-orange-100 { background-color: rgba(245,158,11,0.14); }
+:where(.dark) .bg-blue-50,
+:where(.dark) .bg-sky-50,
+:where(.dark) .bg-blue-100,
+:where(.dark) .bg-sky-100 { background-color: rgba(59,130,246,0.14); }
+:where(.dark) .bg-\[\#ECE9FD\] { background-color: #2D2754; }
+:where(.dark) .bg-\[\#DCD6FB\] { background-color: #3A3270; }
+:where(.dark) .bg-ink { background-color: #3A3552; }
+:where(.dark) .text-ink,
+:where(.dark) .text-gray-900,
+:where(.dark) .text-slate-900,
+:where(.dark) .text-gray-800,
+:where(.dark) .text-slate-800,
+:where(.dark) .text-black,
+:where(.dark) .text-\[\#171426\],
+:where(.dark) .text-\[\#111B21\],
+:where(.dark) .text-\[\#111b21\] { color: #EEEDF6; }
+:where(.dark) .text-ink-700,
+:where(.dark) .text-gray-700,
+:where(.dark) .text-slate-700 { color: #D3D0E2; }
+:where(.dark) .text-gray-600,
+:where(.dark) .text-slate-600 { color: #B6B2CA; }
+:where(.dark) .text-ink-500,
+:where(.dark) .text-gray-500,
+:where(.dark) .text-slate-500,
+:where(.dark) .text-\[\#667781\] { color: #A39FBA; }
+:where(.dark) .text-ink-400,
+:where(.dark) .text-gray-400,
+:where(.dark) .text-slate-400 { color: #7D7995; }
+:where(.dark) .text-brand-700,
+:where(.dark) .text-brand-800,
+:where(.dark) .text-brand-900,
+:where(.dark) .text-indigo-700,
+:where(.dark) .text-indigo-800,
+:where(.dark) .text-indigo-900 { color: #C4BCFF; }
+:where(.dark) .text-brand-600,
+:where(.dark) .text-indigo-600,
+:where(.dark) .text-indigo-500 { color: #A79CF5; }
+:where(.dark) .text-red-600,
+:where(.dark) .text-red-700,
+:where(.dark) .text-red-800,
+:where(.dark) .text-rose-600,
+:where(.dark) .text-rose-700 { color: #FCA5A5; }
+:where(.dark) .text-green-600,
+:where(.dark) .text-green-700,
+:where(.dark) .text-green-800,
+:where(.dark) .text-emerald-600,
+:where(.dark) .text-emerald-700,
+:where(.dark) .text-emerald-800 { color: #6EE7B7; }
+:where(.dark) .text-amber-600,
+:where(.dark) .text-amber-700,
+:where(.dark) .text-amber-800,
+:where(.dark) .text-yellow-600,
+:where(.dark) .text-yellow-700,
+:where(.dark) .text-yellow-800,
+:where(.dark) .text-orange-600,
+:where(.dark) .text-orange-700 { color: #FCD34D; }
+:where(.dark) .text-blue-600,
+:where(.dark) .text-blue-700,
+:where(.dark) .text-blue-800 { color: #93C5FD; }
+:where(.dark) .border-line,
+:where(.dark) .border-gray-200,
+:where(.dark) .border-slate-200,
+:where(.dark) .border-gray-100,
+:where(.dark) .border-slate-100,
+:where(.dark) .border-line-soft,
+:where(.dark) .border-\[\#E1DFEC\],
+:where(.dark) .border-\[\#ECEAF3\],
+:where(.dark) .border-\[\#F3F2F8\],
+:where(.dark) .border-\[\#F0EEF6\],
+:where(.dark) .border-indigo-100,
+:where(.dark) .border-brand-100 { border-color: #2E2A44; }
+:where(.dark) .border-gray-300,
+:where(.dark) .border-slate-300,
+:where(.dark) .border-line-strong,
+:where(.dark) .border-indigo-200,
+:where(.dark) .border-brand-200 { border-color: #3A3552; }
+:where(.dark) .border-red-200,
+:where(.dark) .border-red-100 { border-color: rgba(239,68,68,0.35); }
+:where(.dark) .border-green-200,
+:where(.dark) .border-emerald-200,
+:where(.dark) .border-emerald-100 { border-color: rgba(16,185,129,0.35); }
+:where(.dark) .border-amber-200,
+:where(.dark) .border-yellow-200 { border-color: rgba(245,158,11,0.35); }
+:where(.dark) .divide-gray-200 > :not([hidden]) ~ :not([hidden]),
+:where(.dark) .divide-gray-100 > :not([hidden]) ~ :not([hidden]),
+:where(.dark) .divide-slate-200 > :not([hidden]) ~ :not([hidden]),
+:where(.dark) .divide-slate-100 > :not([hidden]) ~ :not([hidden]) { border-color: #2E2A44; }
+.dark .hover\:bg-gray-50:hover,
+.dark .hover\:bg-slate-50:hover,
+.dark .hover\:bg-surface-soft:hover,
+.dark .hover\:bg-\[\#F3F2FA\]:hover,
+.dark .hover\:bg-gray-100:hover,
+.dark .hover\:bg-slate-100:hover,
+.dark .hover\:bg-\[\#FCFCFE\]:hover,
+.dark .hover\:bg-white:hover { background-color: #2A2640; }
+.dark .hover\:bg-indigo-50:hover,
+.dark .hover\:bg-brand-50:hover,
+.dark .hover\:bg-indigo-50\/50:hover,
+.dark .hover\:bg-brand-50\/40:hover,
+.dark .hover\:bg-indigo-100:hover { background-color: rgba(108,92,231,0.2); }
+.dark .hover\:bg-red-50:hover { background-color: rgba(239,68,68,0.16); }
+.dark .hover\:text-ink:hover,
+.dark .hover\:text-gray-900:hover,
+.dark .hover\:text-gray-800:hover,
+.dark .hover\:text-slate-900:hover { color: #EEEDF6; }
+.dark .hover\:bg-brand-200:hover { background-color: rgba(108,92,231,0.35); }
+:where(.dark) .oc-btn-ghost { background-color: #19172A; color: #EEEDF6; border-color: #3A3552; }
+.dark .oc-btn-ghost:hover { background-color: #2A2640; }
+:where(.dark) .oc-btn-dark { background-color: #3A3552; }
+:where(.dark) .oc-input { background-color: #211E33; color: #EEEDF6; border-color: #3A3552; }
+:where(.dark) .oc-label, :where(.dark) .oc-page-title { color: #EEEDF6; }
+:where(.dark) .oc-page-sub { color: #A39FBA; }
+:where(.dark) .oc-th { background-color: #211E33; color: #A39FBA; border-color: #2E2A44; }
+:where(.dark) .oc-td { border-color: #2E2A44; }
+.dark .hover\:bg-gray-200:hover, .dark .hover\:bg-slate-200:hover { background-color: #3A3552; }
+.dark .hover\:text-gray-700:hover, .dark .hover\:text-gray-600:hover, .dark .hover\:text-slate-600:hover, .dark .hover\:text-gray-500:hover { color: #D3D0E2; }
+:where(.dark) .border-gray-200\/50, :where(.dark) .border-b-gray-200 { border-color: #2E2A44; }
+:where(.dark) .text-gray-300 { color: #7D7995; }
+.dark .hover\:text-indigo-600:hover, .dark .hover\:text-brand-900:hover, .dark .hover\:text-indigo-700:hover { color: #D9D3FA; }
+:where(.dark) .shadow-pop { box-shadow: 0 16px 40px -8px rgba(0, 0, 0, 0.6); }
+
+/* Standalone screens (sign-in, sign-up, payment, QR, 404) stay light, matching the redesign. */
+.dark .oc-force-light { color: #171426; color-scheme: light; }
+.dark .oc-force-light.bg-white,
+.dark .oc-force-light .bg-white,
+.dark .oc-force-light .bg-surface { background-color: #ffffff; color: #171426; }
+.dark .oc-force-light.bg-surface-ground,
+.dark .oc-force-light .bg-surface-ground { background-color: #F6F5FA; }
+.dark .oc-force-light .bg-surface-soft,
+.dark .oc-force-light .bg-\[\#F3F2FA\] { background-color: #FAFAFD; }
+.dark .oc-force-light .bg-ink-900 { background-color: #120F26; color: #fff; }
+.dark .oc-force-light .text-ink { color: #171426; }
+.dark .oc-force-light .text-ink-500 { color: #5E5A75; }
+.dark .oc-force-light .text-ink-400 { color: #7A7690; }
+.dark .oc-force-light .text-ink-700 { color: #3D3954; }
+.dark .oc-force-light .text-white { color: #fff; }
+.dark .oc-force-light .text-brand-800 { color: #4A3BC4; }
+.dark .oc-force-light .border-line,
+.dark .oc-force-light .border-line-soft,
+.dark .oc-force-light .border-\[\#ECEAF3\],
+.dark .oc-force-light .border-\[\#F3F2F8\] { border-color: #E7E5F0; }
+.dark .oc-force-light .border-line-strong,
+.dark .oc-force-light .border-\[\#E1DFEC\] { border-color: #DCD9E8; }
+.dark .oc-force-light .oc-input,
+.dark .oc-force-light input,
+.dark .oc-force-light select,
+.dark .oc-force-light textarea {
+  background-color: #fff !important;
+  color: #171426 !important;
+  border-color: #DCD9E8 !important;
+}
+.dark .oc-force-light input::placeholder,
+.dark .oc-force-light textarea::placeholder { color: #7A7690 !important; }
+.dark .oc-force-light .oc-label { color: #171426; }
+.dark .oc-force-light .oc-btn-ghost { background-color: #fff; color: #171426; border-color: #E1DFEC; }
+.dark .oc-force-light .bg-brand-600 { background-color: #6C5CE7; color: #fff; }
+.dark .oc-force-light .bg-brand-100 { background-color: #EBE8FC; }
+.dark .oc-force-light .bg-brand-50 { background-color: #F4F2FE; }
+.dark .oc-force-light .bg-ink { background-color: #171426; color: #fff; }
+
+/* ===== Animated checkbox =====
+   Applies to every visible native checkbox. Toggle switches built with `sr-only peer` are excluded.
+   :where() keeps the default size at zero specificity so h-3.5 / w-4 utilities still win. */
+:where(input[type="checkbox"]:not(.sr-only)) { width: 1rem; height: 1rem; }
+input[type="checkbox"]:not(.sr-only) {
+  -webkit-appearance: none;
+  appearance: none;
+  position: relative;
+  display: inline-grid;
+  place-content: center;
+  flex-shrink: 0;
+  vertical-align: middle;
+  margin-top: 0;
+  margin-bottom: 0;
+  border: 1.5px solid #CFCBE0;
+  border-radius: 5px;
+  background-color: #fff;
+  background-image: none;
+  color: #fff;
+  cursor: pointer;
+  transition: background-color 180ms ease, border-color 180ms ease, box-shadow 220ms ease, transform 120ms ease;
+}
+input[type="checkbox"]:not(.sr-only)::before {
+  content: '';
+  width: 0.56em;
+  height: 0.3em;
+  margin-top: -0.12em;
+  border-left: 2px solid currentColor;
+  border-bottom: 2px solid currentColor;
+  transform: rotate(-45deg) scale(0);
+  transform-origin: center;
+  transition: transform 220ms cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+input[type="checkbox"]:not(.sr-only):hover:not(:disabled) {
+  border-color: #9C8FF0;
+  box-shadow: 0 0 0 4px rgba(108, 92, 231, 0.10);
+}
+input[type="checkbox"]:not(.sr-only):active:not(:disabled) { transform: scale(0.88); }
+input[type="checkbox"]:not(.sr-only):focus { outline: none; }
+input[type="checkbox"]:not(.sr-only):focus-visible { box-shadow: 0 0 0 3px rgba(108, 92, 231, 0.35); }
+input[type="checkbox"]:not(.sr-only):checked,
+input[type="checkbox"]:not(.sr-only):indeterminate {
+  background-color: #6C5CE7;
+  border-color: #6C5CE7;
+  animation: oc-check-pop 320ms cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+input[type="checkbox"]:not(.sr-only):checked::before { transform: rotate(-45deg) scale(1); }
+input[type="checkbox"]:not(.sr-only):indeterminate::before {
+  width: 0.5em;
+  height: 0;
+  margin-top: 0;
+  border-left: 0;
+  transform: scale(1);
+}
+input[type="checkbox"]:not(.sr-only):checked:hover:not(:disabled) { background-color: #5847D6; border-color: #5847D6; }
+input[type="checkbox"]:not(.sr-only):disabled { opacity: 0.45; cursor: not-allowed; }
+:where(.dark) input[type="checkbox"]:not(.sr-only):not(:checked):not(:indeterminate) { background-color: #211E33; border-color: #4A4466; }
+@keyframes oc-check-pop {
+  0% { box-shadow: 0 0 0 0 rgba(108, 92, 231, 0.45); transform: scale(0.85); }
+  55% { transform: scale(1.08); }
+  100% { box-shadow: 0 0 0 7px rgba(108, 92, 231, 0); transform: scale(1); }
+}
+
+/* ===== Modal enter / exit animation (used by <AnimatedModal>) =====
+   The wrapper uses display:contents, so its direct children are the modal's own
+   fixed-position layers. Backdrop layers fade; the dialog surface scales and lifts.
+   Enter uses fill-mode `backwards` so no transform lingers after the animation
+   (a lingering transform would trap position:fixed dropdowns inside the dialog). */
+.oc-modal { display: contents; }
+.oc-modal > * { animation: oc-modal-fade-in 200ms ease-out backwards; }
+.oc-modal > * > :not(.fixed):not(.absolute):not(span) { animation: oc-modal-pop-in 260ms cubic-bezier(0.16, 1, 0.3, 1) backwards; }
+.oc-modal.is-closing { pointer-events: none; }
+.oc-modal.is-closing > * { animation: oc-modal-fade-out 180ms ease-in forwards; }
+.oc-modal.is-closing > * > :not(.fixed):not(.absolute):not(span) { animation: oc-modal-pop-out 180ms ease-in forwards; }
+@keyframes oc-modal-fade-in { from { opacity: 0; } to { opacity: 1; } }
+@keyframes oc-modal-fade-out { from { opacity: 1; } to { opacity: 0; } }
+@keyframes oc-modal-pop-in { from { opacity: 0; transform: translateY(14px) scale(0.96); } to { opacity: 1; transform: none; } }
+@keyframes oc-modal-pop-out { from { opacity: 1; transform: none; } to { opacity: 0; transform: translateY(10px) scale(0.97); } }
+@media (prefers-reduced-motion: reduce) {
+  .oc-modal > *, .oc-modal > * > * { animation-duration: 1ms !important; }
+  input[type="checkbox"]:not(.sr-only), input[type="checkbox"]:not(.sr-only)::before { transition: none; animation: none; }
 }

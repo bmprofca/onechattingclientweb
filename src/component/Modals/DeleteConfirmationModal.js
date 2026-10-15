@@ -3,8 +3,6 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { FiAlertTriangle, FiX, FiTrash2 } from 'react-icons/fi';
 
 const DeleteConfirmationModal = ({ isOpen, onClose, onConfirm, title, message, itemName, loading = false }) => {
-    if (!isOpen) return null;
-
     const handleConfirm = () => {
         onConfirm();
     };

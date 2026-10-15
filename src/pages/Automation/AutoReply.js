@@ -260,7 +260,7 @@ const AutoReply = () => {
     ];
 
     return (
-        <div className="min-h-screen bg-[#f4f6fb] dark:bg-gray-900">
+        <div className="min-h-screen bg-surface-ground dark:bg-gray-900">
             <Header
                 mobileMenuOpen={mobileMenuOpen}
                 setMobileMenuOpen={setMobileMenuOpen}
@@ -276,12 +276,12 @@ const AutoReply = () => {
 
             {/* Main content */}
             <div className={`pt-16 transition-all duration-300 ease-in-out ${isMinimized ? 'md:pl-20' : 'md:pl-[260px]'}`}>
-                <div className="w-full px-4 py-5">
+                <div className="w-full max-w-[1320px] px-4 sm:px-7 py-7">
                     {/* Page Header */}
                     <div className="mb-6">
                         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between">
                             <div>
-                                <h1 className="text-2xl font-semibold tracking-tight text-slate-900 dark:text-white">Auto Reply</h1>
+                                <h1 className="text-[26px] leading-tight font-extrabold tracking-tight text-ink dark:text-white">Auto Reply</h1>
                                 <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
                                     Automate responses to incoming WhatsApp messages
                                 </p>
@@ -308,7 +308,7 @@ const AutoReply = () => {
                                 </button>
                                 <button
                                     onClick={handleCreateRule}
-                                    className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-colors"
+                                    className="inline-flex items-center h-[38px] px-3.5 border border-transparent rounded-[9px] text-[13px] font-semibold text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-colors"
                                 >
                                     <FiPlus className="mr-2" size={18} />
                                     Create Rule
@@ -319,44 +319,44 @@ const AutoReply = () => {
 
                     {/* Summary Stats */}
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-                        <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4">
+                        <div className="bg-white dark:bg-gray-800 rounded-card border border-line dark:border-gray-700 p-4">
                             <div className="flex items-center justify-between">
                                 <div>
                                     <div className="text-sm font-medium text-gray-500 dark:text-gray-400">Total Rules</div>
-                                    <div className="mt-2 text-2xl font-bold text-gray-900 dark:text-white">{stats.total}</div>
+                                    <div className="mt-2 text-[26px] font-mono font-semibold tracking-tight text-gray-900 dark:text-white">{stats.total}</div>
                                 </div>
                                 <div className="p-3 bg-indigo-100 dark:bg-indigo-900 rounded-lg">
                                     <FiZap className="w-6 h-6 text-indigo-600 dark:text-indigo-300" />
                                 </div>
                             </div>
                         </div>
-                        <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4">
+                        <div className="bg-white dark:bg-gray-800 rounded-card border border-line dark:border-gray-700 p-4">
                             <div className="flex items-center justify-between">
                                 <div>
                                     <div className="text-sm font-medium text-gray-500 dark:text-gray-400">Active Rules</div>
-                                    <div className="mt-2 text-2xl font-bold text-green-600 dark:text-green-400">{stats.enabled}</div>
+                                    <div className="mt-2 text-[26px] font-mono font-semibold tracking-tight text-green-600 dark:text-green-400">{stats.enabled}</div>
                                 </div>
                                 <div className="p-3 bg-green-100 dark:bg-green-900 rounded-lg">
                                     <FiCheckCircle className="w-6 h-6 text-green-600 dark:text-green-300" />
                                 </div>
                             </div>
                         </div>
-                        <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4">
+                        <div className="bg-white dark:bg-gray-800 rounded-card border border-line dark:border-gray-700 p-4">
                             <div className="flex items-center justify-between">
                                 <div>
                                     <div className="text-sm font-medium text-gray-500 dark:text-gray-400">Inactive Rules</div>
-                                    <div className="mt-2 text-2xl font-bold text-gray-600 dark:text-gray-400">{stats.disabled}</div>
+                                    <div className="mt-2 text-[26px] font-mono font-semibold tracking-tight text-gray-600 dark:text-gray-400">{stats.disabled}</div>
                                 </div>
                                 <div className="p-3 bg-gray-100 dark:bg-gray-700 rounded-lg">
                                     <FiXCircle className="w-6 h-6 text-gray-600 dark:text-gray-300" />
                                 </div>
                             </div>
                         </div>
-                        <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4">
+                        <div className="bg-white dark:bg-gray-800 rounded-card border border-line dark:border-gray-700 p-4">
                             <div className="flex items-center justify-between">
                                 <div>
                                     <div className="text-sm font-medium text-gray-500 dark:text-gray-400">Total Triggered</div>
-                                    <div className="mt-2 text-2xl font-bold text-blue-600 dark:text-blue-400">{stats.totalTriggered}</div>
+                                    <div className="mt-2 text-[26px] font-mono font-semibold tracking-tight text-blue-600 dark:text-blue-400">{stats.totalTriggered}</div>
                                 </div>
                                 <div className="p-3 bg-blue-100 dark:bg-blue-900 rounded-lg">
                                     <FiBarChart2 className="w-6 h-6 text-blue-600 dark:text-blue-300" />
@@ -366,7 +366,7 @@ const AutoReply = () => {
                     </div>
 
                     {/* Search and Filter Bar */}
-                    <div className="bg-white dark:bg-gray-800 rounded-lg shadow mb-6 p-4">
+                    <div className="bg-white dark:bg-gray-800 rounded-card border border-line dark:border-gray-700 mb-6 p-4">
                         <div className="flex flex-col sm:flex-row gap-4">
                             <div className="flex-1">
                                 <div className="relative">
@@ -398,7 +398,7 @@ const AutoReply = () => {
                     </div>
 
                     {/* Rules List */}
-                    <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm dark:border-gray-700 dark:bg-gray-800">
+                    <div className="overflow-hidden rounded-card border border-line bg-white dark:border-gray-700 dark:bg-gray-800">
                         {sortedRules.length === 0 ? (
                             <div className="p-12 text-center">
                                 <FiMessageSquare className="mx-auto h-12 w-12 text-gray-400 mb-4" />
@@ -411,7 +411,7 @@ const AutoReply = () => {
                                 {!searchTerm && filterStatus === 'all' && (
                                     <button
                                         onClick={handleCreateRule}
-                                        className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700"
+                                        className="inline-flex items-center h-[38px] px-3.5 border border-transparent rounded-[9px] text-[13px] font-semibold text-white bg-indigo-600 hover:bg-indigo-700"
                                     >
                                         <FiPlus className="mr-2" />
                                         Create Rule
@@ -835,7 +835,7 @@ const AutoReply = () => {
                                     </button>
                                     <button
                                         type="submit"
-                                        className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+                                        className="inline-flex items-center h-[38px] px-3.5 border border-transparent rounded-[9px] text-[13px] font-semibold text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
                                     >
                                         <FiSave className="mr-2" size={16} />
                                         {editingRule ? 'Update Rule' : 'Create Rule'}

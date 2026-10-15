@@ -12,20 +12,17 @@ import {
   FiTrash2,
   FiX,
   FiUser,
-  FiPhone,
-  FiMail,
   FiSearch,
-  FiCheckCircle,
-  FiArrowLeft,
-  FiUsers,
-  FiMessageCircle,
-  FiEye
+  FiArrowLeft
 } from 'react-icons/fi';
-import RowActionMenu from '../component/table/RowActionMenu';
 import RecordDetailsModal from '../component/table/RecordDetailsModal';
 import { TableSkeletonRows } from '../component/table/TableSkeleton';
 
 
+import AnimatedModal from '../component/Modals/AnimatedModal';
+import useBulkSelection from '../component/table/useBulkSelection';
+import { MasterCheckbox, RowCheckbox, BulkActionBar } from '../component/table/BulkSelection';
+import api from '../api/client';
 function ContactGroupList() {
   const permissions = useSelector((state) => state.project.permissions);
   const navigate = useNavigate();
@@ -46,46 +43,14 @@ function ContactGroupList() {
   });
   const [totalContacts, setTotalContacts] = useState(0);
   const [showAddModal, setShowAddModal] = useState(false);
+  const didAutoOpenAddRef = useRef(false);
   const [showRemoveModal, setShowRemoveModal] = useState(false);
   const [removingContact, setRemovingContact] = useState(null);
-  const [selectedContacts, setSelectedContacts] = useState([]);
-  const [isAllSelected, setIsAllSelected] = useState(false);
   const [deleteLoading, setDeleteLoading] = useState(false);
-  const [deleteAllLoading, setDeleteAllLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [debouncedSearchTerm, setDebouncedSearchTerm] = useState('');
   const [addSearchTerm, setAddSearchTerm] = useState('');
   const [groupInfo, setGroupInfo] = useState(null);
-
-  const CustomCheckbox = ({ checked, onChange, disabled, ariaLabel }) => {
-    return (
-      <button
-        type="button"
-        role="checkbox"
-        aria-checked={checked}
-        aria-label={ariaLabel}
-        disabled={disabled}
-        onClick={() => {
-          if (disabled) return;
-          onChange?.(!checked);
-        }}
-        className={`h-5 w-5 rounded border flex items-center justify-center transition-colors ${disabled ? 'opacity-60 cursor-not-allowed' : 'cursor-pointer'
-          } ${checked ? 'bg-indigo-600 border-indigo-600' : 'bg-white border-gray-300 hover:border-indigo-400'}`}
-      >
-        {checked ? (
-          <svg viewBox="0 0 20 20" fill="none" className="h-4 w-4">
-            <path
-              d="M16.5 5.5L8.25 13.75L3.5 9"
-              stroke="white"
-              strokeWidth="2.2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            />
-          </svg>
-        ) : null}
-      </button>
-    );
-  };
 
   // Debounce search input for server-side fetch
   useEffect(() => {
@@ -144,6 +109,30 @@ function ContactGroupList() {
   const getGroupName = () => {
     const urlParams = new URLSearchParams(window.location.search);
     return urlParams.get('group_name') || 'Group';
+  };
+
+  const getGroupRemark = () => {
+    const urlParams = new URLSearchParams(window.location.search);
+    return urlParams.get('remark') || '';
+  };
+
+  const initialsFor = (name) => {
+    const parts = String(name || '').trim().split(/\s+/).filter(Boolean);
+    if (!parts.length) return '?';
+    const letters = (parts[0][0] || '') + (parts.length > 1 ? parts[parts.length - 1][0] : '');
+    return letters.toUpperCase();
+  };
+
+  const avatarTone = (name) => {
+    const tones = [
+      'bg-[#EBE8FC] text-brand-800',
+      'bg-sky-50 text-sky-800',
+      'bg-emerald-50 text-emerald-800',
+      'bg-amber-50 text-amber-800',
+      'bg-rose-50 text-rose-700'
+    ];
+    const code = String(name || '').split('').reduce((sum, ch) => sum + ch.charCodeAt(0), 0);
+    return tones[code % tones.length];
   };
 
   // Load auth tokens
@@ -209,7 +198,8 @@ function ContactGroupList() {
             unique_id: c.unique_id, // Important for deletion
             name: c.name,
             mobile: c.number,
-            firm_name: c.firm_name,
+            email: c.email || '',
+            firm_name: c.firm_name || '',
             website: c.website,
             remark: c.remark,
             createdOn: c.create_date
@@ -251,8 +241,6 @@ function ContactGroupList() {
         setGroupContacts([]);
       } finally {
         setLoading(false);
-        setSelectedContacts([]);
-        setIsAllSelected(false);
       }
     };
 
@@ -542,6 +530,14 @@ function ContactGroupList() {
     }
   }, [tokens?.token, tokens?.username, tokens?.selected_project_id, tokens?.projects]);
 
+  useEffect(() => {
+    if (didAutoOpenAddRef.current) return;
+    if (!tokens?.token || !tokens?.username) return;
+    if (permissions && permissions.view_contact === false) return;
+    didAutoOpenAddRef.current = true;
+    setShowAddModal(true);
+  }, [tokens?.token, tokens?.username, permissions]);
+
   // When the add modal opens, load initial page
   useEffect(() => {
     if (!showAddModal) return;
@@ -683,9 +679,6 @@ function ContactGroupList() {
         setShowRemoveModal(false);
         setRemovingContact(null);
 
-        setSelectedContacts([]);
-        setIsAllSelected(false);
-
         // Remove from local table without refetch
         setGroupContacts((prev) =>
           prev.filter((c) => c?.id !== removingContact?.id)
@@ -722,33 +715,20 @@ function ContactGroupList() {
     }
   };
 
-  // Build payload arrays from selected contacts
-  const buildSelectedIds = () => {
-    const selectedSet = new Set(selectedContacts);
-    const uniqueIdSet = new Set();
-    const contactIdSet = new Set();
-    for (const c of groupContacts) {
-      if (!c?.id) continue;
-      if (!selectedSet.has(c.id)) continue;
-      if (c?.unique_id) uniqueIdSet.add(c.unique_id);
-      contactIdSet.add(c.id);
-    }
-    return {
-      unique_ids: Array.from(uniqueIdSet).filter(Boolean),
-      contact_ids: Array.from(contactIdSet).filter(Boolean)
-    };
-  };
-
-  // Bulk delete selected contacts from group
+  // Bulk remove from group. With "select all" the server resolves every member
+  // matching the current search, so rows on other pages are included.
   const handleBulkDeleteSelected = async () => {
     if (!tokens?.token || !tokens?.username) return;
-    if (!selectedContacts || selectedContacts.length === 0) {
+    if (!selection.hasSelection) {
       toast.error('Please select at least one contact');
       return;
     }
 
+    const count = selection.selectedCount.toLocaleString('en-IN');
     const confirmed = window.confirm(
-      'Are you sure you want to remove selected contacts from this group?'
+      selection.allMatching
+        ? `Remove all ${count} matching contacts from this group? This includes contacts on other pages.`
+        : `Remove ${count} selected contact(s) from this group?`
     );
     if (!confirmed) return;
 
@@ -759,161 +739,27 @@ function ContactGroupList() {
 
       if (!projectId || !groupId) {
         toast.error('Project id / Group id missing');
-        return;
-      }
-
-      const { unique_ids, contact_ids } = buildSelectedIds();
-
-      if (unique_ids.length === 0 && contact_ids.length === 0) {
-        toast.error('Provide at least one of unique_ids or contact_ids');
         return;
       }
 
       setDeleteLoading(true);
-      const payload = {
+      const result = await api.post('/contact/group-contact-delete', {
         project_id: projectId,
         group_id: groupId,
         all_contact_delete: false,
-        unique_ids,
-        contact_ids
-      };
-
-      console.log('📤 Bulk remove contacts from group:', payload);
-
-      const { data, key } = Encrypt(payload);
-      const response = await axios.post(
-        `${API_BASE_URL}/contact/group-contact-delete`,
-        { data, key },
-        {
-          headers: {
-            token: tokens.token,
-            username: tokens.username,
-            'Content-Type': 'application/json'
-          }
-        }
-      );
-
-      if (response?.data?.error === false) {
-        const deletedCount = response?.data?.deleted_count;
-        const baseMsg =
-          response?.data?.msg ||
-          'Selected contacts removed from group successfully';
-        const successMsg =
-          typeof deletedCount === 'number'
-            ? `${baseMsg} (${deletedCount} removed)`
-            : baseMsg;
-
-        toast.success(successMsg);
-
-        // Remove from local table without refetch
-        const removeSet = new Set(selectedContacts);
-        setGroupContacts((prev) => prev.filter((c) => !removeSet.has(c?.id)));
-        setTotalContacts((prev) =>
-          Math.max(0, (prev || 0) - removeSet.size)
-        );
-        setContactsMeta((prev) => ({
-          ...prev,
-          total_records: Math.max(0, (prev?.total_records || 0) - removeSet.size)
-        }));
-
-        setSelectedContacts([]);
-        setIsAllSelected(false);
-      } else {
-        const msg =
-          response?.data?.error ||
-          response?.data?.message ||
-          response?.data?.msg ||
-          'Failed to remove selected contacts';
-        toast.error(msg);
-      }
+        ...selection.buildPayload('contact_ids'),
+        filters: { search: debouncedSearchTerm || '' }
+      });
+      const deletedCount = result.data?.deleted_count;
+      const baseMsg = result.message || 'Selected contacts removed from group successfully';
+      toast.success(typeof deletedCount === 'number' ? `${baseMsg} (${deletedCount} removed)` : baseMsg);
+      selection.clear();
+      setPageNo(1);
+      setReloadTick((t) => t + 1);
     } catch (error) {
-      console.error('Failed to bulk remove contacts from group:', error);
-      toast.error('Failed to remove selected contacts. Please try again.');
+      toast.error(error.message || 'Failed to remove selected contacts. Please try again.');
     } finally {
       setDeleteLoading(false);
-    }
-  };
-
-  // Delete all contacts in the group (when all checked)
-  const handleDeleteAllInGroup = async () => {
-    if (!tokens?.token || !tokens?.username) return;
-    if (!isAllSelected || filteredGroupContacts.length === 0) return;
-
-    const confirmed = window.confirm(
-      'Are you sure you want to remove all contacts from this group?'
-    );
-    if (!confirmed) return;
-
-    try {
-      const projectId =
-        tokens.selected_project_id || tokens.projects?.[0]?.project_id || '';
-      const groupId = getGroupId();
-
-      if (!projectId || !groupId) {
-        toast.error('Project id / Group id missing');
-        return;
-      }
-
-      setDeleteAllLoading(true);
-      const payload = {
-        project_id: projectId,
-        group_id: groupId,
-        all_contact_delete: true
-      };
-
-      console.log('📤 Delete ALL contacts in group:', payload);
-
-      const { data, key } = Encrypt(payload);
-      const response = await axios.post(
-        `${API_BASE_URL}/contact/group-contact-delete`,
-        { data, key },
-        {
-          headers: {
-            token: tokens.token,
-            username: tokens.username,
-            'Content-Type': 'application/json'
-          }
-        }
-      );
-
-      if (response?.data?.error === false) {
-        const deletedCount = response?.data?.deleted_count;
-        const baseMsg =
-          response?.data?.msg || 'All contacts removed from group successfully';
-        const successMsg =
-          typeof deletedCount === 'number'
-            ? `${baseMsg} (${deletedCount} removed)`
-            : baseMsg;
-
-        toast.success(successMsg);
-
-        // Remove from local table without refetch
-        setGroupContacts([]);
-        setTotalContacts(0);
-        setContactsMeta((prev) => ({
-          ...prev,
-          page_no: 1,
-          total_records: 0,
-          total_pages: 1,
-          has_more: false
-        }));
-
-        setSelectedContacts([]);
-        setIsAllSelected(false);
-        setPageNo(1);
-      } else {
-        const msg =
-          response?.data?.error ||
-          response?.data?.message ||
-          response?.data?.msg ||
-          'Failed to remove all contacts';
-        toast.error(msg);
-      }
-    } catch (error) {
-      console.error('Failed to remove all contacts from group:', error);
-      toast.error('Failed to remove all contacts. Please try again.');
-    } finally {
-      setDeleteAllLoading(false);
     }
   };
 
@@ -921,29 +767,6 @@ function ContactGroupList() {
   const handleOpenRemoveModal = (contact) => {
     setRemovingContact(contact);
     setShowRemoveModal(true);
-  };
-
-  // Handle select all contacts
-  const handleSelectAll = () => {
-    if (isAllSelected) {
-      setSelectedContacts([]);
-      setIsAllSelected(false);
-    } else {
-      setSelectedContacts(filteredGroupContacts.map(c => c.id));
-      setIsAllSelected(true);
-    }
-  };
-
-  // Handle individual contact selection
-  const handleSelectContact = (contactId) => {
-    if (selectedContacts.includes(contactId)) {
-      setSelectedContacts(selectedContacts.filter(id => id !== contactId));
-      setIsAllSelected(false);
-    } else {
-      const newSelected = [...selectedContacts, contactId];
-      setSelectedContacts(newSelected);
-      setIsAllSelected(newSelected.length === filteredGroupContacts.length);
-    }
   };
 
   // Handle page size change
@@ -958,6 +781,16 @@ function ContactGroupList() {
 
   // Server-side search is used for group contacts; keep rendering list as-is
   const filteredGroupContacts = groupContacts;
+
+  const selection = useBulkSelection({
+    pageIds: groupContacts.map((c) => c.id),
+    totalCount: contactsMeta?.total_records ?? totalContacts,
+    resetKey: `${debouncedSearchTerm}|${getGroupId?.() || ''}`
+  });
+  const showEmailColumn = groupContacts.some((contact) => contact.email);
+  const showCompanyColumn = groupContacts.some((contact) => contact.firm_name);
+  const memberColumnCount = 5 + (showEmailColumn ? 1 : 0) + (showCompanyColumn ? 1 : 0);
+  const groupRemark = getGroupRemark();
 
   // Filter available contacts for adding
   const filteredAvailableContacts = addContacts.filter(
@@ -976,7 +809,7 @@ function ContactGroupList() {
 
   if (permissions && permissions.view_contact === false) {
     return (
-      <div className="min-h-screen bg-[#f4f6fb]">
+      <div className="min-h-screen bg-surface-ground">
         <Header
           mobileMenuOpen={mobileMenuOpen}
           setMobileMenuOpen={setMobileMenuOpen}
@@ -990,8 +823,8 @@ function ContactGroupList() {
           setIsMinimized={setIsMinimized}
         />
         <div className={`pt-16 transition-all duration-300 ease-in-out ${isMinimized ? 'md:pl-20' : 'md:pl-[260px]'}`}>
-          <div className="w-full px-4 py-5">
-            <div className="bg-white rounded-lg shadow p-8 text-center">
+          <div className="w-full max-w-[1320px] px-4 sm:px-7 py-7">
+            <div className="bg-white rounded-card border border-line p-8 text-center">
               <h2 className="text-lg font-semibold text-gray-900">Access Denied</h2>
               <p className="mt-2 text-gray-600">You do not have permission to view group contacts.</p>
             </div>
@@ -1002,7 +835,7 @@ function ContactGroupList() {
   }
 
   return (
-    <div className="min-h-screen bg-[#f4f6fb]">
+    <div className="min-h-screen bg-surface-ground">
       <Header
         mobileMenuOpen={mobileMenuOpen}
         setMobileMenuOpen={setMobileMenuOpen}
@@ -1017,81 +850,70 @@ function ContactGroupList() {
       />
 
       <div className={`pt-16 transition-all duration-300 ease-in-out ${isMinimized ? 'md:pl-20' : 'md:pl-[260px]'}`}>
-        <div className="w-full px-4 py-5">
-          {/* Header Section */}
-          <div className="mb-5">
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between">
-              <div>
-                <div className="flex items-center gap-3 mb-2">
-                  <button
-                    onClick={() => window.history.back()}
-                    className="p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors"
-                    title="Go back"
-                  >
-                    <FiArrowLeft className="h-5 w-5" />
-                  </button>
-                  <FiUsers className="h-6 w-6 text-indigo-600" />
-                  <h1 className="text-2xl font-semibold tracking-tight text-slate-900">
-                    {getGroupName()} - Contacts
-                  </h1>
-                </div>
-              </div>
-
-              <div className="flex flex-wrap items-center gap-2">
+        <div className="w-full max-w-[1320px] px-4 sm:px-7 py-7">
+          <div className="mb-5 flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+            <div className="min-w-0">
+              <div className="flex items-center gap-2.5 min-w-0">
                 <button
-                  onClick={() => {
-                    setShowAddModal(true);
-                  }}
-                  className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+                  type="button"
+                  onClick={() => window.history.back()}
+                  className="flex h-8 w-8 flex-none items-center justify-center rounded-[9px] text-ink-500 hover:bg-white hover:text-ink"
+                  aria-label="Back to groups"
                 >
-                  <FiPlus className="mr-2 h-4 w-4" />
-                  Add Contact
+                  <FiArrowLeft size={18} />
                 </button>
+                <h1 className="text-[26px] leading-tight font-extrabold tracking-tight text-ink truncate">
+                  {groupInfo?.name || getGroupName()}
+                </h1>
+              </div>
+              <p className="mt-1.5 pl-10 text-sm text-ink-500">
+                {Number(totalContacts || 0).toLocaleString()} contacts{groupRemark ? ` · ${groupRemark}` : ''}
+              </p>
+            </div>
 
-                {selectedContacts.length > 0 && (
-                  <button
-                    onClick={handleBulkDeleteSelected}
-                    disabled={deleteLoading || deleteAllLoading}
-                    className={`inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 ${deleteLoading || deleteAllLoading ? 'opacity-60 cursor-not-allowed' : ''}`}
-                    title="Remove selected from group"
-                  >
-                    <FiTrash2 className="mr-2 h-4 w-4" />
-                    {deleteLoading ? 'Deleting...' : `Delete Selected (${selectedContacts.length})`}
-                  </button>
-                )}
+            <div className="flex flex-wrap items-center gap-2">
+              {!showAddModal && (
+                <button type="button" onClick={() => setShowAddModal(true)} className="oc-btn-primary">
+                  <FiPlus className="h-4 w-4" />
+                  Add contact
+                </button>
+              )}
 
-                {isAllSelected && filteredGroupContacts.length > 0 && (
-                  <button
-                    onClick={handleDeleteAllInGroup}
-                    disabled={deleteAllLoading || deleteLoading}
-                    className={`inline-flex items-center px-4 py-2 border border-red-300 rounded-md shadow-sm text-sm font-medium text-red-700 bg-white hover:bg-red-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 ${deleteAllLoading || deleteLoading ? 'opacity-60 cursor-not-allowed' : ''}`}
-                    title="Remove all contacts in this group"
-                  >
-                    <FiTrash2 className="mr-2 h-4 w-4" />
-                    {deleteAllLoading ? 'Deleting all...' : 'Delete All'}
-                  </button>
-                )}
+              </div>
+          </div>
+
+          <div className="flex flex-col xl:flex-row xl:items-start gap-5">
+          <div className="min-w-0 flex-1">
+          <div className="bg-white border border-line rounded-[14px] overflow-hidden">
+            <div className="px-4 py-3.5 border-b border-[#ECEAF3]">
+              <div className="relative">
+                <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-ink-400" />
+                <input
+                  type="text"
+                  placeholder="Search contacts in this group"
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="h-[38px] w-full pl-9 pr-3 rounded-[9px] border border-line bg-surface-soft text-sm text-ink placeholder:text-ink-400 outline-none focus:border-brand-600"
+                />
               </div>
             </div>
-          </div>
-
-          {/* Search Bar */}
-          <div className="mb-6">
-            <div className="relative">
-              <FiSearch className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-5 w-5" />
-              <input
-                type="text"
-                placeholder="Search contacts..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-              />
-            </div>
-          </div>
-
-          {/* Group Contacts Table */}
-          <div className="bg-white shadow-sm rounded-xl overflow-hidden border border-gray-100">
-            <div className="px-4 py-4 sm:p-6">
+            <BulkActionBar
+              selection={selection}
+              totalCount={contactsMeta?.total_records ?? totalContacts}
+              pageCount={groupContacts.length}
+              noun="contacts"
+            >
+              <button
+                type="button"
+                onClick={handleBulkDeleteSelected}
+                disabled={deleteLoading}
+                className="oc-btn h-9 bg-red-600 text-white hover:bg-red-700"
+              >
+                <FiTrash2 className="h-4 w-4" />
+                {deleteLoading ? 'Removing…' : 'Remove from group'}
+              </button>
+            </BulkActionBar>
+            <div className="px-1 py-1">
               {loading ? (
                 <div className="overflow-x-auto">
                   <table className="min-w-full">
@@ -1114,30 +936,21 @@ function ContactGroupList() {
                     <table className="min-w-full divide-y divide-gray-100">
                       <thead className="bg-gray-50/60">
                         <tr>
-                          <th className="px-6 py-3 text-center text-xs font-semibold text-gray-600 uppercase tracking-wider w-14">#</th>
-                          <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider w-14">
-                            <CustomCheckbox
-                              checked={isAllSelected}
-                              onChange={() => handleSelectAll()}
-                              ariaLabel="Select all contacts"
-                            />
+                          <th className="oc-th w-12 text-center">#</th>
+                          <th className="oc-th w-12">
+                            <MasterCheckbox selection={selection} disabled={groupContacts.length === 0} />
                           </th>
-                          <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
-                            Contact
-                          </th>
-                          <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
-                            Mobile
-                          </th>
-
-                          <th className="px-6 py-3 text-right text-xs font-semibold text-gray-600 uppercase tracking-wider">
-                            Actions
-                          </th>
+                          <th className="oc-th">Name</th>
+                          <th className="oc-th">Mobile</th>
+                          {showEmailColumn && <th className="oc-th">Email</th>}
+                          {showCompanyColumn && <th className="oc-th">Company</th>}
+                          <th className="oc-th text-right">Actions</th>
                         </tr>
                       </thead>
                       <tbody className="bg-white divide-y divide-gray-50">
                         {filteredGroupContacts.length === 0 ? (
                           <tr>
-                            <td colSpan="5" className="px-6 py-12 text-center text-gray-500">
+                            <td colSpan={memberColumnCount} className="px-6 py-12 text-center text-ink-500">
                               {searchTerm
                                 ? 'No contacts found matching your search.'
                                 : 'No contacts in this group yet. Add some contacts to get started.'
@@ -1151,62 +964,50 @@ function ContactGroupList() {
                                 {(contactsMeta.page_no - 1) * pageSize + index + 1}
                               </td>
                               <td className="px-6 py-4 whitespace-nowrap">
-                                <CustomCheckbox
-                                  checked={selectedContacts.includes(contact.id)}
-                                  onChange={() => handleSelectContact(contact.id)}
-                                  ariaLabel={`Select ${contact?.name || 'contact'}`}
-                                />
+                                <RowCheckbox selection={selection} id={contact.id} label={`Select ${contact?.name || 'contact'}`} />
                               </td>
-                              <td className="px-6 py-4 whitespace-nowrap">
-                                <div className="flex items-center">
-                                  <div className="flex-shrink-0 h-10 w-10">
-                                    <div className="h-10 w-10 rounded-full bg-indigo-100 flex items-center justify-center">
-                                      <FiUser className="h-5 w-5 text-indigo-600" />
-                                    </div>
-                                  </div>
-                                  <div className="ml-4">
-                                    <div className="text-sm font-medium text-gray-900">
-                                      {contact?.name || '-'}
-                                    </div>
-                                    {(contact?.firm_name || contact?.website) && (
-                                      <div className="text-xs text-gray-500 mt-0.5 truncate max-w-[340px]">
-                                        {contact?.firm_name || contact?.website}
-                                      </div>
-                                    )}
-                                  </div>
+                              <td className="oc-td whitespace-nowrap">
+                                <button type="button" onClick={() => setDetailContact(contact)} className="flex items-center gap-3 text-left">
+                                  <span className={`flex h-8 w-8 items-center justify-center rounded-full text-[11px] font-bold ${avatarTone(contact?.name)}`}>
+                                    {initialsFor(contact?.name)}
+                                  </span>
+                                  <span className="text-sm font-semibold text-ink">{contact?.name || '—'}</span>
+                                </button>
+                              </td>
+                              <td className="oc-td whitespace-nowrap font-mono text-[13px] text-ink">
+                                {contact?.mobile || '—'}
+                              </td>
+                              {showEmailColumn && (
+                                <td className="oc-td text-sm text-ink-500 whitespace-nowrap">{contact?.email || '—'}</td>
+                              )}
+                              {showCompanyColumn && (
+                                <td className="oc-td text-sm text-ink whitespace-nowrap">{contact?.firm_name || '—'}</td>
+                              )}
+                              <td className="oc-td whitespace-nowrap text-right">
+                                <div className="inline-flex items-center gap-2">
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      const number = contact?.mobile || '';
+                                      if (!number) {
+                                        toast.error('Mobile number not found');
+                                        return;
+                                      }
+                                      navigate(`/live-chat/${encodeURIComponent(number)}`);
+                                    }}
+                                    className="oc-btn-ghost h-8 px-2.5 text-xs"
+                                  >
+                                    Open chat
+                                  </button>
+                                  <button
+                                    type="button"
+                                    disabled={deleteLoading}
+                                    onClick={() => handleOpenRemoveModal(contact)}
+                                    className="text-[13px] font-semibold text-rose-600 hover:text-rose-700 disabled:opacity-50"
+                                  >
+                                    Remove
+                                  </button>
                                 </div>
-                              </td>
-                              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                                <div className="flex items-center">
-                                  <FiPhone className="h-4 w-4 text-gray-400 mr-2" />
-                                  {contact?.mobile || '-'}
-                                </div>
-                              </td>
-                              <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                                <RowActionMenu
-                                  items={[
-                                    { label: 'Details', icon: <FiEye className="w-4 h-4" />, onClick: () => setDetailContact(contact) },
-                                    {
-                                      label: 'Open chat',
-                                      icon: <FiMessageCircle className="w-4 h-4" />,
-                                      onClick: () => {
-                                        const number = contact?.mobile || '';
-                                        if (!number) {
-                                          toast.error('Mobile number not found');
-                                          return;
-                                        }
-                                        navigate(`/live-chat/${encodeURIComponent(number)}`);
-                                      },
-                                    },
-                                    {
-                                      label: 'Remove',
-                                      icon: <FiTrash2 className="w-4 h-4" />,
-                                      danger: true,
-                                      disabled: deleteLoading || deleteAllLoading,
-                                      onClick: () => handleOpenRemoveModal(contact),
-                                    },
-                                  ]}
-                                />
                               </td>
                             </tr>
                           ))
@@ -1231,16 +1032,13 @@ function ContactGroupList() {
               )}
             </div>
           </div>
-        </div>
-      </div>
-
+          </div>
       {/* Add Contact Modal */}
-      {showAddModal && (
-        <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-hidden z-50 flex items-start justify-center">
-          <div className="mt-20 mx-auto p-5 border w-5/6 sm:w-4/6 md:w-3/6 lg:w-2/6 xl:w-2/6 shadow-lg rounded-md bg-white">
-            <div className="mt-3">
+          {showAddModal && (
+            <aside className="w-full xl:w-[320px] xl:sticky xl:top-20 bg-white border border-line rounded-[14px] p-4">
+            <div>
               <div className="flex items-center justify-between mb-4">
-                <h3 className="text-lg font-medium text-gray-900">Add Contact to Group</h3>
+                <h3 className="text-base font-bold text-ink">Add contacts to group</h3>
                 <button
                   onClick={() => {
                     setShowAddModal(false);
@@ -1269,10 +1067,10 @@ function ContactGroupList() {
                   <FiSearch className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-5 w-5" />
                   <input
                     type="text"
-                    placeholder="Search contacts to add..."
+                    placeholder="Search contacts to add"
                     value={addSearchTerm}
                     onChange={(e) => setAddSearchTerm(e.target.value)}
-                    className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                    className="h-[38px] w-full pl-9 pr-3 rounded-[9px] border border-line bg-surface-soft text-sm text-ink placeholder:text-ink-400 outline-none focus:border-brand-600"
                   />
                 </div>
               </div>
@@ -1319,7 +1117,7 @@ function ContactGroupList() {
                         </div>
                         <button
                           onClick={() => handleAddContactToGroup(contact.id)}
-                          className="inline-flex items-center px-3 py-1 border border-transparent text-xs font-medium rounded text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+                          className="oc-btn-primary h-8 px-3 text-xs"
                         >
                           <FiPlus className="h-3 w-3 mr-1" />
                           Add
@@ -1380,54 +1178,59 @@ function ContactGroupList() {
                     addModalGroupIdsReqIdRef.current += 1;
                     setAddModalGroupContactIds([]);
                   }}
-                  className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+                  className="oc-btn-ghost"
                 >
                   Close
                 </button>
               </div>
             </div>
-          </div>
+            </aside>
+          )}
+
         </div>
-      )}
+        </div>
+      </div>
 
       {/* Remove Contact Modal */}
-      {showRemoveModal && (
-        <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
-          <div className="relative top-20 mx-auto p-5 border w-5/6 sm:w-3/6 md:w-2/6 lg:w-2/6 xl:w-1/4 shadow-lg rounded-md bg-white">
-            <div className="mt-3">
-              <div className="flex items-center justify-center mb-4">
-                <div className="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-red-100">
-                  <FiTrash2 className="h-6 w-6 text-red-600" />
+      <AnimatedModal open={showRemoveModal}>
+        {showRemoveModal && (
+          <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
+            <div className="relative top-20 mx-auto p-5 border w-5/6 sm:w-3/6 md:w-2/6 lg:w-2/6 xl:w-1/4 shadow-lg rounded-md bg-white">
+              <div className="mt-3">
+                <div className="flex items-center justify-center mb-4">
+                  <div className="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-red-100">
+                    <FiTrash2 className="h-6 w-6 text-red-600" />
+                  </div>
                 </div>
-              </div>
-              <div className="text-center">
-                <h3 className="text-lg font-medium text-gray-900 mb-2">Remove Contact</h3>
-                <p className="text-sm text-gray-600 mb-4">
-                  Are you sure you want to remove "{removingContact?.name}" from this group?
-                  The contact will remain in your contact list but will be removed from this group.
-                </p>
-                <div className="flex justify-center space-x-3">
-                  <button
-                    onClick={() => {
-                      setShowRemoveModal(false);
-                      setRemovingContact(null);
-                    }}
-                    className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    onClick={handleRemoveContactFromGroup}
-                    className="px-4 py-2 text-sm font-medium text-white bg-red-600 border border-transparent rounded-md hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
-                  >
-                    Remove
-                  </button>
+                <div className="text-center">
+                  <h3 className="text-lg font-medium text-gray-900 mb-2">Remove Contact</h3>
+                  <p className="text-sm text-gray-600 mb-4">
+                    Are you sure you want to remove "{removingContact?.name}" from this group?
+                    The contact will remain in your contact list but will be removed from this group.
+                  </p>
+                  <div className="flex justify-center space-x-3">
+                    <button
+                      onClick={() => {
+                        setShowRemoveModal(false);
+                        setRemovingContact(null);
+                      }}
+                      className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      onClick={handleRemoveContactFromGroup}
+                      className="px-4 py-2 text-sm font-medium text-white bg-red-600 border border-transparent rounded-md hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
+                    >
+                      Remove
+                    </button>
+                  </div>
                 </div>
               </div>
             </div>
           </div>
-        </div>
-      )}
+        )}
+      </AnimatedModal>
 
       <RecordDetailsModal
         isOpen={Boolean(detailContact)}

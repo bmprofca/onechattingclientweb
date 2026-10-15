@@ -228,7 +228,7 @@ function Template() {
   };
 
   return (
-    <div className="flex min-h-screen flex-col bg-[#f4f6fb]">
+    <div className="flex min-h-screen flex-col bg-surface-ground">
       <Header
         mobileMenuOpen={mobileMenuOpen}
         setMobileMenuOpen={setMobileMenuOpen}
@@ -245,10 +245,10 @@ function Template() {
         />
 
         <main className={`flex-1 overflow-y-auto pt-16 transition-all duration-300 ease-in-out ${isMinimized ? 'md:pl-20' : 'md:pl-[260px]'}`}>
-          <div className="w-full px-4 py-5">
+          <div className="w-full max-w-[1320px] px-4 sm:px-7 py-7">
             <div className="mb-5 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
               <div className="min-w-0">
-                <h1 className="text-2xl font-semibold tracking-tight text-slate-900">Templates</h1>
+                <h1 className="text-[26px] leading-tight font-extrabold tracking-tight text-ink">Templates</h1>
                 <p className="mt-1 text-sm text-slate-500">WhatsApp message layouts for this project.</p>
               </div>
               <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
@@ -290,7 +290,7 @@ function Template() {
               </div>
             </div>
 
-            <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+            <div className="overflow-hidden rounded-card border border-line bg-white">
               <div className="overflow-x-auto">
                 <table className="min-w-full divide-y divide-slate-200">
                   <thead className="bg-slate-50">

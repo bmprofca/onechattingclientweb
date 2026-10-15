@@ -351,7 +351,7 @@ function TemplateView() {
 
     if (loading) {
         return (
-            <div className="min-h-screen bg-[#f4f6fb]">
+            <div className="min-h-screen bg-surface-ground">
                 <Header
                     mobileMenuOpen={mobileMenuOpen}
                     setMobileMenuOpen={setMobileMenuOpen}
@@ -366,7 +366,7 @@ function TemplateView() {
                 />
                 <div className={`pt-16 transition-all duration-300 ease-in-out ${isMinimized ? 'md:pl-20' : 'md:pl-[260px]'
                     }`}>
-                    <div className="w-full px-4 py-5">
+                    <div className="w-full max-w-[1320px] px-4 sm:px-7 py-7">
                         <div className="flex items-center justify-center h-64">
                             <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600"></div>
                             <span className="ml-3 text-lg text-gray-600">Loading template...</span>
@@ -378,7 +378,7 @@ function TemplateView() {
     }
 
     return (
-        <div className="min-h-screen bg-[#f4f6fb]">
+        <div className="min-h-screen bg-surface-ground">
             <Header
                 mobileMenuOpen={mobileMenuOpen}
                 setMobileMenuOpen={setMobileMenuOpen}
@@ -395,7 +395,7 @@ function TemplateView() {
             {/* Main content */}
             <div className={`pt-16 transition-all duration-300 ease-in-out ${isMinimized ? 'md:pl-20' : 'md:pl-[260px]'
                 }`}>
-                <div className="w-full px-4 py-5">
+                <div className="w-full max-w-[1320px] px-4 sm:px-7 py-7">
                     {/* Page header */}
                     <div className="mb-6">
                         <div className="flex items-center mb-4">
@@ -406,7 +406,7 @@ function TemplateView() {
                                 <FiArrowLeft size={20} />
                             </button>
                             <div>
-                                <h2 className="text-2xl font-semibold tracking-tight text-slate-900">View WhatsApp Template</h2>
+                                <h2 className="text-[26px] leading-tight font-extrabold tracking-tight text-ink">View WhatsApp Template</h2>
                                 <p className="mt-1 text-sm text-gray-600">
                                     View your WhatsApp message template - Template ID: {templateId}
                                 </p>
@@ -416,7 +416,7 @@ function TemplateView() {
 
                     <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
                         {/* View section */}
-                        <div className="bg-white shadow rounded-lg p-6">
+                        <div className="bg-white border border-line rounded-card p-6">
                             <div className="space-y-6">
                                 {/* Template Name */}
                                 <div>
@@ -574,7 +574,7 @@ function TemplateView() {
                         {/*WhatsApp Preview section */}
                         <div className="lg:col-span-1">
                             <div className="lg:sticky lg:top-24 lg:self-start">
-                                <div className="bg-white shadow rounded-lg p-6">
+                                <div className="bg-white border border-line rounded-card p-6">
                                     <div className="flex items-center justify-between mb-4">
                                         <h3 className="text-lg font-semibold text-gray-900">Template Preview</h3>
                                         <span className="text-xs font-medium text-indigo-600 bg-indigo-50 px-2 py-1 rounded-full">

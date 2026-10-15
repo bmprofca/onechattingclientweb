@@ -8,20 +8,15 @@ import { Header, Sidebar } from '../component/Menu';
 import Pagination from '../component/Pagination';
 import { fetchProjectInfo } from '../store/projectSlice';
 import {
-    FiCode,
     FiLock,
     FiKey,
     FiRefreshCw,
     FiCopy,
-    FiEye,
-    FiEyeOff,
-    FiUsers,
     FiExternalLink,
     FiX,
     FiAlertTriangle,
 } from 'react-icons/fi';
 import toast from 'react-hot-toast';
-import RowActionMenu from '../component/table/RowActionMenu';
 import RecordDetailsModal from '../component/table/RecordDetailsModal';
 import { TableSkeletonRows } from '../component/table/TableSkeleton';
 
@@ -219,29 +214,26 @@ function TokenField({ token, onRegenerate, regenerating, emptyLabel = 'No token 
         : emptyLabel;
 
     return (
-        <div className="flex flex-col sm:flex-row gap-3">
-            <div className="flex-1 flex items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2.5 min-h-[44px]">
-                <FiKey className="w-4 h-4 text-slate-400 flex-shrink-0" />
-                <span className={`text-sm break-all font-mono ${token ? 'text-slate-800' : 'text-slate-400 italic'}`}>
+        <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
+            <div className="flex-1 min-w-0 flex items-center rounded-[10px] bg-ink px-4 h-11">
+                <span className={`text-[13px] break-all font-mono ${token ? 'text-white' : 'text-white/50'}`}>
                     {displayValue}
                 </span>
-                {token && (
-                    <button
-                        type="button"
-                        onClick={() => setVisible((prev) => !prev)}
-                        className="ml-auto p-1.5 rounded-md text-slate-500 hover:text-indigo-600 hover:bg-indigo-50 transition-colors"
-                        title={visible ? 'Hide token' : 'Show token'}
-                    >
-                        {visible ? <FiEyeOff className="w-4 h-4" /> : <FiEye className="w-4 h-4" />}
-                    </button>
-                )}
             </div>
-            <div className="flex gap-2">
+            <div className="flex flex-wrap gap-2">
+                <button
+                    type="button"
+                    onClick={() => setVisible((prev) => !prev)}
+                    disabled={!token}
+                    className="inline-flex items-center justify-center h-[38px] px-3.5 rounded-[9px] text-[13px] font-semibold bg-white text-ink border border-[#E1DFEC] hover:bg-surface-soft disabled:opacity-50"
+                >
+                    {visible ? 'Hide' : 'Reveal'}
+                </button>
                 <button
                     type="button"
                     onClick={handleCopy}
                     disabled={!token}
-                    className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg border border-slate-200 bg-white text-slate-700 text-sm font-medium hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                    className="inline-flex items-center justify-center gap-2 h-[38px] px-3.5 rounded-[9px] text-[13px] font-semibold bg-white text-ink border border-[#E1DFEC] hover:bg-surface-soft disabled:opacity-50"
                 >
                     <FiCopy className="w-4 h-4" />
                     Copy
@@ -250,10 +242,10 @@ function TokenField({ token, onRegenerate, regenerating, emptyLabel = 'No token 
                     type="button"
                     onClick={onRegenerate}
                     disabled={regenerating}
-                    className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg bg-indigo-600 text-white text-sm font-medium hover:bg-indigo-700 disabled:opacity-60 disabled:cursor-not-allowed transition-colors"
+                    className="inline-flex items-center justify-center gap-2 h-[38px] px-3.5 rounded-[9px] text-[13px] font-semibold text-rose-600 bg-white border border-rose-200 hover:bg-rose-50 disabled:opacity-50"
                 >
                     {regenerating ? (
-                        <span className="inline-block h-4 w-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                        <span className="inline-block h-4 w-4 border-2 border-rose-600 border-t-transparent rounded-full animate-spin" />
                     ) : (
                         <FiRefreshCw className="w-4 h-4" />
                     )}
@@ -552,19 +544,19 @@ function DeveloperAccess() {
 
     if (!isOwner) {
         return (
-            <div className="min-h-screen bg-[#f4f6fb]">
+            <div className="min-h-screen bg-surface-ground">
                 <Header mobileMenuOpen={mobileMenuOpen} setMobileMenuOpen={setMobileMenuOpen} isMinimized={isMinimized} setIsMinimized={setIsMinimized} />
                 <Sidebar mobileMenuOpen={mobileMenuOpen} setMobileMenuOpen={setMobileMenuOpen} isMinimized={isMinimized} setIsMinimized={setIsMinimized} />
                 <div className={`pt-16 transition-all duration-300 ease-in-out ${isMinimized ? 'md:pl-20' : 'md:pl-[260px]'}`}>
-                    <div className="w-full px-4 py-5">
-                        <div className="max-w-2xl mx-auto mt-12 rounded-xl border border-slate-200 bg-white p-8 shadow-sm text-center">
-                            <FiLock className="w-14 h-14 mx-auto text-slate-300 mb-4" />
-                            <h2 className="text-xl font-semibold text-slate-800 mb-2">Access denied</h2>
-                            <p className="text-slate-600 mb-6">Only the project owner can manage developer access.</p>
+                    <div className="w-full max-w-[1320px] px-4 sm:px-7 py-7">
+                        <div className="max-w-2xl mx-auto mt-12 rounded-[14px] border border-line bg-white p-8 text-center">
+                            <FiLock className="w-14 h-14 mx-auto text-ink-400 mb-4" />
+                            <h2 className="text-xl font-extrabold tracking-tight text-ink mb-2">Access denied</h2>
+                            <p className="text-ink-500 mb-6">Only the project owner can manage developer access.</p>
                             <button
                                 type="button"
                                 onClick={() => navigate('/')}
-                                className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors"
+                                className="inline-flex items-center justify-center h-[38px] px-3.5 rounded-[9px] text-[13px] font-semibold bg-brand-600 text-white hover:bg-brand-700"
                             >
                                 Back to Dashboard
                             </button>
@@ -578,62 +570,58 @@ function DeveloperAccess() {
     const userPageCount = Math.max(1, Math.ceil(mappedUsers.length / userPageSize) || 1);
     const safeUserPage = Math.min(userPage, userPageCount);
     const pagedUsers = mappedUsers.slice((safeUserPage - 1) * userPageSize, safeUserPage * userPageSize);
+    const tokenStatus = [
+        developerAccess ? 'Active' : 'Disabled',
+        projectToken ? 'Token generated' : 'No token yet',
+    ].join(' · ');
 
     return (
-        <div className="min-h-screen bg-[#f4f6fb]">
+        <div className="min-h-screen bg-surface-ground">
             <Header mobileMenuOpen={mobileMenuOpen} setMobileMenuOpen={setMobileMenuOpen} isMinimized={isMinimized} setIsMinimized={setIsMinimized} />
             <Sidebar mobileMenuOpen={mobileMenuOpen} setMobileMenuOpen={setMobileMenuOpen} isMinimized={isMinimized} setIsMinimized={setIsMinimized} />
             <div className={`pt-16 transition-all duration-300 ease-in-out ${isMinimized ? 'md:pl-20' : 'md:pl-[260px]'}`}>
-                <div className="w-full px-4 py-5">
-                    <div className="mb-8 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-                        <h1 className="text-2xl font-bold text-slate-800 flex items-center gap-2">
-                            <FiCode className="w-7 h-7 text-indigo-600" />
-                            Developer Access
-                        </h1>
+                <div className="w-full max-w-[1320px] px-4 sm:px-7 py-7">
+                    <div className="mb-5 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+                        <div>
+                            <h1 className="text-[26px] leading-tight font-extrabold tracking-tight text-ink">Developer access</h1>
+                            <p className="mt-1.5 text-sm text-ink-500">Connect your own apps to send and receive WhatsApp messages through this project.</p>
+                        </div>
                         <a
                             href={DEVELOPER_API_DOCS_URL}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="inline-flex items-center justify-center gap-2 self-start sm:self-auto px-4 py-2.5 rounded-lg border border-indigo-200 bg-indigo-50 text-indigo-700 text-sm font-medium hover:bg-indigo-100 transition-colors"
+                            className="inline-flex items-center justify-center gap-2 h-[38px] px-3.5 rounded-[9px] text-[13px] font-semibold bg-white text-ink border border-[#E1DFEC] hover:bg-surface-soft"
                         >
+                            API documentation
                             <FiExternalLink className="w-4 h-4" />
-                            API Reference
                         </a>
                     </div>
 
                     {loading ? (
-                        <div className="space-y-6">
-                            <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm animate-pulse">
-                                <div className="h-5 w-56 bg-slate-200 rounded" />
-                                <div className="mt-3 h-4 w-80 bg-slate-100 rounded" />
+                        <div className="space-y-5">
+                            <div className="rounded-[14px] border border-line bg-white p-6 animate-pulse">
+                                <div className="h-5 w-56 bg-surface-soft rounded" />
+                                <div className="mt-4 h-11 bg-ink/80 rounded-[10px]" />
                             </div>
-                            <div className="rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden">
+                            <div className="rounded-[14px] border border-line bg-white overflow-hidden">
                                 <table className="min-w-full">
-                                    <thead className="bg-slate-50">
-                                        <tr>
-                                            {['#', 'Name', 'Email', 'Role', 'Developer Token', ''].map((label, index) => (
-                                                <th key={`${label}-${index}`} className="px-6 py-3 text-left text-xs font-semibold text-slate-500 uppercase">{label}</th>
-                                            ))}
-                                        </tr>
-                                    </thead>
                                     <tbody>
-                                        <TableSkeletonRows rows={5} cells={['index', 'text', 'text', 'badge', 'short', 'action']} />
+                                        <TableSkeletonRows rows={5} cells={['index', 'text', 'text', 'badge', 'badge', 'action']} />
                                     </tbody>
                                 </table>
                             </div>
                         </div>
                     ) : (
-                        <div className="space-y-6">
-                            <div className="rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden">
-                                <div className="px-6 py-5 border-b border-slate-100">
-                                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-                                        <div>
-                                            <h2 className="text-lg font-semibold text-slate-800">Project Developer Access</h2>
-                                            <p className="text-sm text-slate-600 mt-1">
-                                                Turn on developer access to allow API integrations for this project.
-                                            </p>
-                                        </div>
-                                        <label className="relative inline-flex items-center cursor-pointer flex-shrink-0">
+                        <div className="space-y-5">
+                            <section className="rounded-[14px] border border-line bg-white p-5 sm:p-6">
+                                <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                                    <div>
+                                        <h2 className="text-[15px] font-bold text-ink">Project developer token</h2>
+                                        <p className="mt-1 text-sm text-ink-500">Send it in the token header. Anyone with this token can message as your business.</p>
+                                    </div>
+                                    <div className="flex items-center gap-3">
+                                        <span className={`text-[13px] font-semibold ${developerAccess ? 'text-emerald-700' : 'text-ink-500'}`}>{tokenStatus}</span>
+                                        <label className="relative inline-flex items-center cursor-pointer">
                                             <input
                                                 type="checkbox"
                                                 checked={developerAccess}
@@ -641,64 +629,58 @@ function DeveloperAccess() {
                                                 onChange={(e) => requestAccessChange(e.target.checked)}
                                                 className="sr-only peer"
                                             />
-                                            <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-indigo-500 rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-600 peer-disabled:opacity-60" />
-                                            <span className="ms-3 text-sm font-medium text-slate-700">
-                                                {accessLoading ? 'Saving...' : (developerAccess ? 'Enabled' : 'Disabled')}
-                                            </span>
+                                            <div className="w-11 h-6 bg-line peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-brand-600 rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-line after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-brand-600 peer-disabled:opacity-60" />
                                         </label>
                                     </div>
                                 </div>
-
-                                <div className="px-6 py-5">
-                                    <h3 className="text-sm font-semibold text-slate-800 mb-2">Project Developer Token</h3>
-                                    <p className="text-sm text-slate-600 mb-4">
-                                        Use this token for project-level developer API authentication.
-                                    </p>
+                                <div className="mt-4">
                                     <TokenField
                                         token={projectToken}
                                         onRegenerate={requestProjectTokenRegenerate}
                                         regenerating={projectTokenLoading}
                                     />
                                 </div>
-                            </div>
-
-                            <div className="rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden">
-                                <div className="px-6 py-5 border-b border-slate-100 flex items-center justify-between gap-4">
-                                    <div>
-                                        <h2 className="text-lg font-semibold text-slate-800 flex items-center gap-2">
-                                            <FiUsers className="w-5 h-5 text-indigo-600" />
-                                            User Tokens
-                                        </h2>
+                                <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-3">
+                                    <div className="rounded-[12px] bg-surface-soft px-4 py-3">
+                                        <div className="text-[11px] font-bold uppercase tracking-wide text-ink-400">Base URL</div>
+                                        <div className="mt-1 text-sm font-mono text-ink break-all">{API_BASE_URL}</div>
                                     </div>
-                                    <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-indigo-50 text-indigo-700">
-                                        {mappedUsers.length} users
-                                    </span>
+                                    {projectId ? (
+                                        <div className="rounded-[12px] bg-surface-soft px-4 py-3">
+                                            <div className="text-[11px] font-bold uppercase tracking-wide text-ink-400">Project ID</div>
+                                            <div className="mt-1 text-sm font-mono text-ink break-all">{projectId}</div>
+                                        </div>
+                                    ) : null}
                                 </div>
+                            </section>
 
+                            <section className="rounded-[14px] border border-line bg-white overflow-hidden">
+                                <div className="px-5 py-4 border-b border-[#F3F2F8] flex items-center justify-between gap-3">
+                                    <h2 className="text-[15px] font-bold text-ink">Team developer tokens</h2>
+                                    <span className="text-xs font-semibold text-ink-500">{mappedUsers.length} users</span>
+                                </div>
                                 <div className="overflow-x-auto">
-                                    <table className="min-w-full divide-y divide-slate-200">
-                                        <thead className="bg-slate-50">
+                                    <table className="min-w-full">
+                                        <thead>
                                             <tr>
-                                                <th className="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider w-16">#</th>
-                                                <th className="px-6 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">Name</th>
-                                                <th className="px-6 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">Email</th>
-                                                <th className="px-6 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">Role</th>
-                                                <th className="px-6 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">Developer Token</th>
-                                                <th className="px-6 py-3 text-right text-xs font-semibold text-slate-500 uppercase tracking-wider">Action</th>
+                                                <th className="w-12 text-center text-xs font-bold text-ink-500 px-3.5 py-3 bg-surface-soft border-b border-[#ECEAF3]">#</th>
+                                                <th className="text-left text-xs font-bold text-ink-500 px-3.5 py-3 bg-surface-soft border-b border-[#ECEAF3]">Name</th>
+                                                <th className="text-left text-xs font-bold text-ink-500 px-3.5 py-3 bg-surface-soft border-b border-[#ECEAF3]">Email</th>
+                                                <th className="text-left text-xs font-bold text-ink-500 px-3.5 py-3 bg-surface-soft border-b border-[#ECEAF3]">Role</th>
+                                                <th className="text-left text-xs font-bold text-ink-500 px-3.5 py-3 bg-surface-soft border-b border-[#ECEAF3]">Token</th>
+                                                <th className="text-right text-xs font-bold text-ink-500 px-3.5 py-3 bg-surface-soft border-b border-[#ECEAF3]">Action</th>
                                             </tr>
                                         </thead>
-                                        <tbody className="bg-white divide-y divide-slate-100">
+                                        <tbody>
                                             {mappedUsers.length === 0 ? (
                                                 <tr>
-                                                    <td colSpan={6} className="px-6 py-10 text-center text-sm text-slate-500">
-                                                        No active mapped users found for this project.
-                                                    </td>
+                                                    <td colSpan={6} className="px-4 py-10 text-center text-sm text-ink-500">No active mapped users found for this project.</td>
                                                 </tr>
                                             ) : (
                                                 pagedUsers.map((user, index) => (
                                                     <UserTokenRow
                                                         key={user.unique_id}
-                                                        serialNo={(safeUserPage - 1) * userPageSize + index + 1}
+                                                        serial={(safeUserPage - 1) * userPageSize + index + 1}
                                                         user={user}
                                                         loading={Boolean(userTokenLoading[user.unique_id])}
                                                         onRegenerate={() => requestUserTokenRegenerate(user)}
@@ -724,7 +706,7 @@ function DeveloperAccess() {
                                         pageSizeOptions={[10, 20, 50, 100]}
                                     />
                                 ) : null}
-                            </div>
+                            </section>
                         </div>
                     )}
                 </div>
@@ -763,34 +745,46 @@ function DeveloperAccess() {
     );
 }
 
-function UserTokenRow({ serialNo, user, loading, onRegenerate, onViewToken, onDetails }) {
+function UserTokenRow({ user, serial, loading, onRegenerate, onViewToken, onDetails }) {
     const token = user.developer_token || '';
+    const roleLabel = user.type === 'admin' ? 'Owner' : 'Agent';
 
     return (
-        <tr className="hover:bg-slate-50/80 transition-colors">
-            <td className="px-4 py-4 whitespace-nowrap text-sm text-slate-500 font-medium">{serialNo}</td>
-            <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-slate-800">{user.name}</td>
-            <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-600">{user.email}</td>
-            <td className="px-6 py-4 whitespace-nowrap text-sm">
-                <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${user.type === 'admin' ? 'bg-amber-50 text-amber-700' : 'bg-slate-100 text-slate-700'}`}>
-                    {user.type === 'admin' ? 'Owner' : 'Agent'}
-                </span>
+        <tr className="hover:bg-surface-soft/60">
+            <td className="px-3.5 py-3 border-b border-[#F3F2F8] text-center text-xs font-semibold text-ink-500 oc-num">{serial}</td>
+            <td className="px-3.5 py-3 border-b border-[#F3F2F8]">
+                <button type="button" onClick={onDetails} className="text-sm font-semibold text-ink hover:text-brand-800 text-left">
+                    {user.name}
+                </button>
             </td>
-            <td className="px-6 py-4 text-sm">
+            <td className="px-3.5 py-3 border-b border-[#F3F2F8] text-sm text-ink-500">{user.email}</td>
+            <td className="px-3.5 py-3 border-b border-[#F3F2F8]">
+                <span className="inline-flex items-center rounded-md bg-brand-50 px-2 py-0.5 text-[11px] font-bold text-brand-800">{roleLabel}</span>
+            </td>
+            <td className="px-3.5 py-3 border-b border-[#F3F2F8]">
                 {token ? (
-                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-emerald-50 text-emerald-700">Generated</span>
+                    <span className="inline-flex items-center rounded-md bg-emerald-50 px-2 py-0.5 text-[11px] font-bold text-emerald-800">Generated</span>
                 ) : (
-                    <span className="text-slate-400 italic">Not generated</span>
+                    <span className="inline-flex items-center rounded-md bg-line-soft px-2 py-0.5 text-[11px] font-bold text-ink-500">Not generated</span>
                 )}
             </td>
-            <td className="px-6 py-4 whitespace-nowrap text-right">
-                <RowActionMenu
-                    items={[
-                        { label: 'Details', icon: <FiEye className="w-4 h-4" />, onClick: onDetails },
-                        { label: 'View token', icon: <FiEye className="w-4 h-4" />, onClick: onViewToken, hidden: !token },
-                        { label: token ? 'Regenerate' : 'Generate', icon: <FiRefreshCw className="w-4 h-4" />, onClick: onRegenerate, disabled: loading },
-                    ]}
-                />
+            <td className="px-3.5 py-3 border-b border-[#F3F2F8] text-right">
+                <div className="flex items-center justify-end gap-2">
+                    {token ? (
+                        <button type="button" onClick={onViewToken} className="inline-flex items-center justify-center h-[34px] px-3 rounded-[9px] text-[13px] font-semibold bg-white text-ink border border-[#E1DFEC] hover:bg-surface-soft">
+                            View token
+                        </button>
+                    ) : (
+                        <button type="button" onClick={onRegenerate} disabled={loading} className="inline-flex items-center justify-center h-[34px] px-3 rounded-[9px] text-[13px] font-semibold bg-white text-ink border border-[#E1DFEC] hover:bg-surface-soft disabled:opacity-50">
+                            {loading ? 'Generating...' : 'Generate'}
+                        </button>
+                    )}
+                    {token ? (
+                        <button type="button" onClick={onRegenerate} disabled={loading} className="text-[13px] font-semibold text-rose-600 disabled:opacity-50">
+                            {loading ? '...' : 'Regenerate'}
+                        </button>
+                    ) : null}
+                </div>
             </td>
         </tr>
     );

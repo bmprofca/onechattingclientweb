@@ -5,13 +5,14 @@ import { getProjectMetaDetails, getEmbedSignupLink, updateWabaProfileDetails, su
 import toast from 'react-hot-toast';
 import { uploadFile } from '../utils/uploadFile';
 import {
-    FiArrowLeft, FiSave, FiX, FiEdit2, FiGlobe, FiInfo,
-    FiCheckCircle, FiAlertCircle, FiTrash2, FiPlus, FiCamera, FiExternalLink, FiRefreshCw
+    FiArrowLeft,
+    FiCheckCircle, FiAlertCircle, FiTrash2, FiPlus, FiExternalLink, FiRefreshCw
 } from 'react-icons/fi';
 import ProjectQRModal from '../component/Modals/ProjectQRModal';
 import SearchableSelect from '../component/SearchableSelect';
 import { LuQrCode } from 'react-icons/lu';
 
+import AnimatedModal from '../component/Modals/AnimatedModal';
 // Business type (vertical) options for WABA profile { name: display text, value: API value }
 const BUSINESS_VERTICALS = [
     { name: 'UNDEFINED', value: 'UNDEFINED' },
@@ -34,8 +35,6 @@ const BUSINESS_VERTICALS = [
     { name: 'RESTAURANT', value: 'RESTAURANT' },
     { name: 'NOT A BUSINESS', value: 'NOT_A_BIZ' }
 ];
-
-const formatVerticalLabel = (value) => (value || '').replace(/_/g, ' ');
 
 const ProjectDetails = () => {
     // --- Routing & UI State ---
@@ -96,7 +95,7 @@ const ProjectDetails = () => {
     });
 
     // --- Editing State ---
-    const [isEditing, setIsEditing] = useState(false);
+    const [, setIsEditing] = useState(false);
     const [isSaving, setIsSaving] = useState(false);
     const [isUploadingPicture, setIsUploadingPicture] = useState(false);
     const fileInputRef = useRef(null);
@@ -214,7 +213,7 @@ const ProjectDetails = () => {
 
     // --- Handlers ---
     const handleProfilePictureClick = () => {
-        if (isEditing && fileInputRef.current) {
+        if (fileInputRef.current) {
             fileInputRef.current.click();
         }
     };
@@ -934,34 +933,66 @@ const ProjectDetails = () => {
 
     // --- Sub-Components ---
 
-    const StatusBadge = ({ status }) => {
-        const colors = {
-            active: 'bg-green-100 text-green-800 border-green-200',
-            green: 'bg-green-100 text-green-800 border-green-200',
-            approved: 'bg-blue-100 text-blue-800 border-blue-200',
-            pending: 'bg-yellow-100 text-yellow-800 border-yellow-200',
-            rejected: 'bg-red-100 text-red-800 border-red-200'
-        };
-        const key = status?.toLowerCase();
-        const style = colors[key] || 'bg-gray-100 text-gray-800 border-gray-200';
-
-        return (
-            <span className={`px-2.5 py-0.5 rounded-full text-xs font-medium border ${style} uppercase tracking-wide`}>
-                {status}
-            </span>
-        );
+    const formatTier = (value) => {
+        if (!value) return '';
+        return String(value).replace(/^TIER_/i, 'Tier ').replace(/_/g, ' ');
     };
 
-    const ReadOnlyField = ({ label, value }) => (
-        <div className="py-3 border-b border-gray-100 dark:border-gray-700 last:border-0">
-            <dt className="text-xs font-medium text-gray-500 uppercase tracking-wider mb-1">{label}</dt>
-            <dd className="text-sm font-medium text-gray-900 dark:text-gray-100">{value || '-'}</dd>
-        </div>
-    );
+    const formatQuality = (value) => {
+        const key = String(value || '').toUpperCase();
+        if (key === 'GREEN') return 'High · Green';
+        if (key === 'YELLOW') return 'Medium · Yellow';
+        if (key === 'RED') return 'Low · Red';
+        return String(value);
+    };
+
+    const qualityTone = (value) => {
+        const key = String(value || '').toUpperCase();
+        if (key === 'GREEN' || key === 'HIGH') return 'text-emerald-700';
+        if (key === 'YELLOW' || key === 'MEDIUM') return 'text-amber-700';
+        if (key === 'RED' || key === 'LOW') return 'text-rose-600';
+        return 'text-ink';
+    };
+
+    const formatCharge = (amount, currency) => {
+        if (amount == null || amount === '' || Number.isNaN(Number(amount))) return null;
+        const formatted = Number(amount).toFixed(2);
+        const code = String(currency || '').toUpperCase();
+        if (code === 'INR') return `₹${formatted}`;
+        if (code) return `${code} ${formatted}`;
+        return formatted;
+    };
+
+    const displayName = data?.project?.wa_display_name || data?.project?.name || '';
+    const initials = displayName
+        .split(/\s+/)
+        .filter(Boolean)
+        .slice(0, 2)
+        .map((part) => part[0])
+        .join('')
+        .toUpperCase();
+    const photoUrl = (editForm.profile_picture_url || data?.profile?.profile_picture_url || '').trim();
+    const phoneNumber = data?.profile?.wa_number || '';
+    const chargeCurrency = data?.project?.billing_currency;
+    const chargeRows = data?.charges ? [
+        { label: 'Marketing', value: formatCharge(data.charges.marketing, chargeCurrency) },
+        { label: 'Utility', value: formatCharge(data.charges.utility, chargeCurrency) },
+        { label: 'Authentication', value: formatCharge(data.charges.authentication, chargeCurrency) },
+    ].filter((row) => row.value) : [];
+    const accountRows = data?.project ? [
+        { label: 'Connection', value: isWabaConnected ? 'Connected' : 'Not connected', className: isWabaConnected ? 'text-emerald-700' : 'text-ink-500' },
+        data.project.wa_quality_rating ? { label: 'Quality rating', value: formatQuality(data.project.wa_quality_rating), className: qualityTone(data.project.wa_quality_rating) } : null,
+        data.project.wa_messaging_tier ? { label: 'Messaging tier', value: formatTier(data.project.wa_messaging_tier), className: 'text-ink font-semibold' } : null,
+        data.project.fb_business_manager_status ? { label: 'Business verification', value: data.project.fb_business_manager_status, className: 'text-emerald-700' } : null,
+        typeof data.project.is_whatsapp_verified === 'boolean' ? { label: 'Official business account', value: data.project.is_whatsapp_verified ? 'Verified' : 'Not verified', className: data.project.is_whatsapp_verified ? 'text-emerald-700' : 'text-ink-500' } : null,
+        data.project.wa_display_name_status ? { label: 'Display name status', value: data.project.wa_display_name_status, className: 'text-ink font-semibold' } : null,
+        data.project.daily_template_limit != null && data.project.daily_template_limit !== '' ? { label: 'Daily limit', value: String(data.project.daily_template_limit), className: 'text-ink font-mono font-semibold' } : null,
+        data.project.status ? { label: 'Project status', value: data.project.status, className: 'text-ink font-semibold' } : null,
+    ].filter(Boolean) : [];
 
     // --- Main Render ---
     return (
-        <div className="min-h-screen bg-[#f4f6fb] dark:bg-gray-900">
+        <div className="min-h-screen bg-surface-ground dark:bg-gray-900">
             <Header
                 mobileMenuOpen={mobileMenuOpen}
                 setMobileMenuOpen={setMobileMenuOpen}
@@ -977,467 +1008,338 @@ const ProjectDetails = () => {
 
             {/* Main content */}
             <div className={`pt-16 transition-all duration-300 ease-in-out ${isMinimized ? 'md:pl-20' : 'md:pl-[260px]'}`}>
-                <div className="w-full px-4 py-5">
+                <div className="w-full max-w-[1320px] px-4 sm:px-7 py-7">
                     {loading ? (
-                        <div className="flex justify-center items-center h-64"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600"></div></div>
-                    ) : error && !showErrorModal ? (
-                        <div className="bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 p-4 rounded-lg flex items-center gap-2"><FiAlertCircle /> {error}</div>
-                    ) : successMessage ? (
-                        <div className="bg-green-50 dark:bg-green-900/20 text-green-600 dark:text-green-400 p-4 rounded-lg flex items-center gap-2"><FiCheckCircle /> {successMessage}</div>
-                    ) : !isWabaConnected ? (
-                        // WABA Not Connected - Show Signup Button
-                        <div className="space-y-6">
-                            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-                                <div>
-                                    <h1 className="text-2xl font-semibold tracking-tight text-slate-900 dark:text-white">Business Profile</h1>
-                                    <p className="text-sm text-gray-500">Connect your WhatsApp Business Account to get started.</p>
-                                </div>
-                                <button
-                                    onClick={() => setShowQrModal(true)}
-                                    className="px-3.5 py-2 text-sm font-semibold text-indigo-700 dark:text-indigo-300 bg-indigo-50 dark:bg-indigo-900/40 border border-indigo-200 dark:border-indigo-700 rounded-lg hover:bg-indigo-100 dark:hover:bg-indigo-900/60 flex items-center gap-1.5 transition-colors shadow-xs"
-                                    title="View & Download Project QR Code"
-                                >
-                                    <LuQrCode size={16} />
-                                    <span>Project QR</span>
-                                </button>
-                            </div>
-
-                            <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-8">
-                                <div className="text-center max-w-md mx-auto">
-                                    <div className="mb-6">
-                                        <div className="mx-auto w-20 h-20 bg-indigo-100 dark:bg-indigo-900/30 rounded-full flex items-center justify-center mb-4">
-                                            <FiAlertCircle className="w-10 h-10 text-indigo-600 dark:text-indigo-400" />
-                                        </div>
-                                        <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-2">WhatsApp Business Account Not Connected</h2>
-                                        <p className="text-sm text-gray-500 dark:text-gray-400">
-                                            You need to connect your WhatsApp Business Account to manage your business profile and settings.
-                                        </p>
-                                    </div>
-
-                                    {isSyncing ? (
-                                        <div className="flex flex-col items-center gap-3">
-                                            {countdownSeconds > 0 ? (
-                                                <>
-                                                    <div className="relative w-20 h-20 flex items-center justify-center">
-                                                        <svg className="transform -rotate-90 w-20 h-20">
-                                                            <circle
-                                                                cx="40"
-                                                                cy="40"
-                                                                r="36"
-                                                                stroke="currentColor"
-                                                                strokeWidth="4"
-                                                                fill="none"
-                                                                className="text-gray-200 dark:text-gray-700"
-                                                            />
-                                                            <circle
-                                                                cx="40"
-                                                                cy="40"
-                                                                r="36"
-                                                                stroke="currentColor"
-                                                                strokeWidth="4"
-                                                                fill="none"
-                                                                strokeDasharray={`${2 * Math.PI * 36}`}
-                                                                strokeDashoffset={`${2 * Math.PI * 36 * (1 - (60 - countdownSeconds) / 60)}`}
-                                                                className="text-indigo-600 dark:text-indigo-400 transition-all duration-1000"
-                                                                strokeLinecap="round"
-                                                            />
-                                                        </svg>
-                                                        <div className="absolute inset-0 flex items-center justify-center">
-                                                            <span className="text-2xl font-bold text-indigo-600 dark:text-indigo-400">
-                                                                {countdownSeconds}
-                                                            </span>
-                                                        </div>
-                                                    </div>
-                                                    <p className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                                                        Waiting before submission... {countdownSeconds}s
-                                                    </p>
-                                                </>
-                                            ) : (
-                                                <>
-                                                    <button
-                                                        disabled
-                                                        className="w-16 h-16 rounded-full bg-indigo-600 flex items-center justify-center shadow-lg disabled:opacity-100"
-                                                    >
-                                                        <div className="animate-spin rounded-full h-8 w-8 border-2 border-white border-t-transparent"></div>
-                                                    </button>
-                                                    <p className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                                                        Updating/Syncing...
-                                                    </p>
-                                                </>
-                                            )}
-                                        </div>
-                                    ) : showManualRefresh ? (
-                                        <div className="flex flex-col items-center gap-3">
-                                            <p className="text-sm text-gray-600 dark:text-gray-400 mb-2 text-center">
-                                                Connection status not updated. Please try refreshing manually.
-                                            </p>
-                                            <button
-                                                onClick={handleManualRefresh}
-                                                disabled={isSyncing}
-                                                className="px-6 py-3 text-sm font-medium text-white bg-indigo-600 rounded-lg hover:bg-indigo-700 shadow-sm flex items-center gap-2 mx-auto disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                                            >
-                                                {isSyncing ? (
-                                                    <>
-                                                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-                                                        Refreshing...
-                                                    </>
-                                                ) : (
-                                                    <>
-                                                        <FiRefreshCw /> Refresh Status
-                                                    </>
-                                                )}
-                                            </button>
-                                        </div>
-                                    ) : (
-                                        <button
-                                            onClick={handleGetSignupLink}
-                                            disabled={isLoadingSignupLink || isLoadingProviderConfig}
-                                            className="px-6 py-3 text-sm font-medium text-white bg-indigo-600 rounded-lg hover:bg-indigo-700 shadow-sm flex items-center gap-2 mx-auto disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                                        >
-                                            {isLoadingProviderConfig ? (
-                                                <>
-                                                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-                                                    Loading configuration...
-                                                </>
-                                            ) : isLoadingSignupLink ? (
-                                                <>
-                                                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-                                                    Getting Signup Link...
-                                                </>
-                                            ) : (
-                                                <>
-                                                    <FiExternalLink /> Sign Up with FaceBook
-                                                </>
-                                            )}
-                                        </button>
-                                    )}
-                                </div>
-                            </div>
-
-                            {/* Show project info even when WABA is not connected */}
-                            {data?.project && (
-                                <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-6">
-                                    <div className="flex items-center gap-2 mb-4">
-                                        <FiInfo className="text-indigo-500" />
-                                        <h3 className="font-semibold text-gray-900 dark:text-white">Project Information</h3>
-                                    </div>
-                                    <div className="space-y-1">
-                                        <div className="flex justify-between items-center py-3 border-b border-gray-100 dark:border-gray-700">
-                                            <span className="text-sm text-gray-500">Project Status</span>
-                                            <StatusBadge status={data.project.status} />
-                                        </div>
-                                        <ReadOnlyField label="Project Name" value={data.project.name} />
-                                        <ReadOnlyField label="Messaging Tier" value={data.project.wa_messaging_tier} />
-                                        <ReadOnlyField label="Daily Limit" value={data.project.daily_template_limit} />
-                                    </div>
-                                </div>
-                            )}
+                        <div className="flex justify-center items-center h-64">
+                            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-brand-600"></div>
                         </div>
+                    ) : error && !showErrorModal && !data ? (
+                        <div className="bg-rose-50 text-rose-700 p-4 rounded-[14px] border border-rose-100 flex items-center gap-2"><FiAlertCircle /> {error}</div>
                     ) : (
-                        <div className="space-y-6">
+                        <div className="space-y-5">
+                            {successMessage && (
+                                <div className="bg-emerald-50 text-emerald-800 p-4 rounded-[14px] border border-emerald-100 flex items-center gap-2"><FiCheckCircle /> {successMessage}</div>
+                            )}
+                            {error && !showErrorModal && (
+                                <div className="bg-rose-50 text-rose-700 p-4 rounded-[14px] border border-rose-100 flex items-center gap-2"><FiAlertCircle /> {error}</div>
+                            )}
 
-                            {/* Page Header */}
-                            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                            <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
                                 <div>
-                                    <h1 className="text-2xl font-semibold tracking-tight text-slate-900 dark:text-white">Business Profile</h1>
-                                    <p className="text-sm text-gray-500">Manage your WhatsApp Business presence and settings.</p>
+                                    <h1 className="text-[26px] leading-tight font-extrabold tracking-tight text-ink">Business profile</h1>
+                                    <p className="mt-1.5 text-sm text-ink-500">
+                                        {isWabaConnected
+                                            ? 'What customers see when they open your business on WhatsApp.'
+                                            : 'Connect your WhatsApp Business Account to get started.'}
+                                    </p>
                                 </div>
-                                <div className="flex items-center gap-2">
-                                    <button
-                                        onClick={() => setShowQrModal(true)}
-                                        className="px-3.5 py-2 text-sm font-semibold text-indigo-700 dark:text-indigo-300 bg-indigo-50 dark:bg-indigo-900/40 border border-indigo-200 dark:border-indigo-700 rounded-lg hover:bg-indigo-100 dark:hover:bg-indigo-900/60 flex items-center gap-1.5 transition-colors shadow-xs"
-                                        title="View & Download Project QR Code"
-                                    >
-                                        <LuQrCode size={16} />
-                                        <span>Project QR</span>
-                                    </button>
-                                    {isEditing ? (
-                                        <>
-                                            <button
-                                                onClick={handleCancel}
-                                                disabled={isSaving}
-                                                className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
-                                            >
-                                                Cancel
-                                            </button>
-                                            <button
-                                                onClick={handleSave}
-                                                disabled={isSaving}
-                                                className="px-4 py-2 text-sm font-medium text-white bg-indigo-600 rounded-lg hover:bg-indigo-700 shadow-sm flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
-                                            >
-                                                {isSaving ? (
-                                                    <>
-                                                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-                                                        Saving...
-                                                    </>
-                                                ) : (
-                                                    <>
-                                                        <FiSave /> Save Changes
-                                                    </>
-                                                )}
-                                            </button>
-                                        </>
-                                    ) : (
+                                {isWabaConnected ? (
+                                    <div className="flex items-center gap-2">
                                         <button
-                                            onClick={() => setIsEditing(true)}
-                                            className="px-4 py-2 text-sm font-medium text-indigo-600 bg-indigo-50 border border-indigo-200 rounded-lg hover:bg-indigo-100 flex items-center gap-2"
+                                            type="button"
+                                            onClick={handleCancel}
+                                            disabled={isSaving}
+                                            className="inline-flex items-center justify-center h-[38px] px-3.5 rounded-[9px] text-[13px] font-semibold bg-white text-ink border border-[#E1DFEC] hover:bg-surface-soft disabled:opacity-50"
                                         >
-                                            <FiEdit2 /> Edit Profile
+                                            Discard
                                         </button>
-                                    )}
-                                </div>
+                                        <button
+                                            type="button"
+                                            onClick={handleSave}
+                                            disabled={isSaving}
+                                            className="inline-flex items-center justify-center h-[38px] px-3.5 rounded-[9px] text-[13px] font-semibold bg-brand-600 text-white hover:bg-brand-700 disabled:opacity-50"
+                                        >
+                                            {isSaving ? 'Saving...' : 'Save changes'}
+                                        </button>
+                                    </div>
+                                ) : null}
                             </div>
 
-                            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                            {!isWabaConnected ? (
+                                <div className="space-y-5">
+                                    <div className="bg-white border border-line rounded-[14px] p-8">
+                                        <div className="text-center max-w-md mx-auto">
+                                            <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-brand-50 text-brand-700">
+                                                <FiAlertCircle className="h-8 w-8" />
+                                            </div>
+                                            <h2 className="text-xl font-extrabold tracking-tight text-ink">WhatsApp Business Account not connected</h2>
+                                            <p className="mt-2 text-sm text-ink-500">
+                                                You need to connect your WhatsApp Business Account to manage your business profile and settings.
+                                            </p>
+                                            <div className="mt-6">
+                                                {isSyncing ? (
+                                                    <div className="flex flex-col items-center gap-3">
+                                                        {countdownSeconds > 0 ? (
+                                                            <>
+                                                                <div className="relative w-20 h-20 flex items-center justify-center">
+                                                                    <svg className="transform -rotate-90 w-20 h-20">
+                                                                        <circle cx="40" cy="40" r="36" stroke="currentColor" strokeWidth="4" fill="none" className="text-line" />
+                                                                        <circle
+                                                                            cx="40" cy="40" r="36" stroke="currentColor" strokeWidth="4" fill="none"
+                                                                            strokeDasharray={`${2 * Math.PI * 36}`}
+                                                                            strokeDashoffset={`${2 * Math.PI * 36 * (1 - (60 - countdownSeconds) / 60)}`}
+                                                                            className="text-brand-600 transition-all duration-1000"
+                                                                            strokeLinecap="round"
+                                                                        />
+                                                                    </svg>
+                                                                    <div className="absolute inset-0 flex items-center justify-center">
+                                                                        <span className="text-2xl font-bold text-brand-700">{countdownSeconds}</span>
+                                                                    </div>
+                                                                </div>
+                                                                <p className="text-sm font-medium text-ink">Waiting before submission... {countdownSeconds}s</p>
+                                                            </>
+                                                        ) : (
+                                                            <>
+                                                                <div className="flex h-16 w-16 items-center justify-center rounded-full bg-brand-600">
+                                                                    <div className="animate-spin rounded-full h-8 w-8 border-2 border-white border-t-transparent"></div>
+                                                                </div>
+                                                                <p className="text-sm font-medium text-ink">Updating/Syncing...</p>
+                                                            </>
+                                                        )}
+                                                    </div>
+                                                ) : showManualRefresh ? (
+                                                    <div className="flex flex-col items-center gap-3">
+                                                        <p className="text-sm text-ink-500 text-center">Connection status not updated. Please try refreshing manually.</p>
+                                                        <button
+                                                            type="button"
+                                                            onClick={handleManualRefresh}
+                                                            disabled={isSyncing}
+                                                            className="inline-flex items-center justify-center gap-2 h-[38px] px-3.5 rounded-[9px] text-[13px] font-semibold bg-brand-600 text-white hover:bg-brand-700 disabled:opacity-50"
+                                                        >
+                                                            <FiRefreshCw /> {isSyncing ? 'Refreshing...' : 'Refresh status'}
+                                                        </button>
+                                                    </div>
+                                                ) : (
+                                                    <button
+                                                        type="button"
+                                                        onClick={handleGetSignupLink}
+                                                        disabled={isLoadingSignupLink || isLoadingProviderConfig}
+                                                        className="inline-flex items-center justify-center gap-2 h-[38px] px-3.5 rounded-[9px] text-[13px] font-semibold bg-brand-600 text-white hover:bg-brand-700 disabled:opacity-50 mx-auto"
+                                                    >
+                                                        {isLoadingProviderConfig ? 'Loading configuration...' : isLoadingSignupLink ? 'Getting signup link...' : (<><FiExternalLink /> Sign up with Facebook</>)}
+                                                    </button>
+                                                )}
+                                            </div>
+                                        </div>
+                                    </div>
 
-                                {/* LEFT COL: Editable Profile Info */}
-                                <div className="lg:col-span-2 space-y-6">
-                                    <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
+                                    {data?.project && (
+                                        <div className="bg-white border border-line rounded-[14px] p-5">
+                                            <h3 className="text-[15px] font-bold text-ink mb-3">Project information</h3>
+                                            <dl className="divide-y divide-[#F3F2F8] text-[13px]">
+                                                {data.project.name && (
+                                                    <div className="flex items-center justify-between gap-4 py-2.5">
+                                                        <dt className="text-ink-500">Project name</dt>
+                                                        <dd className="font-semibold text-ink">{data.project.name}</dd>
+                                                    </div>
+                                                )}
+                                                {data.project.status && (
+                                                    <div className="flex items-center justify-between gap-4 py-2.5">
+                                                        <dt className="text-ink-500">Project status</dt>
+                                                        <dd className="font-semibold text-ink">{data.project.status}</dd>
+                                                    </div>
+                                                )}
+                                                {data.project.wa_messaging_tier && (
+                                                    <div className="flex items-center justify-between gap-4 py-2.5">
+                                                        <dt className="text-ink-500">Messaging tier</dt>
+                                                        <dd className="font-semibold text-ink">{formatTier(data.project.wa_messaging_tier)}</dd>
+                                                    </div>
+                                                )}
+                                                {data.project.daily_template_limit != null && data.project.daily_template_limit !== '' && (
+                                                    <div className="flex items-center justify-between gap-4 py-2.5">
+                                                        <dt className="text-ink-500">Daily limit</dt>
+                                                        <dd className="font-mono font-semibold text-ink">{data.project.daily_template_limit}</dd>
+                                                    </div>
+                                                )}
+                                            </dl>
+                                            <button
+                                                type="button"
+                                                onClick={() => setShowQrModal(true)}
+                                                className="mt-4 inline-flex items-center justify-center gap-2 h-[38px] px-3.5 rounded-[9px] text-[13px] font-semibold bg-white text-ink border border-[#E1DFEC] hover:bg-surface-soft"
+                                            >
+                                                <LuQrCode size={15} /> Project QR
+                                            </button>
+                                        </div>
+                                    )}
+                                </div>
+                            ) : (
+                                <div className="grid grid-cols-1 xl:grid-cols-[minmax(0,1fr)_300px] gap-5 items-start">
+                                    <section className="bg-white border border-line rounded-[14px] p-5 sm:p-6">
+                                        <div className="flex items-center gap-4 pb-5 mb-5 border-b border-[#F3F2F8]">
+                                            <div className="h-14 w-14 flex-none rounded-full bg-ink text-white overflow-hidden flex items-center justify-center text-sm font-bold">
+                                                {photoUrl ? (
+                                                    <img src={photoUrl} alt="" className="h-full w-full object-cover" />
+                                                ) : (
+                                                    initials || 'BP'
+                                                )}
+                                            </div>
+                                            <div className="min-w-0 flex-1">
+                                                <div className="text-[15px] font-bold text-ink truncate">{displayName || 'Business profile'}</div>
+                                                {phoneNumber ? <div className="font-mono text-[13px] text-ink-500">{phoneNumber}</div> : null}
+                                            </div>
+                                            <div>
+                                                <input
+                                                    ref={fileInputRef}
+                                                    type="file"
+                                                    accept="image/*"
+                                                    onChange={handleProfilePictureChange}
+                                                    className="hidden"
+                                                />
+                                                <button
+                                                    type="button"
+                                                    onClick={handleProfilePictureClick}
+                                                    disabled={isUploadingPicture}
+                                                    className="inline-flex items-center justify-center h-[38px] px-3.5 rounded-[9px] text-[13px] font-semibold bg-white text-ink border border-[#E1DFEC] hover:bg-surface-soft disabled:opacity-50"
+                                                >
+                                                    {isUploadingPicture ? 'Uploading...' : 'Change photo'}
+                                                </button>
+                                            </div>
+                                        </div>
 
-                                        {/* Banner/Header of Card */}
-
-                                        <div className="px-4 pb-4">
-                                            <div className="relative flex mt-3 mb-6  items-center">
-                                                <div className="relative group">
-                                                    <img
-                                                        src={isEditing ? editForm.profile_picture_url : data.profile?.profile_picture_url || ''}
-                                                        alt="Profile"
-                                                        className="h-24 w-24 rounded-xl border-4 border-white dark:border-gray-800 shadow-md object-cover bg-gray-200"
-                                                        onError={(e) => e.target.src = 'https://via.placeholder.com/150'}
+                                        <div className="space-y-5">
+                                            <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                                                <div>
+                                                    <label className="block text-[13px] font-semibold text-ink mb-1.5">Display name</label>
+                                                    <input
+                                                        type="text"
+                                                        value={displayName}
+                                                        readOnly
+                                                        className="w-full h-[42px] px-3 rounded-[9px] border border-line-strong bg-surface-soft text-sm text-ink outline-none"
                                                     />
-                                                    {isEditing && (
-                                                        <>
-                                                            <input
-                                                                ref={fileInputRef}
-                                                                type="file"
-                                                                accept="image/*"
-                                                                onChange={handleProfilePictureChange}
-                                                                className="hidden"
-                                                            />
-                                                            <div
-                                                                onClick={handleProfilePictureClick}
-                                                                className="absolute inset-0 bg-black/40 rounded-xl flex items-center justify-center text-white opacity-0 group-hover:opacity-100 transition cursor-pointer"
-                                                            >
-                                                                {isUploadingPicture ? (
-                                                                    <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-white"></div>
-                                                                ) : (
-                                                                    <FiCamera />
-                                                                )}
-                                                            </div>
-                                                        </>
-                                                    )}
                                                 </div>
-                                                <div className="ml-4 mb-1">
-                                                    <h2 className="text-xl font-bold text-gray-900 dark:text-white">{data.project?.wa_display_name || data.project?.name || 'Business Profile'}</h2>
-                                                    <p className="text-sm text-gray-500">{formatVerticalLabel(data.profile?.vertical) || '-'}</p>
+                                                <div>
+                                                    <label className="block text-[13px] font-semibold text-ink mb-1.5">Industry</label>
+                                                    <SearchableSelect
+                                                        value={editForm.vertical}
+                                                        onChange={(e) => setEditForm({ ...editForm, vertical: e.target.value })}
+                                                        options={[{ value: '', label: 'Select business type' }, ...BUSINESS_VERTICALS.map((item) => ({ value: item.value, label: item.name }))]}
+                                                        placeholder="Select business type"
+                                                        className="w-full h-[42px] px-3 rounded-[9px] border border-line-strong bg-white text-sm text-ink outline-none"
+                                                    />
                                                 </div>
                                             </div>
 
-                                            {/* Form Inputs */}
-                                            <div className="space-y-5">
+                                            <div>
+                                                <label className="block text-[13px] font-semibold text-ink mb-1.5">About</label>
+                                                <input
+                                                    type="text"
+                                                    maxLength={139}
+                                                    value={editForm.about}
+                                                    onChange={(e) => setEditForm({ ...editForm, about: e.target.value })}
+                                                    className="w-full h-[42px] px-3 rounded-[9px] border border-line-strong bg-white text-sm text-ink placeholder:text-ink-400 outline-none focus:border-brand-600 focus:ring-[3px] focus:ring-brand-600/20"
+                                                    placeholder="About text"
+                                                />
+                                                <p className="mt-1.5 text-xs text-ink-400">{editForm.about.length}/139 characters</p>
+                                            </div>
 
-                                                <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-                                                    <div>
-                                                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Industry / Vertical</label>
-                                                        {isEditing ? (
-                                                            <SearchableSelect
-                                                                value={editForm.vertical}
-                                                                onChange={(e) => setEditForm({ ...editForm, vertical: e.target.value })}
-                                                                options={[{ value: '', label: 'Select business type' }, ...BUSINESS_VERTICALS.map((item) => ({ value: item.value, label: item.name }))]}
-                                                                placeholder="Select business type"
-                                                                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
-                                                            />
-                                                        ) : (
-                                                            <div className="p-2.5 bg-gray-50 dark:bg-gray-700/50 rounded-lg text-gray-800 dark:text-gray-200">{formatVerticalLabel(data.profile?.vertical) || '-'}</div>
-                                                        )}
-                                                    </div>
-                                                    <div>
-                                                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Email</label>
-                                                        {isEditing ? (
-                                                            <input
-                                                                type="email"
-                                                                value={editForm.email}
-                                                                onChange={(e) => setEditForm({ ...editForm, email: e.target.value })}
-                                                                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
-                                                            />
-                                                        ) : (
-                                                            <div className="p-2.5 bg-gray-50 dark:bg-gray-700/50 rounded-lg text-gray-800 dark:text-gray-200">{data.profile?.email || '-'}</div>
-                                                        )}
-                                                    </div>
-                                                </div>
+                                            <div>
+                                                <label className="block text-[13px] font-semibold text-ink mb-1.5">Business description</label>
+                                                <textarea
+                                                    rows={3}
+                                                    value={editForm.description}
+                                                    onChange={(e) => setEditForm({ ...editForm, description: e.target.value })}
+                                                    className="w-full px-3 py-2.5 rounded-[9px] border border-line-strong bg-white text-sm text-ink placeholder:text-ink-400 outline-none focus:border-brand-600 focus:ring-[3px] focus:ring-brand-600/20"
+                                                    placeholder="Business description"
+                                                />
+                                            </div>
 
+                                            <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                                                 <div>
-                                                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Address</label>
-                                                    {isEditing ? (
-                                                        <input
-                                                            type="text"
-                                                            value={editForm.address}
-                                                            onChange={(e) => setEditForm({ ...editForm, address: e.target.value })}
-                                                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
-                                                        />
-                                                    ) : (
-                                                        <div className="p-2.5 bg-gray-50 dark:bg-gray-700/50 rounded-lg text-gray-800 dark:text-gray-200">{data.profile?.address || '-'}</div>
-                                                    )}
+                                                    <label className="block text-[13px] font-semibold text-ink mb-1.5">Email</label>
+                                                    <input
+                                                        type="email"
+                                                        value={editForm.email}
+                                                        onChange={(e) => setEditForm({ ...editForm, email: e.target.value })}
+                                                        className="w-full h-[42px] px-3 rounded-[9px] border border-line-strong bg-white text-sm text-ink placeholder:text-ink-400 outline-none focus:border-brand-600 focus:ring-[3px] focus:ring-brand-600/20"
+                                                    />
                                                 </div>
-
                                                 <div>
-                                                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">About Text</label>
-                                                    {isEditing ? (
-                                                        <input
-                                                            type="text"
-                                                            maxLength={139} // WA Limit
-                                                            value={editForm.about}
-                                                            onChange={(e) => setEditForm({ ...editForm, about: e.target.value })}
-                                                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
-                                                            placeholder="About text (max 139 characters)"
-                                                        />
-                                                    ) : (
-                                                        <div className="p-2.5 bg-gray-50 dark:bg-gray-700/50 rounded-lg text-gray-800 dark:text-gray-200">{data.profile?.about || '-'}</div>
-                                                    )}
-                                                </div>
-
-                                                <div>
-                                                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Business Description</label>
-                                                    {isEditing ? (
-                                                        <textarea
-                                                            rows={3}
-                                                            value={editForm.description}
-                                                            onChange={(e) => setEditForm({ ...editForm, description: e.target.value })}
-                                                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
-                                                            placeholder="Business description"
-                                                        />
-                                                    ) : (
-                                                        <div className="p-2.5 bg-gray-50 dark:bg-gray-700/50 rounded-lg text-gray-800 dark:text-gray-200">{data.profile?.description || '-'}</div>
-                                                    )}
-                                                </div>
-
-                                                <div>
-                                                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Websites</label>
+                                                    <label className="block text-[13px] font-semibold text-ink mb-1.5">Website</label>
                                                     <div className="space-y-2">
-                                                        {(isEditing ? editForm.websites : (data.profile?.websites || [])).map((site, idx) => (
+                                                        {editForm.websites.map((site, idx) => (
                                                             <div key={idx} className="flex gap-2">
-                                                                {isEditing ? (
-                                                                    <>
-                                                                        <div className="relative flex-1">
-                                                                            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-gray-400"><FiGlobe /></div>
-                                                                            <input
-                                                                                type="url"
-                                                                                value={site}
-                                                                                onChange={(e) => handleWebsiteChange(idx, e.target.value)}
-                                                                                className="pl-10 w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
-                                                                                placeholder="https://example.com"
-                                                                            />
-                                                                        </div>
-                                                                        <button onClick={() => removeWebsite(idx)} className="p-2 text-red-500 hover:bg-red-50 rounded-lg"><FiTrash2 /></button>
-                                                                    </>
-                                                                ) : (
-                                                                    <a href={site} target="_blank" rel="noreferrer" className="flex items-center text-indigo-600 hover:underline">
-                                                                        <FiGlobe className="mr-2" /> {site}
-                                                                    </a>
-                                                                )}
+                                                                <input
+                                                                    type="url"
+                                                                    value={site}
+                                                                    onChange={(e) => handleWebsiteChange(idx, e.target.value)}
+                                                                    className="w-full h-[42px] px-3 rounded-[9px] border border-line-strong bg-white text-sm text-ink placeholder:text-ink-400 outline-none focus:border-brand-600 focus:ring-[3px] focus:ring-brand-600/20"
+                                                                    placeholder="https://example.com"
+                                                                />
+                                                                <button type="button" onClick={() => removeWebsite(idx)} className="h-[42px] px-2 text-rose-600" aria-label="Remove website">
+                                                                    <FiTrash2 />
+                                                                </button>
                                                             </div>
                                                         ))}
-                                                        {isEditing && (
-                                                            <button onClick={addWebsite} className="text-sm text-indigo-600 font-medium flex items-center gap-1 mt-2 hover:text-indigo-800">
-                                                                <FiPlus /> Add Website
-                                                            </button>
-                                                        )}
+                                                        <button type="button" onClick={addWebsite} className="text-[13px] font-semibold text-brand-700 inline-flex items-center gap-1">
+                                                            <FiPlus /> Add website
+                                                        </button>
                                                     </div>
                                                 </div>
+                                            </div>
 
+                                            <div>
+                                                <label className="block text-[13px] font-semibold text-ink mb-1.5">Address</label>
+                                                <input
+                                                    type="text"
+                                                    value={editForm.address}
+                                                    onChange={(e) => setEditForm({ ...editForm, address: e.target.value })}
+                                                    className="w-full h-[42px] px-3 rounded-[9px] border border-line-strong bg-white text-sm text-ink placeholder:text-ink-400 outline-none focus:border-brand-600 focus:ring-[3px] focus:ring-brand-600/20"
+                                                />
                                             </div>
                                         </div>
-                                    </div>
+                                    </section>
 
-                                    <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-6">
-                                        <div className="flex items-center justify-between gap-2 mb-4">
-                                            <div className="flex items-center gap-2">
-                                                <FiCheckCircle className="text-indigo-500" />
-                                                <h3 className="font-semibold text-gray-900 dark:text-white">Template Message Charges</h3>
-                                            </div>
-                                            <div className="text-xs text-gray-500 dark:text-gray-400">
-                                                Currency: <span className="font-semibold">{data.project?.billing_currency || '-'}</span>
-                                            </div>
-                                        </div>
-
-                                        {data?.charges ? (
-                                            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                                                <div className="rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/30 p-4">
-                                                    <div className="text-xs uppercase tracking-wider text-gray-500 dark:text-gray-400">Marketing</div>
-                                                    <div className="mt-1 text-lg font-bold text-gray-900 dark:text-white">
-                                                        {typeof data.charges?.marketing === 'number' ? data.charges.marketing.toFixed(2) : (data.charges?.marketing ?? '-')}
-                                                    </div>
-                                                </div>
-                                                <div className="rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/30 p-4">
-                                                    <div className="text-xs uppercase tracking-wider text-gray-500 dark:text-gray-400">Utility</div>
-                                                    <div className="mt-1 text-lg font-bold text-gray-900 dark:text-white">
-                                                        {typeof data.charges?.utility === 'number' ? data.charges.utility.toFixed(2) : (data.charges?.utility ?? '-')}
-                                                    </div>
-                                                </div>
-                                                <div className="rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/30 p-4">
-                                                    <div className="text-xs uppercase tracking-wider text-gray-500 dark:text-gray-400">Authentication</div>
-                                                    <div className="mt-1 text-lg font-bold text-gray-900 dark:text-white">
-                                                        {typeof data.charges?.authentication === 'number' ? data.charges.authentication.toFixed(2) : (data.charges?.authentication ?? '-')}
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        ) : (
-                                            <div className="text-sm text-gray-500 dark:text-gray-400">
-                                                Charges not available for this project.
-                                            </div>
+                                    <aside className="space-y-4">
+                                        {accountRows.length > 0 && (
+                                            <section className="bg-white border border-line rounded-[14px] p-5">
+                                                <h2 className="text-[15px] font-bold text-ink mb-3">Account status</h2>
+                                                <dl className="space-y-2.5 text-[13px]">
+                                                    {accountRows.map((row) => (
+                                                        <div key={row.label} className="flex items-center justify-between gap-3">
+                                                            <dt className="text-ink-500">{row.label}</dt>
+                                                            <dd className={`text-right font-semibold ${row.className}`}>{row.value}</dd>
+                                                        </div>
+                                                    ))}
+                                                </dl>
+                                            </section>
                                         )}
-                                    </div>
+
+                                        <section className="bg-white border border-line rounded-[14px] p-5">
+                                            <h2 className="text-[15px] font-bold text-ink">Template message charges</h2>
+                                            <p className="mt-1 text-xs text-ink-500">Per delivered message, deducted from your wallet.</p>
+                                            {chargeRows.length > 0 ? (
+                                                <dl className="mt-4 space-y-2.5 text-[13px]">
+                                                    {chargeRows.map((row) => (
+                                                        <div key={row.label} className="flex items-center justify-between gap-3">
+                                                            <dt className="text-ink-500">{row.label}</dt>
+                                                            <dd className="font-mono font-semibold text-ink">{row.value}</dd>
+                                                        </div>
+                                                    ))}
+                                                </dl>
+                                            ) : (
+                                                <p className="mt-3 text-sm text-ink-500">Charges not available for this project.</p>
+                                            )}
+                                        </section>
+
+                                        <section className="bg-white border border-line rounded-[14px] p-4 flex items-center gap-3">
+                                            <div className="h-12 w-12 flex-none rounded-[10px] border border-line flex items-center justify-center text-ink">
+                                                <LuQrCode size={22} />
+                                            </div>
+                                            <div className="min-w-0 flex-1">
+                                                <div className="text-sm font-bold text-ink">Project QR code</div>
+                                                <p className="text-xs text-ink-500">Customers scan it to start a chat.</p>
+                                            </div>
+                                            <button
+                                                type="button"
+                                                onClick={() => setShowQrModal(true)}
+                                                className="inline-flex items-center justify-center h-[38px] px-3.5 rounded-[9px] text-[13px] font-semibold bg-white text-ink border border-[#E1DFEC] hover:bg-surface-soft"
+                                            >
+                                                Download
+                                            </button>
+                                        </section>
+                                    </aside>
                                 </div>
-
-                                {/* RIGHT COL: Read-Only Meta Data */}
-                                <div className="space-y-6">
-                                    <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-6">
-                                        <div className="flex items-center gap-2 mb-4">
-                                            <FiInfo className="text-indigo-500" />
-                                            <h3 className="font-semibold text-gray-900 dark:text-white">Account Status</h3>
-                                        </div>
-                                        <div className="space-y-1">
-                                            <div className="flex justify-between items-center py-3 border-b border-gray-100 dark:border-gray-700">
-                                                <span className="text-sm text-gray-500">Project Status</span>
-                                                <StatusBadge status={data.project?.status} />
-                                            </div>
-                                            <div className="flex justify-between items-center py-3 border-b border-gray-100 dark:border-gray-700">
-                                                <span className="text-sm text-gray-500">Quality Rating</span>
-                                                <StatusBadge status={data.project?.wa_quality_rating} />
-                                            </div>
-                                            <div className="flex justify-between items-center py-3 border-b border-gray-100 dark:border-gray-700">
-                                                <span className="text-sm text-gray-500">Display Name</span>
-                                                <StatusBadge status={data.project?.wa_display_name_status} />
-                                            </div>
-                                            <ReadOnlyField label="Messaging Tier" value={data.project?.wa_messaging_tier} />
-                                            <ReadOnlyField label="Daily Limit" value={data.project?.daily_template_limit} />
-                                        </div>
-                                    </div>
-
-                                    <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-6">
-                                        <div className="flex items-center gap-2 mb-4">
-                                            <FiCheckCircle className="text-indigo-500" />
-                                            <h3 className="font-semibold text-gray-900 dark:text-white">Verification</h3>
-                                        </div>
-                                        <div className="space-y-1">
-                                            <ReadOnlyField label="WhatsApp Number" value={data.profile?.wa_number} />
-                                            <div className="py-3 border-b border-gray-100 dark:border-gray-700">
-                                                <dt className="text-xs font-medium text-gray-500 uppercase tracking-wider mb-1">Business Manager</dt>
-                                                <dd className="mt-1"><StatusBadge status={data.project?.fb_business_manager_status} /></dd>
-                                            </div>
-                                            <div className="py-3">
-                                                <dt className="text-xs font-medium text-gray-500 uppercase tracking-wider mb-1">WA Official Account</dt>
-                                                <dd className="text-sm font-medium text-gray-900 dark:text-gray-100">
-                                                    {data.project?.is_whatsapp_verified ? (
-                                                        <span className="flex items-center text-green-600"><FiCheckCircle className="mr-1" /> Verified</span>
-                                                    ) : "Unverified"}
-                                                </dd>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-
-                            </div>
+                            )}
                         </div>
                     )}
                 </div>
@@ -1521,65 +1423,65 @@ const ProjectDetails = () => {
             )}
 
             {/* Error Modal */}
-            {showErrorModal && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-4">
-                    <div className="bg-white dark:bg-gray-800 rounded-xl shadow-2xl max-w-md w-full p-6 animate-fade-in">
-                        <div className="flex items-center justify-center w-16 h-16 mx-auto mb-4 bg-red-100 dark:bg-red-900/30 rounded-full">
-                            <FiAlertCircle className="w-8 h-8 text-red-600 dark:text-red-400" />
-                        </div>
+            <AnimatedModal open={showErrorModal}>
+              {showErrorModal && (
+                  <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-4">
+                      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-2xl max-w-md w-full p-6 animate-fade-in">
+                          <div className="flex items-center justify-center w-16 h-16 mx-auto mb-4 bg-red-100 dark:bg-red-900/30 rounded-full">
+                              <FiAlertCircle className="w-8 h-8 text-red-600 dark:text-red-400" />
+                          </div>
 
-                        <h3 className="text-xl font-bold text-gray-900 dark:text-white text-center mb-2">
-                            Connection Failed
-                        </h3>
+                          <h3 className="text-xl font-bold text-gray-900 dark:text-white text-center mb-2">
+                              Connection Failed
+                          </h3>
 
-                        <p className="text-sm text-gray-600 dark:text-gray-400 text-center mb-6">
-                            {errorModalMessage}
-                        </p>
+                          <p className="text-sm text-gray-600 dark:text-gray-400 text-center mb-6">
+                              {errorModalMessage}
+                          </p>
 
-                        <div className="space-y-3">
-                            <button
-                                onClick={() => {
-                                    setShowErrorModal(false);
-                                    navigate('/project-details');
-                                }}
-                                className="w-full px-4 py-3 text-sm font-medium text-white bg-indigo-600 rounded-lg hover:bg-indigo-700 transition-colors flex items-center justify-center gap-2"
-                            >
-                                <FiArrowLeft />
-                                Go to All Projects
-                            </button>
+                          <div className="space-y-3">
+                              <button
+                                  onClick={() => {
+                                      setShowErrorModal(false);
+                                      navigate('/project-details');
+                                  }}
+                                  className="w-full px-4 py-3 text-sm font-medium text-white bg-indigo-600 rounded-lg hover:bg-indigo-700 transition-colors flex items-center justify-center gap-2"
+                              >
+                                  <FiArrowLeft />
+                                  Go to All Projects
+                              </button>
 
-                            <button
-                                onClick={() => {
-                                    setShowErrorModal(false);
-                                    setError(null);
-                                }}
-                                className="w-full px-4 py-3 text-sm font-medium text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
-                            >
-                                Try Again
-                            </button>
-                        </div>
+                              <button
+                                  onClick={() => {
+                                      setShowErrorModal(false);
+                                      setError(null);
+                                  }}
+                                  className="w-full px-4 py-3 text-sm font-medium text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
+                              >
+                                  Try Again
+                              </button>
+                          </div>
 
-                        {debugLogs.length > 0 && (
-                            <button
-                                onClick={() => setShowDebugPanel(true)}
-                                className="w-full mt-3 px-4 py-2 text-xs text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 transition-colors"
-                            >
-                                View Debug Logs ({debugLogs.length})
-                            </button>
-                        )}
-                    </div>
-                </div>
-            )}
+                          {debugLogs.length > 0 && (
+                              <button
+                                  onClick={() => setShowDebugPanel(true)}
+                                  className="w-full mt-3 px-4 py-2 text-xs text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 transition-colors"
+                              >
+                                  View Debug Logs ({debugLogs.length})
+                              </button>
+                          )}
+                      </div>
+                  </div>
+              )}
+            </AnimatedModal>
 
             {/* Project QR Code Modal */}
-            {showQrModal && (
-                <ProjectQRModal
-                    isOpen={showQrModal}
-                    onClose={() => setShowQrModal(false)}
-                    projectId={projectId || (data?.project?.id || data?.project?.project_id)}
-                    projectName={data?.project?.name || ''}
-                />
-            )}
+            <ProjectQRModal
+                isOpen={showQrModal}
+                onClose={() => setShowQrModal(false)}
+                projectId={projectId || (data?.project?.id || data?.project?.project_id)}
+                projectName={data?.project?.name || ''}
+            />
         </div>
     );
 };

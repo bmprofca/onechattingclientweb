@@ -392,8 +392,6 @@ const ContactFormModal = ({
     const assignedGroupIds = new Set(assignedGroups.map(g => String(g.group_id || g.id)));
     const unassignedGroups = groups.filter(g => !assignedGroupIds.has(String(g.id || g.group_id)));
 
-    if (!isOpen) return null;
-
     const isFormValid = formData.name.trim() && formData.number.length === 10 &&
         !Object.values(errors).some(error => error !== '');
 

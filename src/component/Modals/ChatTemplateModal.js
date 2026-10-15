@@ -4,6 +4,7 @@ import { FiX, FiSearch, FiChevronDown, FiChevronUp, FiCheck, FiClock, FiAlertCir
 import axios from 'axios';
 import { Encrypt } from '../../pages/encryption/payload-encryption';
 
+import AnimatedModal from './AnimatedModal';
 const ChatTemplateModal = ({ isOpen, onClose, tokens, onTemplateSelect, onTemplatePreview, darkMode = false, activeChat, contactDetails, onSendTemplate }) => {
     const [templates, setTemplates] = useState([]);
     const [loading, setLoading] = useState(false);
@@ -254,98 +255,78 @@ const ChatTemplateModal = ({ isOpen, onClose, tokens, onTemplateSelect, onTempla
 
 
 
-    if (!isOpen) return null;
 
     return (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-0 sm:p-4">
-            <div
-                className={` h-full sm:h-auto sm:max-h-[90vh] md:w-6/12 ${darkMode ? 'bg-gray-800' : 'bg-white'} rounded-none sm:rounded-2xl shadow-2xl flex flex-col mobile-modal-shell`}
-                style={{ touchAction: 'manipulation' }}
-            >
-                {/* Header */}
-                <div className={`flex items-center justify-between p-4 sm:p-6 border-b ${darkMode ? 'border-gray-700' : 'border-gray-200'}`}>
-                    <h2 className={`text-lg sm:text-xl font-semibold ${darkMode ? 'text-white' : 'text-gray-900'}`}>
-                        Select Template
-                    </h2>
-                    <button
-                        onClick={onClose}
-                        className={`p-2 rounded-lg transition-colors ${darkMode ? 'hover:bg-gray-700 text-gray-300' : 'hover:bg-gray-100 text-gray-500'}`}
-                    >
-                        <FiX className="w-5 h-5" />
-                    </button>
-                </div>
+        <AnimatedModal open={isOpen}>
+            {isOpen && (
+            <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-0 sm:p-4">
+                <div
+                    className={` h-full sm:h-auto sm:max-h-[90vh] md:w-6/12 ${darkMode ? 'bg-gray-800' : 'bg-white'} rounded-none sm:rounded-2xl shadow-2xl flex flex-col mobile-modal-shell`}
+                    style={{ touchAction: 'manipulation' }}
+                >
+                    {/* Header */}
+                    <div className={`flex items-center justify-between p-4 sm:p-6 border-b ${darkMode ? 'border-gray-700' : 'border-gray-200'}`}>
+                        <h2 className={`text-lg sm:text-xl font-semibold ${darkMode ? 'text-white' : 'text-gray-900'}`}>
+                            Select Template
+                        </h2>
+                        <button
+                            onClick={onClose}
+                            className={`p-2 rounded-lg transition-colors ${darkMode ? 'hover:bg-gray-700 text-gray-300' : 'hover:bg-gray-100 text-gray-500'}`}
+                        >
+                            <FiX className="w-5 h-5" />
+                        </button>
+                    </div>
 
-                {/* Search and Filter */}
-                <div className="p-4 sm:p-6 border-b border-gray-200 dark:border-gray-700">
-                    <div className="flex flex-col sm:flex-row gap-3 sm:gap-4">
-                        {/* Search */}
-                        <div className="flex-1 relative">
-                            <FiSearch className={`absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 ${darkMode ? 'text-gray-400' : 'text-gray-500'}`} />
-                            <input
-                                type="text"
-                                placeholder="Search templates..."
-                                value={searchTerm}
-                                onChange={(e) => setSearchTerm(e.target.value)}
-                                className={`w-full pl-10 pr-4 py-2 sm:py-3 rounded-lg border transition-colors ${darkMode
-                                    ? 'bg-gray-700 border-gray-600 text-white placeholder-gray-400 focus:border-blue-500'
-                                    : 'bg-white border-gray-300 text-gray-900 placeholder-gray-500 focus:border-blue-500'
-                                    } text-base sm:text-sm focus:outline-none focus:ring-2 focus:ring-blue-200 dark:focus:ring-blue-800`}
-                            />
-                        </div>
+                    {/* Search and Filter */}
+                    <div className="p-4 sm:p-6 border-b border-gray-200 dark:border-gray-700">
+                        <div className="flex flex-col sm:flex-row gap-3 sm:gap-4">
+                            {/* Search */}
+                            <div className="flex-1 relative">
+                                <FiSearch className={`absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 ${darkMode ? 'text-gray-400' : 'text-gray-500'}`} />
+                                <input
+                                    type="text"
+                                    placeholder="Search templates..."
+                                    value={searchTerm}
+                                    onChange={(e) => setSearchTerm(e.target.value)}
+                                    className={`w-full pl-10 pr-4 py-2 sm:py-3 rounded-lg border transition-colors ${darkMode
+                                        ? 'bg-gray-700 border-gray-600 text-white placeholder-gray-400 focus:border-blue-500'
+                                        : 'bg-white border-gray-300 text-gray-900 placeholder-gray-500 focus:border-blue-500'
+                                        } text-base sm:text-sm focus:outline-none focus:ring-2 focus:ring-blue-200 dark:focus:ring-blue-800`}
+                                />
+                            </div>
 
-                        {/* Category Filter */}
-                        <div className="relative category-dropdown">
-                            <button
-                                onClick={() => setShowCategoryDropdown(!showCategoryDropdown)}
-                                className={`flex items-center gap-2 px-4 py-2 sm:py-3 rounded-lg border transition-colors text-base sm:text-sm ${darkMode
-                                    ? 'bg-gray-700 border-gray-600 text-white hover:bg-gray-600'
-                                    : 'bg-white border-gray-300 text-gray-900 hover:bg-gray-50'
-                                    } focus:outline-none focus:ring-2 focus:ring-blue-200 dark:focus:ring-blue-800`}
-                            >
-                                <span className="text-sm font-medium">
-                                    {categoryFilter === 'ALL' ? 'All Categories' : categoryFilter}
-                                </span>
-                                {showCategoryDropdown ? (
-                                    <FiChevronUp className="w-4 h-4" />
-                                ) : (
-                                    <FiChevronDown className="w-4 h-4" />
-                                )}
-                            </button>
+                            {/* Category Filter */}
+                            <div className="relative category-dropdown">
+                                <button
+                                    onClick={() => setShowCategoryDropdown(!showCategoryDropdown)}
+                                    className={`flex items-center gap-2 px-4 py-2 sm:py-3 rounded-lg border transition-colors text-base sm:text-sm ${darkMode
+                                        ? 'bg-gray-700 border-gray-600 text-white hover:bg-gray-600'
+                                        : 'bg-white border-gray-300 text-gray-900 hover:bg-gray-50'
+                                        } focus:outline-none focus:ring-2 focus:ring-blue-200 dark:focus:ring-blue-800`}
+                                >
+                                    <span className="text-sm font-medium">
+                                        {categoryFilter === 'ALL' ? 'All Categories' : categoryFilter}
+                                    </span>
+                                    {showCategoryDropdown ? (
+                                        <FiChevronUp className="w-4 h-4" />
+                                    ) : (
+                                        <FiChevronDown className="w-4 h-4" />
+                                    )}
+                                </button>
 
-                            {/* Category Dropdown */}
-                            {showCategoryDropdown && (
-                                <div className={`absolute top-full left-0 mt-1 w-full min-w-[200px] rounded-lg border shadow-lg z-10 ${darkMode
-                                    ? 'bg-gray-700 border-gray-600'
-                                    : 'bg-white border-gray-200'
-                                    }`}>
-                                    <div className="py-1">
-                                        <button
-                                            onClick={() => {
-                                                setCategoryFilter('ALL');
-                                                setShowCategoryDropdown(false);
-                                            }}
-                                            className={`w-full text-left px-4 py-2 text-sm transition-colors ${categoryFilter === 'ALL'
-                                                ? darkMode
-                                                    ? 'bg-blue-600 text-white'
-                                                    : 'bg-blue-50 text-blue-700'
-                                                : darkMode
-                                                    ? 'text-gray-300 hover:bg-gray-600'
-                                                    : 'text-gray-700 hover:bg-gray-50'
-                                                }`}
-                                        >
-                                            <div className="flex items-center gap-2">
-                                                <span>All Categories</span>
-                                                {categoryFilter === 'ALL' && <FiCheck className="w-4 h-4" />}
-                                            </div>
-                                        </button>
-                                        {getUniqueCategories().map((category) => (
+                                {/* Category Dropdown */}
+                                {showCategoryDropdown && (
+                                    <div className={`absolute top-full left-0 mt-1 w-full min-w-[200px] rounded-lg border shadow-lg z-10 ${darkMode
+                                        ? 'bg-gray-700 border-gray-600'
+                                        : 'bg-white border-gray-200'
+                                        }`}>
+                                        <div className="py-1">
                                             <button
-                                                key={category}
                                                 onClick={() => {
-                                                    setCategoryFilter(category);
+                                                    setCategoryFilter('ALL');
                                                     setShowCategoryDropdown(false);
                                                 }}
-                                                className={`w-full text-left px-4 py-2 text-sm transition-colors ${categoryFilter === category
+                                                className={`w-full text-left px-4 py-2 text-sm transition-colors ${categoryFilter === 'ALL'
                                                     ? darkMode
                                                         ? 'bg-blue-600 text-white'
                                                         : 'bg-blue-50 text-blue-700'
@@ -355,127 +336,150 @@ const ChatTemplateModal = ({ isOpen, onClose, tokens, onTemplateSelect, onTempla
                                                     }`}
                                             >
                                                 <div className="flex items-center gap-2">
-                                                    <span>{category}</span>
-                                                    {categoryFilter === category && <FiCheck className="w-4 h-4" />}
+                                                    <span>All Categories</span>
+                                                    {categoryFilter === 'ALL' && <FiCheck className="w-4 h-4" />}
                                                 </div>
                                             </button>
-                                        ))}
-                                    </div>
-                                </div>
-                            )}
-                        </div>
-                    </div>
-                </div>
-
-                {/* Templates List */}
-                <div
-                    className="flex-1 overflow-y-auto p-4 sm:p-6 mobile-modal-body"
-                    style={{ WebkitOverflowScrolling: 'touch' }}
-                >
-                    {loading && templates.length === 0 ? (
-                        <div className="flex items-center justify-center py-8">
-                            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
-                        </div>
-                    ) : filteredTemplates.length === 0 ? (
-                        <div className="text-center py-8">
-                            <p className={`text-gray-500 ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
-                                No templates found
-                            </p>
-                        </div>
-                    ) : (
-                        <div className="space-y-3">
-                            {filteredTemplates.map((template) => {
-
-                                return (
-                                    <div
-                                        key={template.id}
-                                        className={`group p-4 rounded-xl border transition-all duration-200 hover:shadow-lg ${darkMode
-                                            ? 'bg-gray-700 border-gray-600 hover:border-gray-500'
-                                            : 'bg-white border-gray-200 hover:border-blue-300'
-                                            }`}
-                                    >
-                                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                                            <div className="flex-1 min-w-0">
-                                                <div className="flex items-center gap-3 mb-2">
-                                                    <h3 className={`font-semibold text-base truncate ${darkMode ? 'text-white' : 'text-gray-900'
-                                                        }`}>
-                                                        {template.name}
-                                                    </h3>
-                                                    <span className={`px-2.5 py-0.5 rounded-full text-xs font-medium border ${darkMode ? 'bg-gray-800 border-gray-600 text-gray-300' : 'bg-blue-50 border-blue-100 text-blue-600'
-                                                        }`}>
-                                                        {template.language}
-                                                    </span>
-                                                </div>
-
-                                                <div className="flex items-center gap-4 text-sm text-gray-500 dark:text-gray-400">
-                                                    <div className="flex items-center gap-1.5">
-                                                        <FiFolder className="w-4 h-4" />
-                                                        <span className="truncate">{template.category}</span>
+                                            {getUniqueCategories().map((category) => (
+                                                <button
+                                                    key={category}
+                                                    onClick={() => {
+                                                        setCategoryFilter(category);
+                                                        setShowCategoryDropdown(false);
+                                                    }}
+                                                    className={`w-full text-left px-4 py-2 text-sm transition-colors ${categoryFilter === category
+                                                        ? darkMode
+                                                            ? 'bg-blue-600 text-white'
+                                                            : 'bg-blue-50 text-blue-700'
+                                                        : darkMode
+                                                            ? 'text-gray-300 hover:bg-gray-600'
+                                                            : 'text-gray-700 hover:bg-gray-50'
+                                                        }`}
+                                                >
+                                                    <div className="flex items-center gap-2">
+                                                        <span>{category}</span>
+                                                        {categoryFilter === category && <FiCheck className="w-4 h-4" />}
                                                     </div>
-                                                    <div className="flex items-center gap-1.5">
-                                                        <FiClock className="w-4 h-4" />
-                                                        <span>{template.updatedOn}</span>
-                                                    </div>
-                                                </div>
-                                            </div>
-
-                                            <div className="flex items-center gap-2 justify-end sm:justify-start pt-2 sm:pt-0 sm:pl-4 sm:border-l border-gray-100 dark:border-gray-600">
-                                                {onTemplatePreview && (
-                                                    <button
-                                                        onClick={(e) => {
-                                                            e.stopPropagation();
-                                                            onTemplatePreview(template);
-                                                        }}
-                                                        className={`p-2 rounded-lg transition-colors ${darkMode
-                                                            ? 'hover:bg-gray-600 text-gray-400 hover:text-white'
-                                                            : 'hover:bg-gray-100 text-gray-500 hover:text-gray-900'
-                                                            }`}
-                                                        title="Preview Template"
-                                                    >
-                                                        <FiEye className="w-5 h-5" />
-                                                    </button>
-                                                )}
-                                                {onTemplateSelect && (
-                                                    <button
-                                                        onClick={(e) => {
-                                                            e.stopPropagation();
-                                                            handleTemplateSelect(template);
-                                                        }}
-                                                        className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors shadow-sm ${darkMode
-                                                            ? 'bg-blue-600 text-white hover:bg-blue-500'
-                                                            : 'bg-blue-600 text-white hover:bg-blue-700'
-                                                            }`}
-                                                    >
-                                                        <span>Select</span>
-                                                        <FiCheck className="w-4 h-4" />
-                                                    </button>
-                                                )}
-                                            </div>
+                                                </button>
+                                            ))}
                                         </div>
                                     </div>
-                                );
-                            })}
-
-                            {/* Load More Button */}
-                            {hasMore && (
-                                <div className="flex justify-center pt-4">
-                                    <button
-                                        onClick={loadMore}
-                                        disabled={loading}
-                                        className={`px-6 py-2 rounded-lg transition-colors ${loading
-                                            ? 'bg-gray-300 dark:bg-gray-600 text-gray-500 cursor-not-allowed'
-                                            : 'bg-blue-500 hover:bg-blue-600 text-white'
-                                            }`}
-                                    >
-                                        {loading ? 'Loading...' : 'Load More'}
-                                    </button>
-                                </div>
-                            )}
+                                )}
+                            </div>
                         </div>
-                    )}
+                    </div>
+
+                    {/* Templates List */}
+                    <div
+                        className="flex-1 overflow-y-auto p-4 sm:p-6 mobile-modal-body"
+                        style={{ WebkitOverflowScrolling: 'touch' }}
+                    >
+                        {loading && templates.length === 0 ? (
+                            <div className="flex items-center justify-center py-8">
+                                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
+                            </div>
+                        ) : filteredTemplates.length === 0 ? (
+                            <div className="text-center py-8">
+                                <p className={`text-gray-500 ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
+                                    No templates found
+                                </p>
+                            </div>
+                        ) : (
+                            <div className="space-y-3">
+                                {filteredTemplates.map((template) => {
+
+                                    return (
+                                        <div
+                                            key={template.id}
+                                            className={`group p-4 rounded-xl border transition-all duration-200 hover:shadow-lg ${darkMode
+                                                ? 'bg-gray-700 border-gray-600 hover:border-gray-500'
+                                                : 'bg-white border-gray-200 hover:border-blue-300'
+                                                }`}
+                                        >
+                                            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                                                <div className="flex-1 min-w-0">
+                                                    <div className="flex items-center gap-3 mb-2">
+                                                        <h3 className={`font-semibold text-base truncate ${darkMode ? 'text-white' : 'text-gray-900'
+                                                            }`}>
+                                                            {template.name}
+                                                        </h3>
+                                                        <span className={`px-2.5 py-0.5 rounded-full text-xs font-medium border ${darkMode ? 'bg-gray-800 border-gray-600 text-gray-300' : 'bg-blue-50 border-blue-100 text-blue-600'
+                                                            }`}>
+                                                            {template.language}
+                                                        </span>
+                                                    </div>
+
+                                                    <div className="flex items-center gap-4 text-sm text-gray-500 dark:text-gray-400">
+                                                        <div className="flex items-center gap-1.5">
+                                                            <FiFolder className="w-4 h-4" />
+                                                            <span className="truncate">{template.category}</span>
+                                                        </div>
+                                                        <div className="flex items-center gap-1.5">
+                                                            <FiClock className="w-4 h-4" />
+                                                            <span>{template.updatedOn}</span>
+                                                        </div>
+                                                    </div>
+                                                </div>
+
+                                                <div className="flex items-center gap-2 justify-end sm:justify-start pt-2 sm:pt-0 sm:pl-4 sm:border-l border-gray-100 dark:border-gray-600">
+                                                    {onTemplatePreview && (
+                                                        <button
+                                                            onClick={(e) => {
+                                                                e.stopPropagation();
+                                                                onTemplatePreview(template);
+                                                            }}
+                                                            className={`p-2 rounded-lg transition-colors ${darkMode
+                                                                ? 'hover:bg-gray-600 text-gray-400 hover:text-white'
+                                                                : 'hover:bg-gray-100 text-gray-500 hover:text-gray-900'
+                                                                }`}
+                                                            title="Preview Template"
+                                                        >
+                                                            <FiEye className="w-5 h-5" />
+                                                        </button>
+                                                    )}
+                                                    {onTemplateSelect && (
+                                                        <button
+                                                            onClick={(e) => {
+                                                                e.stopPropagation();
+                                                                handleTemplateSelect(template);
+                                                            }}
+                                                            className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors shadow-sm ${darkMode
+                                                                ? 'bg-blue-600 text-white hover:bg-blue-500'
+                                                                : 'bg-blue-600 text-white hover:bg-blue-700'
+                                                                }`}
+                                                        >
+                                                            <span>Select</span>
+                                                            <FiCheck className="w-4 h-4" />
+                                                        </button>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        </div>
+                                    );
+                                })}
+
+                                {/* Load More Button */}
+                                {hasMore && (
+                                    <div className="flex justify-center pt-4">
+                                        <button
+                                            onClick={loadMore}
+                                            disabled={loading}
+                                            className={`px-6 py-2 rounded-lg transition-colors ${loading
+                                                ? 'bg-gray-300 dark:bg-gray-600 text-gray-500 cursor-not-allowed'
+                                                : 'bg-blue-500 hover:bg-blue-600 text-white'
+                                                }`}
+                                        >
+                                            {loading ? 'Loading...' : 'Load More'}
+                                        </button>
+                                    </div>
+                                )}
+                            </div>
+                        )}
+                    </div>
                 </div>
             </div>
-        </div>
+            )}
+        </AnimatedModal>
     );
 };
 

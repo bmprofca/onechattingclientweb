@@ -1,15 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { useParams, useNavigate, Link } from 'react-router-dom';
-import { motion, AnimatePresence } from 'framer-motion';
+import { useParams, Link } from 'react-router-dom';
 import {
-    FiCheckCircle,
     FiAlertCircle,
-    FiExternalLink,
     FiRefreshCw,
-    FiShield,
-    FiMessageSquare,
-    FiCopy,
-    FiCheck
 } from 'react-icons/fi';
 import toast, { Toaster } from 'react-hot-toast';
 import { validateQRCode, processScanAction } from '../api/qrcode';
@@ -26,7 +19,6 @@ const WhatsAppIcon = ({ size = 24, className = '' }) => (
 
 const QRLanding = () => {
     const { qr_id } = useParams();
-    const navigate = useNavigate();
 
     // Validation & Project state
     const [loadingProject, setLoadingProject] = useState(true);
@@ -112,9 +104,10 @@ const QRLanding = () => {
                     }).catch(() => {});
 
                     // Auto-redirect to WhatsApp after brief animation
+                    setRedirectCountdown(3);
                     setTimeout(() => {
                         window.location.href = waLink;
-                    }, 1200);
+                    }, 3000);
                 } else {
                     // If no phone number assigned to project yet
                     setError('This project does not have a WhatsApp number assigned yet. Please contact support.');
@@ -148,168 +141,72 @@ const QRLanding = () => {
         }
     };
 
+    const projectName = projectData?.project_name || projectData?.name || 'Business';
+    const about = projectData?.about || projectData?.description || projectData?.business_description || qrLabel || '';
+    const initials = projectName.trim().split(/\s+/).filter(Boolean).slice(0, 2).map((part) => part[0]).join('').toUpperCase() || 'P';
+
     return (
-        <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-indigo-950 flex flex-col justify-between text-white selection:bg-emerald-500 selection:text-white p-4 sm:p-6 md:p-8">
+        <div className="oc-force-light min-h-screen bg-surface-ground flex items-center justify-center px-4 py-10">
             <Toaster position="top-center" />
-
-            {/* Top Bar / Brand */}
-            <header className="max-w-md mx-auto w-full flex items-center justify-between py-3">
-                <div className="flex items-center gap-2">
-                    <img src="/logo.png" alt="" className="w-8 h-8 rounded-xl object-cover shadow-lg" />
-                    <span className="font-bold text-sm tracking-wide bg-gradient-to-r from-white to-gray-300 bg-clip-text text-transparent">
-                        OneChatting
-                    </span>
-                </div>
-                <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/5 border border-white/10 text-[11px] font-medium text-gray-300">
-                    <FiShield className="text-emerald-400" size={12} />
-                    <span>WhatsApp Direct Connect</span>
-                </div>
-            </header>
-
-            {/* Main Card */}
-            <main className="max-w-md mx-auto w-full my-auto py-4">
-                <div className="relative bg-white/10 dark:bg-gray-900/90 backdrop-blur-2xl rounded-3xl border border-white/15 dark:border-gray-800 shadow-2xl p-6 sm:p-8 overflow-hidden">
-                    {/* Decorative Background Glows */}
-                    <div className="absolute top-0 right-0 w-48 h-48 bg-emerald-500/20 rounded-full blur-3xl pointer-events-none -translate-y-16 translate-x-16" />
-                    <div className="absolute bottom-0 left-0 w-40 h-40 bg-indigo-500/20 rounded-full blur-3xl pointer-events-none translate-y-12 -translate-x-12" />
-
-                    {/* Initial Loading */}
-                    {loadingProject && (
-                        <div className="py-16 text-center space-y-4">
-                            <div className="w-16 h-16 rounded-2xl bg-emerald-600/30 border border-emerald-400/40 flex items-center justify-center mx-auto animate-pulse">
-                                <FiRefreshCw className="text-emerald-400 animate-spin" size={28} />
-                            </div>
-                            <h2 className="text-lg font-bold text-white">Connecting to WhatsApp...</h2>
-                            <p className="text-xs text-gray-400 max-w-xs mx-auto">
-                                Loading project details and preparing your chat. Please hold on.
-                            </p>
+            <div className="w-full max-w-[420px] rounded-[18px] border border-line bg-white px-6 py-8 text-center shadow-card">
+                {loadingProject && (
+                    <div className="py-10">
+                        <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-brand-50 text-brand-700">
+                            <FiRefreshCw className="animate-spin" size={22} />
                         </div>
-                    )}
+                        <h1 className="mt-5 text-lg font-extrabold text-ink">Opening the chat</h1>
+                        <p className="mt-2 text-sm text-ink-500">Loading this business and preparing WhatsApp.</p>
+                    </div>
+                )}
 
-                    {/* Error State */}
-                    {!loadingProject && error && (
-                        <div className="py-10 text-center space-y-4">
-                            <div className="w-16 h-16 rounded-2xl bg-red-500/20 border border-red-500/40 flex items-center justify-center mx-auto text-red-400">
-                                <FiAlertCircle size={32} />
-                            </div>
-                            <h2 className="text-lg font-bold text-white">QR Code Not Available</h2>
-                            <p className="text-xs text-gray-300 max-w-xs mx-auto">{error}</p>
-                            <div className="pt-4">
-                                <Link
-                                    to="/login"
-                                    className="inline-flex items-center justify-center gap-2 px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-semibold transition-all shadow-lg shadow-indigo-500/30"
-                                >
-                                    Go to Dashboard
-                                </Link>
-                            </div>
+                {!loadingProject && error && (
+                    <div className="py-6">
+                        <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-rose-50 text-rose-600">
+                            <FiAlertCircle size={26} />
                         </div>
-                    )}
+                        <h1 className="mt-5 text-lg font-extrabold text-ink">This QR code is not available</h1>
+                        <p className="mt-2 text-sm text-ink-500">{error}</p>
+                        <Link to="/login" className="oc-btn-primary mt-6 h-10 px-4">Go to dashboard</Link>
+                    </div>
+                )}
 
-                    {/* Active WhatsApp Redirection State */}
-                    {!loadingProject && !error && projectData && whatsappUrl && (
-                        <motion.div
-                            initial={{ opacity: 0, scale: 0.95 }}
-                            animate={{ opacity: 1, scale: 1 }}
-                            transition={{ duration: 0.3 }}
-                            className="space-y-6 text-center"
+                {!loadingProject && !error && projectData && whatsappUrl && (
+                    <div>
+                        <div className="mx-auto flex h-16 w-16 items-center justify-center overflow-hidden rounded-full bg-ink text-lg font-bold text-white">
+                            {projectData.profile_picture ? (
+                                <img src={projectData.profile_picture} alt="" className="h-full w-full object-cover" />
+                            ) : initials}
+                        </div>
+                        <h1 className="mt-4 text-xl font-extrabold tracking-tight text-ink">{projectName}</h1>
+                        {about ? <p className="mt-1 text-sm text-ink-500">{about}</p> : null}
+
+                        <div className="mt-5 flex items-center justify-center gap-2 rounded-[10px] bg-surface-soft px-3 py-2.5 text-sm text-ink-700">
+                            <span className="h-2 w-2 rounded-full bg-emerald-500" />
+                            Opening WhatsApp in {redirectCountdown} second{redirectCountdown === 1 ? '' : 's'}…
+                        </div>
+
+                        <button
+                            type="button"
+                            onClick={handleManualOpenWhatsApp}
+                            className="mt-4 flex h-11 w-full items-center justify-center gap-2 rounded-[10px] bg-[#128C7E] text-sm font-bold text-white hover:bg-[#0E7A6E]"
                         >
-                            {/* Project Avatar & WhatsApp Indicator */}
-                            <div className="relative inline-block mx-auto">
-                                <div className="absolute inset-0 bg-emerald-500/30 rounded-3xl blur-xl animate-pulse" />
-                                <div className="relative w-24 h-24 rounded-3xl overflow-hidden bg-gradient-to-br from-emerald-600 to-teal-700 border-2 border-white/30 flex items-center justify-center text-white text-3xl font-bold shadow-2xl mx-auto">
-                                    {projectData.profile_picture ? (
-                                        <img
-                                            src={projectData.profile_picture}
-                                            alt={projectData.project_name}
-                                            className="w-full h-full object-cover"
-                                            onError={(e) => {
-                                                e.target.onerror = null;
-                                                e.target.style.display = 'none';
-                                            }}
-                                        />
-                                    ) : (
-                                        <span>{projectData.project_name?.charAt(0) || 'P'}</span>
-                                    )}
-                                </div>
-                                <div className="absolute -bottom-2 -right-2 bg-[#25D366] text-white p-2 rounded-2xl border-2 border-slate-900 shadow-lg">
-                                    <WhatsAppIcon size={20} />
-                                </div>
-                            </div>
-
-                            {/* Project & QR Info */}
-                            <div>
-                                <h1 className="text-2xl font-extrabold text-white tracking-tight">
-                                    {projectData.project_name || 'Project Chat'}
-                                </h1>
-                                {qrLabel && (
-                                    <span className="inline-block px-3 py-1 mt-2 rounded-full text-xs font-semibold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
-                                        {qrLabel}
-                                    </span>
-                                )}
-                                {phoneNumber && (
-                                    <p className="text-xs font-mono text-emerald-400 mt-2">
-                                        +{phoneNumber}
-                                    </p>
-                                )}
-                            </div>
-
-                            {/* Auto-redirecting Alert */}
-                            <div className="p-4 bg-emerald-950/40 border border-emerald-500/30 rounded-2xl space-y-1">
-                                <div className="flex items-center justify-center gap-2 text-emerald-300 font-semibold text-xs">
-                                    <FiRefreshCw className="animate-spin text-emerald-400" size={14} />
-                                    <span>Opening WhatsApp Automatically...</span>
-                                </div>
-                                <p className="text-[11px] text-gray-400">
-                                    You will be redirected to send a pre-filled message directly to this project.
-                                </p>
-                            </div>
-
-                            {/* Pre-filled Message Preview Box */}
-                            {customMessage && (
-                                <div className="text-left bg-black/30 border border-white/10 rounded-2xl p-3.5 space-y-1.5">
-                                    <div className="flex items-center justify-between text-[11px] text-gray-400 font-medium">
-                                        <span className="flex items-center gap-1">
-                                            <FiMessageSquare size={12} className="text-emerald-400" />
-                                            Pre-filled Message
-                                        </span>
-                                        <button
-                                            onClick={handleCopyMessage}
-                                            className="text-emerald-400 hover:text-emerald-300 flex items-center gap-1 transition-colors"
-                                        >
-                                            {copied ? <FiCheck size={12} /> : <FiCopy size={12} />}
-                                            <span>{copied ? 'Copied' : 'Copy'}</span>
-                                        </button>
-                                    </div>
-                                    <p className="text-xs text-gray-200 font-sans italic bg-white/5 p-2.5 rounded-xl border border-white/5 line-clamp-3">
-                                        "{customMessage}"
-                                    </p>
-                                </div>
-                            )}
-
-                            {/* Action Buttons */}
-                            <div className="space-y-2 pt-2">
-                                <button
-                                    onClick={handleManualOpenWhatsApp}
-                                    className="w-full py-3.5 px-6 bg-[#25D366] hover:bg-[#20bd5a] text-white rounded-2xl text-sm font-bold shadow-xl shadow-emerald-600/30 transition-all flex items-center justify-center gap-2 active:scale-[0.98]"
-                                >
-                                    <WhatsAppIcon size={20} />
-                                    <span>Open in WhatsApp</span>
-                                    <FiExternalLink size={16} className="ml-1 opacity-80" />
-                                </button>
-                                <p className="text-[11px] text-gray-400">
-                                    If WhatsApp didn't launch, click the button above.
-                                </p>
-                            </div>
-                        </motion.div>
-                    )}
-                </div>
-            </main>
-
-            {/* Footer */}
-            <footer className="max-w-md mx-auto w-full text-center py-2 text-[11px] text-gray-400">
-                <span>Powered by </span>
-                <span className="font-semibold text-gray-300">OneChatting WhatsApp Connect</span>
-            </footer>
+                            <WhatsAppIcon size={18} />
+                            Open in WhatsApp
+                        </button>
+                        <p className="mt-4 text-xs leading-relaxed text-ink-500">
+                            Your message goes straight to the business. They will see your WhatsApp name and number.
+                        </p>
+                        {customMessage ? (
+                            <button type="button" onClick={handleCopyMessage} className="mt-3 text-xs font-semibold text-brand-800">
+                                {copied ? 'Message copied' : 'Copy the message'}
+                            </button>
+                        ) : null}
+                        <div className="mt-5 border-t border-line-soft pt-4 text-xs text-ink-400">
+                            Powered by <span className="font-semibold text-brand-800">OneChatting</span>
+                        </div>
+                    </div>
+                )}
+            </div>
         </div>
     );
 };

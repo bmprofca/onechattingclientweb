@@ -11,6 +11,7 @@ import GlobalMediaGalleryModal from '../component/Modals/GlobalMediaGalleryModal
 import SearchableSelect from '../component/SearchableSelect';
 import WhatsAppText from '../component/WhatsAppText';
 
+import AnimatedModal from '../component/Modals/AnimatedModal';
 const COUNTRY_CODES = [
     { code: '91', country: 'India', dial: '+91' },
     { code: '1', country: 'USA/Canada', dial: '+1' },
@@ -754,7 +755,7 @@ function ChatList({ tokens, onChatSelect, activeChat, darkMode, dbAvailable, soc
                         >
                             <span>{tab}</span>
                             {showUnreadBadge && (
-                                <span className="min-w-[20px] h-5 px-1.5 rounded-full bg-green-500 text-white text-xs font-semibold flex items-center justify-center">
+                                <span className="min-w-[20px] h-5 px-1.5 rounded-full bg-brand-600 text-white text-xs font-semibold flex items-center justify-center">
                                     {totalUnreadCount > 99 ? '99+' : totalUnreadCount}
                                 </span>
                             )}
@@ -804,7 +805,7 @@ function ChatList({ tokens, onChatSelect, activeChat, darkMode, dbAvailable, soc
                                             >
                                                 <div className="flex items-center space-x-3">
                                                     <div className="relative">
-                                                        <div className="w-12 h-12 rounded-full flex items-center justify-center bg-gradient-to-br from-green-400 to-blue-500 text-white font-semibold">
+                                                        <div className="w-12 h-12 rounded-full flex items-center justify-center bg-brand-100 text-brand-800 font-semibold">
                                                             {(chat.name || chat.number || '?').charAt(0).toUpperCase()}
                                                         </div>
                                                         {chat.is_favorite && (
@@ -831,7 +832,7 @@ function ChatList({ tokens, onChatSelect, activeChat, darkMode, dbAvailable, soc
                                                                     {formatTime(chat.timestamp || chat.create_date)}
                                                                 </div>
                                                                 {hasUnread && !isActive && (
-                                                                    <span className="min-w-[18px] h-[18px] px-1 rounded-full bg-green-500 text-white text-xs font-semibold flex items-center justify-center">
+                                                                    <span className="min-w-[18px] h-[18px] px-1 rounded-full bg-brand-600 text-white text-xs font-semibold flex items-center justify-center">
                                                                         {unreadCount > 99 ? '99+' : unreadCount}
                                                                     </span>
                                                                 )}
@@ -882,234 +883,238 @@ function ChatList({ tokens, onChatSelect, activeChat, darkMode, dbAvailable, soc
             </div>
 
             {/* Direct Chat Modal */}
-            {showDirectChatModal && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50" onClick={() => setShowDirectChatModal(false)}>
-                    <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl w-full max-w-sm overflow-hidden" onClick={(e) => e.stopPropagation()}>
-                        <div className="p-4 border-b dark:border-gray-700 flex items-start justify-between gap-2">
-                            <div>
-                                <h3 className="font-semibold text-gray-900 dark:text-white">Direct Chat</h3>
-                                <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">Enter number and start chat</p>
-                            </div>
-                            <button
-                                type="button"
-                                onClick={() => setShowDirectChatModal(false)}
-                                className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-500 dark:text-gray-400"
-                                aria-label="Close"
-                            >
-                                <FiX className="w-5 h-5" />
-                            </button>
-                        </div>
-                        <div className="p-4 space-y-3">
-                            <div className="flex gap-2">
-                                <SearchableSelect
-                                    value={directChatCountryCode}
-                                    onChange={(e) => setDirectChatCountryCode(e.target.value)}
-                                    options={COUNTRY_CODES.map((c) => ({ value: c.code, label: `${c.dial} ${c.country}` }))}
-                                    className="flex-shrink-0 w-36 px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm focus:ring-2 focus:ring-blue-500"
-                                />
-                                <input
-                                    ref={directChatInputRef}
-                                    type="tel"
-                                    inputMode="numeric"
-                                    placeholder="Phone number"
-                                    value={directChatNumber}
-                                    onChange={(e) => setDirectChatNumber(e.target.value.replace(/\D/g, ''))}
-                                    className="flex-1 px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 focus:ring-2 focus:ring-blue-500"
-                                />
-                            </div>
-                            <div className="grid grid-cols-3 gap-2">
-                                {['1', '2', '3', '4', '5', '6', '7', '8', '9'].map((key) => (
-                                    <button
-                                        key={key}
-                                        type="button"
-                                        onMouseDown={(e) => e.preventDefault()}
-                                        onClick={() => {
-                                            const el = directChatInputRef.current;
-                                            const start = el ? (el.selectionStart ?? directChatNumber.length) : directChatNumber.length;
-                                            const end = el ? (el.selectionEnd ?? directChatNumber.length) : directChatNumber.length;
-                                            const next = directChatNumber.slice(0, start) + key + directChatNumber.slice(end);
-                                            setDirectChatNumber(next);
-                                            setTimeout(() => {
-                                                if (directChatInputRef.current) {
-                                                    directChatInputRef.current.focus();
-                                                    directChatInputRef.current.setSelectionRange(start + 1, start + 1);
-                                                }
-                                            }, 0);
-                                        }}
-                                        className="py-3 rounded-xl bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-900 dark:text-white font-medium text-lg transition-colors"
-                                    >
-                                        {key}
-                                    </button>
-                                ))}
-                                <button
-                                    type="button"
-                                    onMouseDown={(e) => e.preventDefault()}
-                                    onClick={async () => {
-                                        try {
-                                            const text = await navigator.clipboard.readText();
-                                            const trimmed = String(text || '').trim().replace(/\s/g, '').replace(/\D/g, '');
-                                            if (!trimmed) return;
-                                            const el = directChatInputRef.current;
-                                            const start = el ? (el.selectionStart ?? directChatNumber.length) : directChatNumber.length;
-                                            const end = el ? (el.selectionEnd ?? directChatNumber.length) : directChatNumber.length;
-                                            const next = directChatNumber.slice(0, start) + trimmed + directChatNumber.slice(end);
-                                            setDirectChatNumber(next);
-                                            setTimeout(() => {
-                                                if (directChatInputRef.current) {
-                                                    directChatInputRef.current.focus();
-                                                    const pos = start + trimmed.length;
-                                                    directChatInputRef.current.setSelectionRange(pos, pos);
-                                                }
-                                            }, 0);
-                                        } catch (_) { }
-                                    }}
-                                    className="py-3 rounded-xl bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-900 dark:text-white font-medium text-sm"
-                                >
-                                    Paste
-                                </button>
-                                <button
-                                    type="button"
-                                    onMouseDown={(e) => e.preventDefault()}
-                                    onClick={() => {
-                                        const el = directChatInputRef.current;
-                                        const start = el ? (el.selectionStart ?? directChatNumber.length) : directChatNumber.length;
-                                        const end = el ? (el.selectionEnd ?? directChatNumber.length) : directChatNumber.length;
-                                        const next = directChatNumber.slice(0, start) + '0' + directChatNumber.slice(end);
-                                        setDirectChatNumber(next);
-                                        setTimeout(() => {
-                                            if (directChatInputRef.current) {
-                                                directChatInputRef.current.focus();
-                                                directChatInputRef.current.setSelectionRange(start + 1, start + 1);
-                                            }
-                                        }, 0);
-                                    }}
-                                    className="py-3 rounded-xl bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-900 dark:text-white font-medium text-lg"
-                                >
-                                    0
-                                </button>
-                                <div className="flex gap-0.5">
-                                    <button
-                                        type="button"
-                                        onMouseDown={(e) => e.preventDefault()}
-                                        onClick={() => {
-                                            const el = directChatInputRef.current;
-                                            if (el) { const pos = Math.max(0, (el.selectionStart ?? el.value.length) - 1); el.setSelectionRange(pos, pos); el.focus(); }
-                                        }}
-                                        className="flex-1 w-1/2 py-3 rounded-xl bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-900 dark:text-white flex items-center justify-center"
-                                    >
-                                        <FiChevronLeft className="w-5 h-5" />
-                                    </button>
-                                    <button
-                                        type="button"
-                                        onMouseDown={(e) => e.preventDefault()}
-                                        onClick={() => {
-                                            const el = directChatInputRef.current;
-                                            if (el) { const len = el.value.length; const pos = Math.min(len, (el.selectionStart ?? 0) + 1); el.setSelectionRange(pos, pos); el.focus(); }
-                                        }}
-                                        className="flex-1 w-1/2 py-3 rounded-xl bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-900 dark:text-white flex items-center justify-center"
-                                    >
-                                        <FiChevronRight className="w-5 h-5" />
-                                    </button>
-                                </div>
-                            </div>
-                            <div className="flex gap-2">
-                                <button
-                                    type="button"
-                                    onMouseDown={(e) => e.preventDefault()}
-                                    onClick={() => {
-                                        setDirectChatNumber('');
-                                        setTimeout(() => directChatInputRef.current?.focus(), 0);
-                                    }}
-                                    className="flex-1 w-1/2 py-2 rounded-lg text-sm text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center justify-center gap-1.5"
-                                >
-                                    <FiTrash2 className="w-4 h-4" />
-                                    Clear
-                                </button>
-                                <button
-                                    type="button"
-                                    onMouseDown={(e) => e.preventDefault()}
-                                    onClick={() => {
-                                        const el = directChatInputRef.current;
-                                        const start = el ? (el.selectionStart ?? directChatNumber.length) : directChatNumber.length;
-                                        const end = el ? (el.selectionEnd ?? directChatNumber.length) : directChatNumber.length;
-                                        if (start >= end && start === 0) return;
-                                        const delStart = start > 0 && start === end ? start - 1 : start;
-                                        const next = directChatNumber.slice(0, delStart) + directChatNumber.slice(end);
-                                        setDirectChatNumber(next);
-                                        setTimeout(() => {
-                                            if (directChatInputRef.current) {
-                                                directChatInputRef.current.focus();
-                                                directChatInputRef.current.setSelectionRange(delStart, delStart);
-                                            }
-                                        }, 0);
-                                    }}
-                                    className="flex-1 w-1/2 py-2 rounded-lg text-sm text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center justify-center gap-1.5"
-                                >
-                                    <FiDelete className="w-4 h-4" />
-                                    Backspace
-                                </button>
-                            </div>
-                            <button
-                                type="button"
-                                onClick={() => {
-                                    const fullNumber = directChatCountryCode + directChatNumber.replace(/\D/g, '');
-                                    if (fullNumber.length >= 10) {
-                                        setShowDirectChatModal(false);
-                                        setDirectChatNumber('');
-                                        navigate(`/live-chat/${fullNumber}`);
-                                    }
-                                }}
-                                disabled={!directChatNumber.replace(/\D/g, '').length}
-                                className="w-full py-3 rounded-xl bg-blue-500 hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed text-white font-medium flex items-center justify-center gap-2"
-                            >
-                                <FiMessageCircle className="w-5 h-5" />
-                                Chat
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            )}
+            <AnimatedModal open={showDirectChatModal}>
+              {showDirectChatModal && (
+                  <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50" onClick={() => setShowDirectChatModal(false)}>
+                      <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl w-full max-w-sm overflow-hidden" onClick={(e) => e.stopPropagation()}>
+                          <div className="p-4 border-b dark:border-gray-700 flex items-start justify-between gap-2">
+                              <div>
+                                  <h3 className="font-semibold text-gray-900 dark:text-white">Direct Chat</h3>
+                                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">Enter number and start chat</p>
+                              </div>
+                              <button
+                                  type="button"
+                                  onClick={() => setShowDirectChatModal(false)}
+                                  className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-500 dark:text-gray-400"
+                                  aria-label="Close"
+                              >
+                                  <FiX className="w-5 h-5" />
+                              </button>
+                          </div>
+                          <div className="p-4 space-y-3">
+                              <div className="flex gap-2">
+                                  <SearchableSelect
+                                      value={directChatCountryCode}
+                                      onChange={(e) => setDirectChatCountryCode(e.target.value)}
+                                      options={COUNTRY_CODES.map((c) => ({ value: c.code, label: `${c.dial} ${c.country}` }))}
+                                      className="flex-shrink-0 w-36 px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm focus:ring-2 focus:ring-blue-500"
+                                  />
+                                  <input
+                                      ref={directChatInputRef}
+                                      type="tel"
+                                      inputMode="numeric"
+                                      placeholder="Phone number"
+                                      value={directChatNumber}
+                                      onChange={(e) => setDirectChatNumber(e.target.value.replace(/\D/g, ''))}
+                                      className="flex-1 px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 focus:ring-2 focus:ring-blue-500"
+                                  />
+                              </div>
+                              <div className="grid grid-cols-3 gap-2">
+                                  {['1', '2', '3', '4', '5', '6', '7', '8', '9'].map((key) => (
+                                      <button
+                                          key={key}
+                                          type="button"
+                                          onMouseDown={(e) => e.preventDefault()}
+                                          onClick={() => {
+                                              const el = directChatInputRef.current;
+                                              const start = el ? (el.selectionStart ?? directChatNumber.length) : directChatNumber.length;
+                                              const end = el ? (el.selectionEnd ?? directChatNumber.length) : directChatNumber.length;
+                                              const next = directChatNumber.slice(0, start) + key + directChatNumber.slice(end);
+                                              setDirectChatNumber(next);
+                                              setTimeout(() => {
+                                                  if (directChatInputRef.current) {
+                                                      directChatInputRef.current.focus();
+                                                      directChatInputRef.current.setSelectionRange(start + 1, start + 1);
+                                                  }
+                                              }, 0);
+                                          }}
+                                          className="py-3 rounded-xl bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-900 dark:text-white font-medium text-lg transition-colors"
+                                      >
+                                          {key}
+                                      </button>
+                                  ))}
+                                  <button
+                                      type="button"
+                                      onMouseDown={(e) => e.preventDefault()}
+                                      onClick={async () => {
+                                          try {
+                                              const text = await navigator.clipboard.readText();
+                                              const trimmed = String(text || '').trim().replace(/\s/g, '').replace(/\D/g, '');
+                                              if (!trimmed) return;
+                                              const el = directChatInputRef.current;
+                                              const start = el ? (el.selectionStart ?? directChatNumber.length) : directChatNumber.length;
+                                              const end = el ? (el.selectionEnd ?? directChatNumber.length) : directChatNumber.length;
+                                              const next = directChatNumber.slice(0, start) + trimmed + directChatNumber.slice(end);
+                                              setDirectChatNumber(next);
+                                              setTimeout(() => {
+                                                  if (directChatInputRef.current) {
+                                                      directChatInputRef.current.focus();
+                                                      const pos = start + trimmed.length;
+                                                      directChatInputRef.current.setSelectionRange(pos, pos);
+                                                  }
+                                              }, 0);
+                                          } catch (_) { }
+                                      }}
+                                      className="py-3 rounded-xl bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-900 dark:text-white font-medium text-sm"
+                                  >
+                                      Paste
+                                  </button>
+                                  <button
+                                      type="button"
+                                      onMouseDown={(e) => e.preventDefault()}
+                                      onClick={() => {
+                                          const el = directChatInputRef.current;
+                                          const start = el ? (el.selectionStart ?? directChatNumber.length) : directChatNumber.length;
+                                          const end = el ? (el.selectionEnd ?? directChatNumber.length) : directChatNumber.length;
+                                          const next = directChatNumber.slice(0, start) + '0' + directChatNumber.slice(end);
+                                          setDirectChatNumber(next);
+                                          setTimeout(() => {
+                                              if (directChatInputRef.current) {
+                                                  directChatInputRef.current.focus();
+                                                  directChatInputRef.current.setSelectionRange(start + 1, start + 1);
+                                              }
+                                          }, 0);
+                                      }}
+                                      className="py-3 rounded-xl bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-900 dark:text-white font-medium text-lg"
+                                  >
+                                      0
+                                  </button>
+                                  <div className="flex gap-0.5">
+                                      <button
+                                          type="button"
+                                          onMouseDown={(e) => e.preventDefault()}
+                                          onClick={() => {
+                                              const el = directChatInputRef.current;
+                                              if (el) { const pos = Math.max(0, (el.selectionStart ?? el.value.length) - 1); el.setSelectionRange(pos, pos); el.focus(); }
+                                          }}
+                                          className="flex-1 w-1/2 py-3 rounded-xl bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-900 dark:text-white flex items-center justify-center"
+                                      >
+                                          <FiChevronLeft className="w-5 h-5" />
+                                      </button>
+                                      <button
+                                          type="button"
+                                          onMouseDown={(e) => e.preventDefault()}
+                                          onClick={() => {
+                                              const el = directChatInputRef.current;
+                                              if (el) { const len = el.value.length; const pos = Math.min(len, (el.selectionStart ?? 0) + 1); el.setSelectionRange(pos, pos); el.focus(); }
+                                          }}
+                                          className="flex-1 w-1/2 py-3 rounded-xl bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-900 dark:text-white flex items-center justify-center"
+                                      >
+                                          <FiChevronRight className="w-5 h-5" />
+                                      </button>
+                                  </div>
+                              </div>
+                              <div className="flex gap-2">
+                                  <button
+                                      type="button"
+                                      onMouseDown={(e) => e.preventDefault()}
+                                      onClick={() => {
+                                          setDirectChatNumber('');
+                                          setTimeout(() => directChatInputRef.current?.focus(), 0);
+                                      }}
+                                      className="flex-1 w-1/2 py-2 rounded-lg text-sm text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center justify-center gap-1.5"
+                                  >
+                                      <FiTrash2 className="w-4 h-4" />
+                                      Clear
+                                  </button>
+                                  <button
+                                      type="button"
+                                      onMouseDown={(e) => e.preventDefault()}
+                                      onClick={() => {
+                                          const el = directChatInputRef.current;
+                                          const start = el ? (el.selectionStart ?? directChatNumber.length) : directChatNumber.length;
+                                          const end = el ? (el.selectionEnd ?? directChatNumber.length) : directChatNumber.length;
+                                          if (start >= end && start === 0) return;
+                                          const delStart = start > 0 && start === end ? start - 1 : start;
+                                          const next = directChatNumber.slice(0, delStart) + directChatNumber.slice(end);
+                                          setDirectChatNumber(next);
+                                          setTimeout(() => {
+                                              if (directChatInputRef.current) {
+                                                  directChatInputRef.current.focus();
+                                                  directChatInputRef.current.setSelectionRange(delStart, delStart);
+                                              }
+                                          }, 0);
+                                      }}
+                                      className="flex-1 w-1/2 py-2 rounded-lg text-sm text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center justify-center gap-1.5"
+                                  >
+                                      <FiDelete className="w-4 h-4" />
+                                      Backspace
+                                  </button>
+                              </div>
+                              <button
+                                  type="button"
+                                  onClick={() => {
+                                      const fullNumber = directChatCountryCode + directChatNumber.replace(/\D/g, '');
+                                      if (fullNumber.length >= 10) {
+                                          setShowDirectChatModal(false);
+                                          setDirectChatNumber('');
+                                          navigate(`/live-chat/${fullNumber}`);
+                                      }
+                                  }}
+                                  disabled={!directChatNumber.replace(/\D/g, '').length}
+                                  className="w-full py-3 rounded-xl bg-blue-500 hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed text-white font-medium flex items-center justify-center gap-2"
+                              >
+                                  <FiMessageCircle className="w-5 h-5" />
+                                  Chat
+                              </button>
+                          </div>
+                      </div>
+                  </div>
+              )}
+            </AnimatedModal>
 
             {/* Repair Chats Confirm Modal */}
-            {showRepairChatsModal && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50" onClick={() => !repairChatsConfirming && setShowRepairChatsModal(false)}>
-                    <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl w-full max-w-sm p-5" onClick={(e) => e.stopPropagation()}>
-                        <h3 className="font-semibold text-gray-900 dark:text-white mb-1">Repair Chats</h3>
-                        <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
-                            This will clear local chat and contact data and reload from the server. Continue?
-                        </p>
-                        <div className="flex gap-2 justify-end">
-                            <button
-                                type="button"
-                                onClick={() => setShowRepairChatsModal(false)}
-                                disabled={repairChatsConfirming}
-                                className="px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700"
-                            >
-                                Cancel
-                            </button>
-                            <button
-                                type="button"
-                                onClick={async () => {
-                                    if (!onRepairChats) return;
-                                    setRepairChatsConfirming(true);
-                                    try {
-                                        await onRepairChats();
-                                        setShowRepairChatsModal(false);
-                                    } catch (e) {
-                                        console.error(e);
-                                    } finally {
-                                        setRepairChatsConfirming(false);
-                                    }
-                                }}
-                                disabled={repairChatsConfirming}
-                                className="px-4 py-2 rounded-lg bg-blue-500 hover:bg-blue-600 text-white font-medium disabled:opacity-50"
-                            >
-                                {repairChatsConfirming ? 'Please wait...' : 'Confirm'}
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            )}
+            <AnimatedModal open={showRepairChatsModal}>
+              {showRepairChatsModal && (
+                  <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50" onClick={() => !repairChatsConfirming && setShowRepairChatsModal(false)}>
+                      <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl w-full max-w-sm p-5" onClick={(e) => e.stopPropagation()}>
+                          <h3 className="font-semibold text-gray-900 dark:text-white mb-1">Repair Chats</h3>
+                          <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
+                              This will clear local chat and contact data and reload from the server. Continue?
+                          </p>
+                          <div className="flex gap-2 justify-end">
+                              <button
+                                  type="button"
+                                  onClick={() => setShowRepairChatsModal(false)}
+                                  disabled={repairChatsConfirming}
+                                  className="px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700"
+                              >
+                                  Cancel
+                              </button>
+                              <button
+                                  type="button"
+                                  onClick={async () => {
+                                      if (!onRepairChats) return;
+                                      setRepairChatsConfirming(true);
+                                      try {
+                                          await onRepairChats();
+                                          setShowRepairChatsModal(false);
+                                      } catch (e) {
+                                          console.error(e);
+                                      } finally {
+                                          setRepairChatsConfirming(false);
+                                      }
+                                  }}
+                                  disabled={repairChatsConfirming}
+                                  className="px-4 py-2 rounded-lg bg-blue-500 hover:bg-blue-600 text-white font-medium disabled:opacity-50"
+                              >
+                                  {repairChatsConfirming ? 'Please wait...' : 'Confirm'}
+                              </button>
+                          </div>
+                      </div>
+                  </div>
+              )}
+            </AnimatedModal>
 
             <GlobalMediaGalleryModal
                 isOpen={showMediaGalleryModal}

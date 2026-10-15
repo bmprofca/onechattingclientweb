@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import toast from 'react-hot-toast';
 import { API_BASE_URL } from '../config/api';
 import { Header, Sidebar } from '../component/Menu';
 import Pagination from '../component/Pagination';
@@ -13,16 +14,19 @@ import {
   FiChevronUp,
   FiChevronDown,
   FiX,
-  FiUser,
-  FiFileText,
+  FiSearch,
   FiCheckCircle,
   FiUsers,
   FiEye
 } from 'react-icons/fi';
 import RowActionMenu from '../component/table/RowActionMenu';
 import RecordDetailsModal from '../component/table/RecordDetailsModal';
-import { TableSkeletonRows } from '../component/table/TableSkeleton';
 
+import AnimatedModal from '../component/Modals/AnimatedModal';
+import useBulkSelection from '../component/table/useBulkSelection';
+import { MasterCheckbox, RowCheckbox, BulkActionBar } from '../component/table/BulkSelection';
+import { TableSkeletonRows } from '../component/table/TableSkeleton';
+import api from '../api/client';
 function ContactGroup() {
   const navigate = useNavigate();
   const permissions = useSelector((state) => state.project.permissions);
@@ -42,8 +46,8 @@ function ContactGroup() {
     has_more: false
   });
   const [showCreateModal, setShowCreateModal] = useState(false);
-  const [selectedGroups, setSelectedGroups] = useState([]);
-  const [isAllSelected, setIsAllSelected] = useState(false);
+  const [bulkDeleting, setBulkDeleting] = useState(false);
+  const [showBulkDeleteModal, setShowBulkDeleteModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [editingGroup, setEditingGroup] = useState(null);
   const [detailGroup, setDetailGroup] = useState(null);
@@ -53,6 +57,17 @@ function ContactGroup() {
   const [successMessage, setSuccessMessage] = useState('');
   const [sortColumn, setSortColumn] = useState(null); // 'name', '', 'firm_name'
   const [sortDirection, setSortDirection] = useState('asc'); // 'asc' or 'desc'
+  const [groupQuery, setGroupQuery] = useState('');
+  const [debouncedQuery, setDebouncedQuery] = useState('');
+
+  // Debounce the search box; the list is searched on the server so "select all" matches it.
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedQuery(groupQuery.trim());
+      setPageNo(1);
+    }, 350);
+    return () => clearTimeout(timer);
+  }, [groupQuery]);
 
   // Form state for creating new group
   const [newGroup, setNewGroup] = useState({
@@ -123,7 +138,8 @@ function ContactGroup() {
         const payload = {
           project_id: projectId,
           page_no: requestedPageNo,
-          limit: pageSize
+          limit: pageSize,
+          search: debouncedQuery
         };
 
         const { data, key } = Encrypt(payload);
@@ -155,7 +171,9 @@ function ContactGroup() {
             name: g.name,
             contact_count: g.contact_count || 0,
             remark: g.remark,
-            createdOn: g.create_date
+            createdOn: g.create_date,
+            modifiedOn: g.modify_date,
+            createdBy: g.create_by?.name || g.create_by?.username || ''
           }));
 
           setGroups(mappedGroups);
@@ -185,13 +203,11 @@ function ContactGroup() {
         setGroups([]);
       } finally {
         setLoading(false);
-        setSelectedGroups([]);
-        setIsAllSelected(false);
       }
     };
 
     loadGroups();
-  }, [tokens?.token, tokens?.username, tokens?.selected_project_id, tokens?.projects, pageNo, pageSize, reloadTick, permissions]);
+  }, [tokens?.token, tokens?.username, tokens?.selected_project_id, tokens?.projects, pageNo, pageSize, reloadTick, permissions, debouncedQuery]);
 
   // Validation functions
   const validateGroupName = (name) => {
@@ -440,7 +456,12 @@ function ContactGroup() {
 
   // Handle group name click to navigate to group contacts
   const handleGroupNameClick = (group) => {
-    navigate(`/contact-group-list?group_id=${group.id}&group_name=${encodeURIComponent(group.name)}`);
+    const params = new URLSearchParams({
+      group_id: group.id,
+      group_name: group.name || ''
+    });
+    if (group.remark) params.set('remark', group.remark);
+    navigate(`/contact-group-list?${params.toString()}`);
   };
 
   // Handle export to Excel
@@ -469,29 +490,6 @@ function ContactGroup() {
     window.URL.revokeObjectURL(url);
   };
 
-  // Handle select all groups
-  const handleSelectAll = () => {
-    if (isAllSelected) {
-      setSelectedGroups([]);
-      setIsAllSelected(false);
-    } else {
-      setSelectedGroups(groups.map(g => g.id));
-      setIsAllSelected(true);
-    }
-  };
-
-  // Handle individual group selection
-  const handleSelectGroup = (groupId) => {
-    if (selectedGroups.includes(groupId)) {
-      setSelectedGroups(selectedGroups.filter(id => id !== groupId));
-      setIsAllSelected(false);
-    } else {
-      const newSelected = [...selectedGroups, groupId];
-      setSelectedGroups(newSelected);
-      setIsAllSelected(newSelected.length === groups.length);
-    }
-  };
-
   // Handle column sorting
   const handleSort = (column) => {
     if (sortColumn === column) {
@@ -512,6 +510,45 @@ function ContactGroup() {
       ...prev,
       limit: newPageSize
     }));
+  };
+
+  const selection = useBulkSelection({
+    pageIds: groups.map((g) => g.id),
+    totalCount: totalGroupCount,
+    resetKey: `${debouncedQuery}|${tokens?.selected_project_id || ''}|${reloadTick}`
+  });
+
+  const handleBulkDeleteGroups = async () => {
+    if (!tokens?.token || !tokens?.username || !selection.hasSelection) return;
+    setBulkDeleting(true);
+    try {
+      const result = await api.post('/contact/delete-group', {
+        project_id: tokens.selected_project_id || '',
+        ...selection.buildPayload('group_ids'),
+        filters: { search: debouncedQuery }
+      });
+      toast.success(result.message || 'Groups deleted');
+      setShowBulkDeleteModal(false);
+      setPageNo(1);
+      setReloadTick((t) => t + 1);
+    } catch (error) {
+      toast.error(error.message || 'Failed to delete groups. Please try again.');
+    } finally {
+      setBulkDeleting(false);
+    }
+  };
+
+  const SortIcon = ({ column }) => (
+    sortColumn === column
+      ? (sortDirection === 'asc' ? <FiChevronUp className="h-3.5 w-3.5 text-ink" /> : <FiChevronDown className="h-3.5 w-3.5 text-ink" />)
+      : <span className="inline-flex flex-col -space-y-1.5 text-ink-400"><FiChevronUp className="h-3 w-3" /><FiChevronDown className="h-3 w-3" /></span>
+  );
+
+  const formatUpdated = (value) => {
+    if (!value) return '';
+    const parsed = new Date(String(value).replace(' ', 'T'));
+    if (Number.isNaN(parsed.getTime())) return '';
+    return parsed.toLocaleDateString('en-GB', { day: '2-digit', month: 'short' });
   };
 
   // Apply sorting to groups if a sort column is selected
@@ -557,7 +594,7 @@ function ContactGroup() {
 
   if (permissions && permissions.view_contact === false) {
     return (
-      <div className="min-h-screen bg-[#f4f6fb]">
+      <div className="min-h-screen bg-surface-ground">
         <Header
           mobileMenuOpen={mobileMenuOpen}
           setMobileMenuOpen={setMobileMenuOpen}
@@ -572,8 +609,8 @@ function ContactGroup() {
         />
         <div className={`pt-16 transition-all duration-300 ease-in-out ${isMinimized ? 'md:pl-20' : 'md:pl-[260px]'
           }`}>
-          <div className="w-full px-4 py-5">
-            <div className="bg-white rounded-lg shadow p-8 text-center">
+          <div className="w-full max-w-[1320px] px-4 sm:px-7 py-7">
+            <div className="bg-white rounded-card border border-line p-8 text-center">
               <h2 className="text-lg font-semibold text-gray-900">Access Denied</h2>
               <p className="mt-2 text-gray-600">You do not have permission to view contact groups.</p>
             </div>
@@ -584,7 +621,7 @@ function ContactGroup() {
   }
 
   return (
-    <div className="min-h-screen bg-[#f4f6fb]">
+    <div className="min-h-screen bg-surface-ground">
       <Header
         mobileMenuOpen={mobileMenuOpen}
         setMobileMenuOpen={setMobileMenuOpen}
@@ -600,186 +637,178 @@ function ContactGroup() {
 
       <div className={`pt-16 transition-all duration-300 ease-in-out ${isMinimized ? 'md:pl-20' : 'md:pl-[260px]'
         }`}>
-        <div className="w-full px-4 py-5">
-          {/* Header Section */}
-          <div className="mb-5">
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between">
-              <div>
-                <div className="flex items-center gap-3 mb-2">
-                  <h1 className="text-2xl font-semibold tracking-tight text-slate-900">Group Management</h1>
-                </div>
-                <p className="text-gray-600 text-sm">Manage your contact groups and organize your contacts ({totalGroupCount} groups)</p>
+        <div className="w-full max-w-[1320px] px-4 sm:px-7 py-7">
+          <div className="mb-5 flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+            <div>
+              <h1 className="text-[26px] leading-tight font-extrabold tracking-tight text-ink">Groups</h1>
+              <p className="mt-1.5 text-sm text-ink-500">Saved lists of contacts for campaigns and follow-ups.</p>
+            </div>
+            <div className="flex flex-col sm:flex-row sm:items-center gap-2">
+              <div className="relative">
+                <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-ink-400" />
+                <input
+                  type="text"
+                  value={groupQuery}
+                  onChange={(e) => setGroupQuery(e.target.value)}
+                  placeholder="Search groups"
+                  className="h-[38px] w-full sm:w-56 pl-9 pr-3 rounded-[9px] border border-line bg-white text-sm text-ink placeholder:text-ink-400 outline-none focus:border-brand-600"
+                />
               </div>
+              <button type="button" onClick={() => setShowCreateModal(true)} className="oc-btn-primary">
+                <FiPlus className="h-4 w-4" />
+                Create group
+              </button>
+            </div>
+          </div>
 
-              <div className="flex flex-wrap items-center gap-2">
+          <div className="overflow-hidden rounded-card border border-line bg-white">
+            <BulkActionBar selection={selection} totalCount={totalGroupCount} pageCount={groups.length} noun="groups">
+              <button
+                type="button"
+                onClick={() => setShowBulkDeleteModal(true)}
+                disabled={bulkDeleting}
+                className="oc-btn h-9 bg-red-600 text-white hover:bg-red-700"
+              >
+                <FiTrash2 className="h-4 w-4" />
+                Delete selected
+              </button>
+            </BulkActionBar>
+            <div className="overflow-x-auto">
+              <table className="min-w-full">
+                <thead>
+                  <tr>
+                    <th className="oc-th w-12 text-center">#</th>
+                    <th className="oc-th w-10">
+                      <MasterCheckbox selection={selection} disabled={loading || groups.length === 0} />
+                    </th>
+                    <th className="oc-th">
+                      <button type="button" onClick={() => handleSort('name')} className="inline-flex items-center gap-1.5 hover:text-ink">
+                        Group <SortIcon column="name" />
+                      </button>
+                    </th>
+                    <th className="oc-th">
+                      <button type="button" onClick={() => handleSort('contact_count')} className="inline-flex items-center gap-1.5 hover:text-ink">
+                        Contacts <SortIcon column="contact_count" />
+                      </button>
+                    </th>
+                    <th className="oc-th hidden md:table-cell">Created by</th>
+                    <th className="oc-th hidden sm:table-cell">Updated</th>
+                    <th className="oc-th w-12 text-right"></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {loading ? (
+                    <TableSkeletonRows rows={8} cells={['index', 'short', 'avatar', 'short', 'text', 'short', 'action']} />
+                  ) : filteredGroups.length === 0 ? (
+                    <tr>
+                      <td colSpan={7} className="px-6 py-14 text-center">
+                        <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-brand-50 text-brand-700">
+                          <FiUsers className="h-6 w-6" />
+                        </div>
+                        <p className="mt-4 text-sm font-semibold text-ink">{debouncedQuery ? 'No groups match that search' : 'No groups yet'}</p>
+                        <p className="mt-1 text-sm text-ink-500">{debouncedQuery ? 'Try another name.' : 'Create a group to start a saved list.'}</p>
+                      </td>
+                    </tr>
+                  ) : (
+                    filteredGroups.map((group, index) => {
+                      const updated = formatUpdated(group.modifiedOn || group.createdOn);
+                      const checked = selection.isSelected(group.id);
+                      return (
+                        <tr key={group.id} className={`transition-colors hover:bg-surface-soft ${checked ? 'bg-brand-50/60' : ''}`}>
+                          <td className="oc-td text-center text-xs font-semibold text-ink-500 oc-num">{(groupsMeta.page_no - 1) * pageSize + index + 1}</td>
+                          <td className="oc-td">
+                            <RowCheckbox selection={selection} id={group.id} label={`Select ${group.name}`} />
+                          </td>
+                          <td className="oc-td">
+                            <div className="flex items-center gap-3 min-w-0">
+                              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-brand-50 text-brand-700">
+                                <FiUsers className="h-4 w-4" />
+                              </span>
+                              <div className="min-w-0">
+                                <button
+                                  type="button"
+                                  onClick={() => handleGroupNameClick(group)}
+                                  className="block max-w-[320px] truncate text-left text-sm font-semibold text-ink hover:text-brand-700"
+                                  title={group.name}
+                                >
+                                  {group.name}
+                                </button>
+                                {group.remark ? <p className="max-w-[320px] truncate text-xs text-ink-500" title={group.remark}>{group.remark}</p> : null}
+                              </div>
+                            </div>
+                          </td>
+                          <td className="oc-td">
+                            <span className="oc-badge bg-surface-soft border border-line text-ink oc-num">
+                              {Number(group.contact_count || 0).toLocaleString('en-IN')}
+                            </span>
+                          </td>
+                          <td className="oc-td hidden md:table-cell text-sm text-ink-500">{group.createdBy || '—'}</td>
+                          <td className="oc-td hidden sm:table-cell text-sm text-ink-500 whitespace-nowrap">{updated || '—'}</td>
+                          <td className="oc-td text-right">
+                            <RowActionMenu
+                              items={[
+                                { label: 'View contacts', icon: <FiUsers className="h-4 w-4" />, onClick: () => handleGroupNameClick(group) },
+                                { label: 'Details', icon: <FiEye className="h-4 w-4" />, onClick: () => setDetailGroup(group) },
+                                { label: 'Edit', icon: <FiEdit className="h-4 w-4" />, onClick: () => handleOpenEditModal(group) },
+                                { label: 'Delete', icon: <FiTrash2 className="h-4 w-4" />, onClick: () => handleOpenDeleteModal(group), danger: true, disabled: group.contact_count > 0 },
+                              ]}
+                            />
+                          </td>
+                        </tr>
+                      );
+                    })
+                  )}
+                </tbody>
+              </table>
+            </div>
+            {!loading && totalGroupCount > 0 && (
+              <div className="border-t border-line">
+                <Pagination
+                  currentPage={groupsMeta.page_no}
+                  totalPages={groupsMeta.total_pages}
+                  totalRecords={totalGroupCount}
+                  pageSize={pageSize}
+                  onPageChange={(page) => setPageNo(page)}
+                  onPageSizeChange={handlePageSizeChange}
+                  pageSizeOptions={[10, 20, 50, 100]}
+                  showPageSizeSelector={true}
+                  showGoToPage={true}
+                />
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
 
-
-                <button
-                  onClick={() => setShowCreateModal(true)}
-                  className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
-                >
-                  <FiPlus className="mr-2 h-4 w-4" />
-                  Create Group
+      {/* Bulk delete groups confirmation */}
+      <AnimatedModal open={showBulkDeleteModal}>
+        {showBulkDeleteModal && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-ink/40 p-4" onClick={() => !bulkDeleting && setShowBulkDeleteModal(false)}>
+            <div className="w-full max-w-md rounded-2xl border border-line bg-white p-6 shadow-pop" onClick={(e) => e.stopPropagation()}>
+              <div className="flex items-start gap-3">
+                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-red-50 text-red-600">
+                  <FiTrash2 className="h-5 w-5" />
+                </span>
+                <div>
+                  <h3 className="text-base font-bold text-ink">Delete {selection.selectedCount.toLocaleString('en-IN')} group(s)?</h3>
+                  <p className="mt-1 text-sm text-ink-500">
+                    {selection.allMatching
+                      ? 'Every group matching the current view will be deleted on the server, including groups on other pages.'
+                      : 'The selected groups will be deleted.'}{' '}
+                    Groups that still have contacts are skipped.
+                  </p>
+                </div>
+              </div>
+              <div className="mt-6 flex justify-end gap-2">
+                <button type="button" onClick={() => setShowBulkDeleteModal(false)} disabled={bulkDeleting} className="oc-btn-ghost">Cancel</button>
+                <button type="button" onClick={handleBulkDeleteGroups} disabled={bulkDeleting} className="oc-btn bg-red-600 text-white hover:bg-red-700">
+                  {bulkDeleting ? 'Deleting…' : 'Delete groups'}
                 </button>
               </div>
             </div>
           </div>
-
-          {/* Groups Table */}
-          <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
-            <div className="px-4 py-5 sm:p-6">
-              {loading ? (
-                <table className="min-w-full">
-                  <thead className="bg-gray-50">
-                    <tr>
-                      {['#', '', 'Group Name', 'Contacts', ''].map((label, i) => (
-                        <th key={i} className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">{label}</th>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    <TableSkeletonRows rows={8} cells={['index', 'short', 'avatar', 'badge', 'action']} />
-                  </tbody>
-                </table>
-              ) : (
-                <>
-                  {/* Table Header */}
-                  <div className="overflow-x-auto">
-                    <table className="min-w-full divide-y divide-gray-200">
-                      <thead className="bg-gray-50">
-                        <tr>
-                          <th className="w-14 px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">#</th>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                            <input
-                              type="checkbox"
-                              checked={isAllSelected}
-                              onChange={handleSelectAll}
-                              className="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded"
-                            />
-                          </th>
-                          <th
-                            className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 select-none"
-                            onClick={() => handleSort('name')}
-                          >
-                            <div className="flex items-center space-x-1">
-                              <span>Group Name</span>
-                              {sortColumn === 'name' ? (
-                                sortDirection === 'asc' ? (
-                                  <FiChevronUp className="h-4 w-4 text-gray-700" />
-                                ) : (
-                                  <FiChevronDown className="h-4 w-4 text-gray-700" />
-                                )
-                              ) : (
-                                <div className="flex flex-col -space-y-1">
-                                  <FiChevronUp className="h-3 w-3 text-gray-400" />
-                                  <FiChevronDown className="h-3 w-3 text-gray-400" />
-                                </div>
-                              )}
-                            </div>
-                          </th>
-                          <th
-                            className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 select-none"
-                            onClick={() => handleSort('contact_count')}
-                          >
-                            <div className="flex items-center space-x-1">
-                              <span>Contacts</span>
-                              {sortColumn === 'contact_count' ? (
-                                sortDirection === 'asc' ? (
-                                  <FiChevronUp className="h-4 w-4 text-gray-700" />
-                                ) : (
-                                  <FiChevronDown className="h-4 w-4 text-gray-700" />
-                                )
-                              ) : (
-                                <div className="flex flex-col -space-y-1">
-                                  <FiChevronUp className="h-3 w-3 text-gray-400" />
-                                  <FiChevronDown className="h-3 w-3 text-gray-400" />
-                                </div>
-                              )}
-                            </div>
-                          </th>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                            Actions
-                          </th>
-                        </tr>
-                      </thead>
-                      <tbody className="bg-white divide-y divide-gray-200">
-                        {filteredGroups.length === 0 ? (
-                          <tr>
-                            <td colSpan="5" className="px-6 py-12 text-center text-gray-500">
-                              No groups found. Create your first group to get started.
-                            </td>
-                          </tr>
-                        ) : (
-                          filteredGroups.map((group, index) => (
-                            <tr key={group.id} className="hover:bg-gray-50">
-                              <td className="px-4 py-4 text-center text-sm text-gray-500">{(pageNo - 1) * pageSize + index + 1}</td>
-                              <td className="px-6 py-4 whitespace-nowrap">
-                                <input
-                                  type="checkbox"
-                                  checked={selectedGroups.includes(group.id)}
-                                  onChange={() => handleSelectGroup(group.id)}
-                                  className="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded"
-                                />
-                              </td>
-                              <td className="px-6 py-4 whitespace-nowrap">
-                                <div className="flex items-center">
-                                  <div className="flex-shrink-0 h-10 w-10">
-                                    <div className="h-10 w-10 rounded-full bg-indigo-100 flex items-center justify-center">
-                                      <FiUser className="h-5 w-5 text-indigo-600" />
-                                    </div>
-                                  </div>
-                                  <div className="ml-4">
-                                    <button
-                                      onClick={() => handleGroupNameClick(group)}
-                                      className="text-sm font-medium text-indigo-600 hover:text-indigo-900 hover:underline cursor-pointer text-left"
-                                      title="View group contacts"
-                                    >
-                                      {group.name}
-                                    </button>
-                                  </div>
-                                </div>
-                              </td>
-                              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                                <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-indigo-100 text-indigo-800">
-                                  {group.contact_count} contacts
-                                </span>
-                              </td>
-                              <td className="px-3 py-4 text-right">
-                                <RowActionMenu
-                                  items={[
-                                    { label: 'Details', icon: <FiEye className="h-4 w-4" />, onClick: () => setDetailGroup(group) },
-                                    { label: 'View contacts', icon: <FiUsers className="h-4 w-4" />, onClick: () => handleGroupNameClick(group) },
-                                    { label: 'Edit', icon: <FiEdit className="h-4 w-4" />, onClick: () => handleOpenEditModal(group) },
-                                    { label: 'Delete', icon: <FiTrash2 className="h-4 w-4" />, onClick: () => handleOpenDeleteModal(group), danger: true, disabled: group.contact_count > 0 },
-                                  ]}
-                                />
-                              </td>
-                            </tr>
-                          ))
-                        )}
-                      </tbody>
-                    </table>
-                  </div>
-
-                  {/* Pagination */}
-                  <Pagination
-                    currentPage={groupsMeta.page_no}
-                    totalPages={groupsMeta.total_pages}
-                    totalRecords={totalGroupCount}
-                    pageSize={pageSize}
-                    onPageChange={(page) => setPageNo(page)}
-                    onPageSizeChange={handlePageSizeChange}
-                    pageSizeOptions={[10, 20, 50, 100]}
-                    showPageSizeSelector={true}
-                    showGoToPage={true}
-                  />
-
-                </>
-              )}
-            </div>
-          </div>
-        </div>
-      </div>
+        )}
+      </AnimatedModal>
 
       <RecordDetailsModal
         isOpen={Boolean(detailGroup)}
@@ -792,298 +821,294 @@ function ContactGroup() {
       />
 
       {/* Create Group Modal */}
-      {showCreateModal && (
-        <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
-          <div className="relative top-20 mx-auto p-5 border w-5/6 sm:w-3/6 md:w-3/6 lg:w-2/6 xl:w-6/9 shadow-lg rounded-md bg-white">
-            <div className="mt-3">
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="text-lg font-medium text-gray-900">Create Group</h3>
-                <button
-                  onClick={() => {
-                    setShowCreateModal(false);
-                    setNewGroup({
-                      name: '',
-                      remark: ''
-                    });
-                    setCreateErrors({
-                      name: '',
-                      remark: ''
-                    });
-                  }}
-                  className="text-gray-400 hover:text-gray-600"
-                >
-                  <FiX className="h-6 w-6" />
-                </button>
-              </div>
-
-              <div className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    <FiUser className="inline h-4 w-4 mr-1" />
-                    Group Name *
-                  </label>
-                  <input
-                    type="text"
-                    value={newGroup.name}
-                    onChange={(e) => {
-                      setNewGroup({ ...newGroup, name: e.target.value });
-                      if (createErrors.name) {
-                        setCreateErrors({ ...createErrors, name: validateGroupName(e.target.value) });
-                      }
-                    }}
-                    onBlur={() => setCreateErrors({ ...createErrors, name: validateGroupName(newGroup.name) })}
-                    className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 ${createErrors.name
-                      ? 'border-red-500 focus:ring-red-500'
-                      : 'border-gray-300 focus:ring-indigo-500'
-                      }`}
-                    placeholder="Enter group name"
-                    required
-                  />
-                  {createErrors.name && (
-                    <p className="mt-1 text-sm text-red-600">{createErrors.name}</p>
-                  )}
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    <FiFileText className="inline h-4 w-4 mr-1" />
-                    Remark
-                  </label>
-                  <textarea
-                    value={newGroup.remark}
-                    onChange={(e) => {
-                      setNewGroup({ ...newGroup, remark: e.target.value });
-                      if (createErrors.remark) {
-                        setCreateErrors({ ...createErrors, remark: validateRemark(e.target.value) });
-                      }
-                    }}
-                    onBlur={() => setCreateErrors({ ...createErrors, remark: validateRemark(newGroup.remark) })}
-                    className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 ${createErrors.remark
-                      ? 'border-red-500 focus:ring-red-500'
-                      : 'border-gray-300 focus:ring-indigo-500'
-                      }`}
-                    placeholder="Enter group description or remark"
-                    rows="3"
-                  />
-                  {createErrors.remark && (
-                    <p className="mt-1 text-sm text-red-600">{createErrors.remark}</p>
-                  )}
-                  <p className="mt-1 text-xs text-gray-500">
-                    {newGroup.remark.length}/1000 characters
-                  </p>
-                </div>
-              </div>
-
-              <div className="flex justify-end space-x-3 mt-6">
-                <button
-                  onClick={() => {
-                    setShowCreateModal(false);
-                    setNewGroup({
-                      name: '',
-                      remark: ''
-                    });
-                    setCreateErrors({
-                      name: '',
-                      remark: ''
-                    });
-                  }}
-                  className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={handleCreateGroup}
-                  disabled={!newGroup.name}
-                  className="px-4 py-2 text-sm font-medium text-white bg-indigo-600 border border-transparent rounded-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  Create Group
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Edit Group Modal */}
-      {showEditModal && (
-        <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
-          <div className="relative top-20 mx-auto p-5 border w-5/6 sm:w-3/6 md:w-3/6 lg:w-2/6 xl:w-6/9 shadow-lg rounded-md bg-white">
-            <div className="mt-3">
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="text-lg font-medium text-gray-900">Edit Group</h3>
-                <button
-                  onClick={() => {
-                    setShowEditModal(false);
-                    setEditingGroup(null);
-                    setEditGroup({
-                      group_id: '',
-                      name: '',
-                      remark: ''
-                    });
-                    setEditErrors({
-                      name: '',
-                      remark: ''
-                    });
-                  }}
-                  className="text-gray-400 hover:text-gray-600"
-                >
-                  <FiX className="h-6 w-6" />
-                </button>
-              </div>
-
-              <div className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    <FiUser className="inline h-4 w-4 mr-1" />
-                    Group Name *
-                  </label>
-                  <input
-                    type="text"
-                    value={editGroup.name}
-                    onChange={(e) => {
-                      setEditGroup({ ...editGroup, name: e.target.value });
-                      if (editErrors.name) {
-                        setEditErrors({ ...editErrors, name: validateGroupName(e.target.value) });
-                      }
-                    }}
-                    onBlur={() => setEditErrors({ ...editErrors, name: validateGroupName(editGroup.name) })}
-                    className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 ${editErrors.name
-                      ? 'border-red-500 focus:ring-red-500'
-                      : 'border-gray-300 focus:ring-indigo-500'
-                      }`}
-                    placeholder="Enter group name"
-                    required
-                  />
-                  {editErrors.name && (
-                    <p className="mt-1 text-sm text-red-600">{editErrors.name}</p>
-                  )}
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    <FiFileText className="inline h-4 w-4 mr-1" />
-                    Remark
-                  </label>
-                  <textarea
-                    value={editGroup.remark}
-                    onChange={(e) => {
-                      setEditGroup({ ...editGroup, remark: e.target.value });
-                      if (editErrors.remark) {
-                        setEditErrors({ ...editErrors, remark: validateRemark(e.target.value) });
-                      }
-                    }}
-                    onBlur={() => setEditErrors({ ...editErrors, remark: validateRemark(editGroup.remark) })}
-                    className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 ${editErrors.remark
-                      ? 'border-red-500 focus:ring-red-500'
-                      : 'border-gray-300 focus:ring-indigo-500'
-                      }`}
-                    placeholder="Enter group description or remark"
-                    rows="3"
-                  />
-                  {editErrors.remark && (
-                    <p className="mt-1 text-sm text-red-600">{editErrors.remark}</p>
-                  )}
-                  <p className="mt-1 text-xs text-gray-500">
-                    {editGroup.remark.length}/1000 characters
-                  </p>
-                </div>
-              </div>
-
-              <div className="flex justify-end space-x-3 mt-6">
-                <button
-                  onClick={() => {
-                    setShowEditModal(false);
-                    setEditingGroup(null);
-                    setEditGroup({
-                      group_id: '',
-                      name: '',
-                      remark: ''
-                    });
-                    setEditErrors({
-                      name: '',
-                      remark: ''
-                    });
-                  }}
-                  className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={handleUpdateGroup}
-                  disabled={!editGroup.name}
-                  className="px-4 py-2 text-sm font-medium text-white bg-indigo-600 border border-transparent rounded-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  Update Group
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Delete Group Modal */}
-      {showDeleteModal && (
-        <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
-          <div className="relative top-20 mx-auto p-5 border w-5/6 sm:w-3/6 md:w-2/6 lg:w-2/6 xl:w-1/4 shadow-lg rounded-md bg-white">
-            <div className="mt-3">
-              <div className="flex items-center justify-center mb-4">
-                <div className="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-red-100">
-                  <FiTrash2 className="h-6 w-6 text-red-600" />
-                </div>
-              </div>
-              <div className="text-center">
-                <h3 className="text-lg font-medium text-gray-900 mb-2">Delete Group</h3>
-                <p className="text-sm text-gray-600 mb-4">
-                  Are you sure you want to delete the group "{deletingGroup?.name}"? This action cannot be undone.
-                </p>
-                <div className="flex justify-center space-x-3">
+      <AnimatedModal open={showCreateModal}>
+        {showCreateModal && (
+          <div className="fixed inset-0 z-50 overflow-y-auto bg-ink/40">
+            <div className="relative top-20 mx-auto w-[min(100%-2rem,420px)] rounded-2xl border border-line bg-white p-5 shadow-pop">
+              <div>
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-base font-bold text-ink">Create group</h3>
                   <button
                     onClick={() => {
-                      setShowDeleteModal(false);
-                      setDeletingGroup(null);
+                      setShowCreateModal(false);
+                      setNewGroup({
+                        name: '',
+                        remark: ''
+                      });
+                      setCreateErrors({
+                        name: '',
+                        remark: ''
+                      });
                     }}
-                    className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+                    className="text-gray-400 hover:text-gray-600"
+                  >
+                    <FiX className="h-6 w-6" />
+                  </button>
+                </div>
+
+                <div className="space-y-4">
+                  <div>
+                    <label className="oc-label">Group name</label>
+                    <input
+                      type="text"
+                      value={newGroup.name}
+                      onChange={(e) => {
+                        setNewGroup({ ...newGroup, name: e.target.value });
+                        if (createErrors.name) {
+                          setCreateErrors({ ...createErrors, name: validateGroupName(e.target.value) });
+                        }
+                      }}
+                      onBlur={() => setCreateErrors({ ...createErrors, name: validateGroupName(newGroup.name) })}
+                      className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 ${createErrors.name
+                        ? 'border-red-500 focus:ring-red-500'
+                        : 'border-gray-300 focus:ring-indigo-500'
+                        }`}
+                      placeholder="e.g. Wholesale buyers"
+                      required
+                    />
+                    {createErrors.name && (
+                      <p className="mt-1 text-sm text-red-600">{createErrors.name}</p>
+                    )}
+                  </div>
+
+                  <div>
+                    <label className="oc-label">Description</label>
+                    <textarea
+                      value={newGroup.remark}
+                      onChange={(e) => {
+                        setNewGroup({ ...newGroup, remark: e.target.value });
+                        if (createErrors.remark) {
+                          setCreateErrors({ ...createErrors, remark: validateRemark(e.target.value) });
+                        }
+                      }}
+                      onBlur={() => setCreateErrors({ ...createErrors, remark: validateRemark(newGroup.remark) })}
+                      className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 ${createErrors.remark
+                        ? 'border-red-500 focus:ring-red-500'
+                        : 'border-gray-300 focus:ring-indigo-500'
+                        }`}
+                      placeholder="Who belongs in this group?"
+                      rows="3"
+                    />
+                    {createErrors.remark && (
+                      <p className="mt-1 text-sm text-red-600">{createErrors.remark}</p>
+                    )}
+                    <p className="mt-1 text-xs text-ink-500">
+                      {newGroup.remark.length}/1000 characters. After creating the group, add contacts from the group page or from Contacts.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex justify-end space-x-3 mt-6">
+                  <button
+                    onClick={() => {
+                      setShowCreateModal(false);
+                      setNewGroup({
+                        name: '',
+                        remark: ''
+                      });
+                      setCreateErrors({
+                        name: '',
+                        remark: ''
+                      });
+                    }}
+                    className="oc-btn-ghost"
                   >
                     Cancel
                   </button>
                   <button
-                    onClick={handleDeleteGroup}
-                    className="px-4 py-2 text-sm font-medium text-white bg-red-600 border border-transparent rounded-md hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
+                    onClick={handleCreateGroup}
+                    disabled={!newGroup.name}
+                    className="oc-btn-primary"
                   >
-                    Delete Group
+                    Create group
                   </button>
                 </div>
               </div>
             </div>
           </div>
-        </div>
-      )}
+        )}
+      </AnimatedModal>
 
-
-      {/* Success Modal */}
-      {showSuccessModal && (
-        <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
-          <div className="relative top-20 mx-auto p-5 border w-5/6 sm:w-3/6 md:w-2/6 lg:w-2/6 xl:w-1/4 shadow-lg rounded-md bg-white">
-            <div className="mt-3">
-              <div className="flex items-center justify-center mb-4">
-                <div className="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-green-100">
-                  <FiCheckCircle className="h-6 w-6 text-green-600" />
+      {/* Edit Group Modal */}
+      <AnimatedModal open={showEditModal}>
+        {showEditModal && (
+          <div className="fixed inset-0 z-50 overflow-y-auto bg-ink/40">
+            <div className="relative top-20 mx-auto w-[min(100%-2rem,420px)] rounded-2xl border border-line bg-white p-5 shadow-pop">
+              <div>
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-base font-bold text-ink">Edit group</h3>
+                  <button
+                    onClick={() => {
+                      setShowEditModal(false);
+                      setEditingGroup(null);
+                      setEditGroup({
+                        group_id: '',
+                        name: '',
+                        remark: ''
+                      });
+                      setEditErrors({
+                        name: '',
+                        remark: ''
+                      });
+                    }}
+                    className="text-gray-400 hover:text-gray-600"
+                  >
+                    <FiX className="h-6 w-6" />
+                  </button>
                 </div>
-              </div>
-              <div className="text-center">
-                <h3 className="text-lg font-medium text-gray-900 mb-2">Success</h3>
-                <p className="text-sm text-gray-600 mb-4">{successMessage}</p>
-                <button
-                  onClick={() => setShowSuccessModal(false)}
-                  className="w-full px-4 py-2 text-sm font-medium text-white bg-indigo-600 border border-transparent rounded-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
-                >
-                  OK
-                </button>
+
+                <div className="space-y-4">
+                  <div>
+                    <label className="oc-label">Group name</label>
+                    <input
+                      type="text"
+                      value={editGroup.name}
+                      onChange={(e) => {
+                        setEditGroup({ ...editGroup, name: e.target.value });
+                        if (editErrors.name) {
+                          setEditErrors({ ...editErrors, name: validateGroupName(e.target.value) });
+                        }
+                      }}
+                      onBlur={() => setEditErrors({ ...editErrors, name: validateGroupName(editGroup.name) })}
+                      className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 ${editErrors.name
+                        ? 'border-red-500 focus:ring-red-500'
+                        : 'border-gray-300 focus:ring-indigo-500'
+                        }`}
+                      placeholder="e.g. Wholesale buyers"
+                      required
+                    />
+                    {editErrors.name && (
+                      <p className="mt-1 text-sm text-red-600">{editErrors.name}</p>
+                    )}
+                  </div>
+
+                  <div>
+                    <label className="oc-label">Description</label>
+                    <textarea
+                      value={editGroup.remark}
+                      onChange={(e) => {
+                        setEditGroup({ ...editGroup, remark: e.target.value });
+                        if (editErrors.remark) {
+                          setEditErrors({ ...editErrors, remark: validateRemark(e.target.value) });
+                        }
+                      }}
+                      onBlur={() => setEditErrors({ ...editErrors, remark: validateRemark(editGroup.remark) })}
+                      className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 ${editErrors.remark
+                        ? 'border-red-500 focus:ring-red-500'
+                        : 'border-gray-300 focus:ring-indigo-500'
+                        }`}
+                      placeholder="Who belongs in this group?"
+                      rows="3"
+                    />
+                    {editErrors.remark && (
+                      <p className="mt-1 text-sm text-red-600">{editErrors.remark}</p>
+                    )}
+                    <p className="mt-1 text-xs text-gray-500">
+                      {editGroup.remark.length}/1000 characters
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex justify-end space-x-3 mt-6">
+                  <button
+                    onClick={() => {
+                      setShowEditModal(false);
+                      setEditingGroup(null);
+                      setEditGroup({
+                        group_id: '',
+                        name: '',
+                        remark: ''
+                      });
+                      setEditErrors({
+                        name: '',
+                        remark: ''
+                      });
+                    }}
+                    className="oc-btn-ghost"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={handleUpdateGroup}
+                    disabled={!editGroup.name}
+                    className="oc-btn-primary"
+                  >
+                    Save group
+                  </button>
+                </div>
               </div>
             </div>
           </div>
-        </div>
-      )}
+        )}
+      </AnimatedModal>
+
+      {/* Delete Group Modal */}
+      <AnimatedModal open={showDeleteModal}>
+        {showDeleteModal && (
+          <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
+            <div className="relative top-20 mx-auto p-5 border w-5/6 sm:w-3/6 md:w-2/6 lg:w-2/6 xl:w-1/4 shadow-lg rounded-md bg-white">
+              <div className="mt-3">
+                <div className="flex items-center justify-center mb-4">
+                  <div className="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-red-100">
+                    <FiTrash2 className="h-6 w-6 text-red-600" />
+                  </div>
+                </div>
+                <div className="text-center">
+                  <h3 className="text-lg font-medium text-gray-900 mb-2">Delete Group</h3>
+                  <p className="text-sm text-gray-600 mb-4">
+                    Are you sure you want to delete the group "{deletingGroup?.name}"? This action cannot be undone.
+                  </p>
+                  <div className="flex justify-center space-x-3">
+                    <button
+                      onClick={() => {
+                        setShowDeleteModal(false);
+                        setDeletingGroup(null);
+                      }}
+                      className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      onClick={handleDeleteGroup}
+                      className="px-4 py-2 text-sm font-medium text-white bg-red-600 border border-transparent rounded-md hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
+                    >
+                      Delete Group
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+      </AnimatedModal>
+
+
+      {/* Success Modal */}
+      <AnimatedModal open={showSuccessModal}>
+        {showSuccessModal && (
+          <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
+            <div className="relative top-20 mx-auto p-5 border w-5/6 sm:w-3/6 md:w-2/6 lg:w-2/6 xl:w-1/4 shadow-lg rounded-md bg-white">
+              <div className="mt-3">
+                <div className="flex items-center justify-center mb-4">
+                  <div className="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-green-100">
+                    <FiCheckCircle className="h-6 w-6 text-green-600" />
+                  </div>
+                </div>
+                <div className="text-center">
+                  <h3 className="text-lg font-medium text-gray-900 mb-2">Success</h3>
+                  <p className="text-sm text-gray-600 mb-4">{successMessage}</p>
+                  <button
+                    onClick={() => setShowSuccessModal(false)}
+                    className="w-full px-4 py-2 text-sm font-medium text-white bg-indigo-600 border border-transparent rounded-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+                  >
+                    OK
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+      </AnimatedModal>
     </div>
   );
 }

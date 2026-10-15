@@ -7,23 +7,14 @@ import {
     FiMail,
     FiUsers,
     FiZap,
-    FiActivity,
-    FiCheckCircle,
     FiSend,
-    FiClock,
-    FiAlertCircle,
-    FiTrendingUp,
     FiFileText,
     FiUserCheck,
-    FiUserX,
     FiBriefcase,
     FiPlus,
-    FiPhone,
-    FiGlobe,
     FiShield,
     FiUser,
     FiChevronRight,
-    FiBarChart2,
     FiCpu,
     FiLayers
 } from 'react-icons/fi';
@@ -32,7 +23,7 @@ import { Encrypt } from './encryption/payload-encryption';
 import { getProjectMetaDetails } from '../api/auth';
 import SwitchProjectModal from '../component/Modals/SwitchProjectModal';
 import CreateProjectModal from '../component/Modals/CreateProjectModal';
-import { useDispatch } from 'react-redux';
+import { useDispatch, useSelector } from 'react-redux';
 import { setSelectedProjectId, setAuthData } from '../store/authSlice';
 
 const PLATFORM_FEATURES = [
@@ -104,45 +95,41 @@ const PLATFORM_FEATURES = [
 
 function NewUserWelcome({ onCreateProject }) {
     return (
-        <div className="space-y-6">
-            <div className="rounded-2xl border border-indigo-100 bg-white shadow-sm overflow-hidden">
-                <div className="bg-gradient-to-r from-indigo-600 to-indigo-500 px-6 py-8 sm:px-8">
-                    <p className="text-xs font-semibold uppercase tracking-wider text-indigo-100">Start here</p>
-                    <h2 className="mt-2 text-2xl font-bold text-white">Create a project for your business</h2>
-                    <p className="mt-3 max-w-2xl text-sm leading-relaxed text-indigo-100">
+        <div className="flex flex-col gap-5">
+            <section className="oc-card overflow-hidden">
+                <div className="bg-ink-900 px-6 py-8 sm:px-8">
+                    <p className="text-[11px] font-bold uppercase tracking-[0.08em] text-[#B9B0FF]">Start here</p>
+                    <h2 className="mt-2 text-2xl font-extrabold tracking-tight text-white">Create a project for your business</h2>
+                    <p className="mt-3 max-w-2xl text-sm leading-relaxed text-[#C9C5DD]">
                         A project is your WhatsApp Business workspace. It connects one number, holds your contacts,
                         chats, templates, and campaigns, and is where you invite your team. The rest of the platform
                         stays locked until that workspace exists.
                     </p>
-                    <button
-                        type="button"
-                        onClick={onCreateProject}
-                        className="mt-6 inline-flex items-center px-4 py-2.5 bg-white text-indigo-700 rounded-lg text-sm font-semibold hover:bg-indigo-50"
-                    >
-                        <FiPlus className="mr-2" size={16} />
+                    <button type="button" onClick={onCreateProject} className="oc-btn-primary mt-6 h-10 px-4">
+                        <FiPlus size={16} />
                         Create project
                     </button>
                 </div>
-            </div>
+            </section>
 
-            <div className="rounded-2xl border border-gray-200 bg-white p-5 sm:p-6 shadow-sm">
-                <h3 className="text-lg font-semibold text-gray-900">What you can do after you create a project</h3>
-                <p className="mt-1 text-sm text-gray-500">These tools run inside a project, so each business stays separate.</p>
-                <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
+            <section className="oc-card p-5 sm:p-6">
+                <h3 className="text-base font-bold text-ink">What you can do after you create a project</h3>
+                <p className="mt-1 text-sm text-ink-500">These tools run inside a project, so each business stays separate.</p>
+                <div className="mt-5 grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3.5">
                     {PLATFORM_FEATURES.map((feature) => {
                         const Icon = feature.icon;
                         return (
-                            <div key={feature.title} className={`rounded-xl border p-5 shadow-sm ${feature.card}`}>
-                                <div className={`flex h-10 w-10 items-center justify-center rounded-lg shadow-sm ${feature.iconWrap}`}>
-                                    <Icon className="w-5 h-5" />
-                                </div>
-                                <h4 className={`mt-4 text-sm font-semibold ${feature.titleColor}`}>{feature.title}</h4>
-                                <p className="mt-2 text-sm leading-relaxed text-gray-700">{feature.description}</p>
+                            <div key={feature.title} className="rounded-xl border border-line-soft bg-surface-soft p-4">
+                                <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-brand-50 text-brand-700">
+                                    <Icon className="w-[18px] h-[18px]" />
+                                </span>
+                                <h4 className="mt-3.5 text-sm font-bold text-ink">{feature.title}</h4>
+                                <p className="mt-1.5 text-[13px] leading-relaxed text-ink-500">{feature.description}</p>
                             </div>
                         );
                     })}
                 </div>
-            </div>
+            </section>
         </div>
     );
 }
@@ -150,6 +137,7 @@ function NewUserWelcome({ onCreateProject }) {
 function Dashboard() {
     const navigate = useNavigate();
     const dispatch = useDispatch();
+    const isOwnerProject = useSelector((state) => state.project?.owned ?? true);
     const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
     const [tokens, setTokens] = useState(null);
     const [dashboardData, setDashboardData] = useState(null);
@@ -364,91 +352,51 @@ function Dashboard() {
         setSwitchProjectModalOpen(false);
     };
 
-    // Main Metrics Data
-    const mainMetrics = dashboardData ? [
-        {
-            title: "Total Campaigns",
-            value: dashboardData.campaign?.total?.toLocaleString() || "0",
-            icon: <FiZap className="w-6 h-6" />,
-            color: "bg-blue-500",
-            bgColor: "bg-blue-50",
-            textColor: "text-blue-600"
-        },
-        {
-            title: "Total Chats",
-            value: dashboardData.chat?.total?.toLocaleString() || "0",
-            icon: <FiMessageSquare className="w-6 h-6" />,
-            color: "bg-green-500",
-            bgColor: "bg-green-50",
-            textColor: "text-green-600"
-        },
-        {
-            title: "Total Contacts",
-            value: dashboardData.contact?.total?.toLocaleString() || "0",
-            icon: <FiUsers className="w-6 h-6" />,
-            color: "bg-purple-500",
-            bgColor: "bg-purple-50",
-            textColor: "text-purple-600"
-        },
-        {
-            title: "Total Templates",
-            value: dashboardData.template?.total?.toLocaleString() || "0",
-            icon: <FiFileText className="w-6 h-6" />,
-            color: "bg-orange-500",
-            bgColor: "bg-orange-50",
-            textColor: "text-orange-600"
-        },
-        {
-            title: "Total Messages",
-            value: dashboardData.message?.total?.toLocaleString() || "0",
-            icon: <FiMail className="w-6 h-6" />,
-            color: "bg-teal-500",
-            bgColor: "bg-teal-50",
-            textColor: "text-teal-600"
-        },
-        {
-            title: "Today Sent",
-            value: dashboardData.message?.today_sent?.toLocaleString() || "0",
-            icon: <FiSend className="w-6 h-6" />,
-            color: "bg-pink-500",
-            bgColor: "bg-pink-50",
-            textColor: "text-pink-600"
-        },
-    ] : [
-        { title: "Total Campaigns", value: "0", icon: <FiZap className="w-6 h-6" />, color: "bg-blue-500", bgColor: "bg-blue-50", textColor: "text-blue-600" },
-        { title: "Total Chats", value: "0", icon: <FiMessageSquare className="w-6 h-6" />, color: "bg-green-500", bgColor: "bg-green-50", textColor: "text-green-600" },
-        { title: "Total Contacts", value: "0", icon: <FiUsers className="w-6 h-6" />, color: "bg-purple-500", bgColor: "bg-purple-50", textColor: "text-purple-600" },
-        { title: "Total Templates", value: "0", icon: <FiFileText className="w-6 h-6" />, color: "bg-orange-500", bgColor: "bg-orange-50", textColor: "text-orange-600" },
-        { title: "Total Messages", value: "0", icon: <FiMail className="w-6 h-6" />, color: "bg-teal-500", bgColor: "bg-teal-50", textColor: "text-teal-600" },
-        { title: "Today Sent", value: "0", icon: <FiSend className="w-6 h-6" />, color: "bg-pink-500", bgColor: "bg-pink-50", textColor: "text-pink-600" },
-        { title: "QR Scanned Users", value: "0", icon: <FiUserCheck className="w-6 h-6" />, color: "bg-indigo-500", bgColor: "bg-indigo-50", textColor: "text-indigo-600" },
+    const num = (v) => (Number(v) || 0);
+    const fmt = (v) => num(v).toLocaleString('en-IN');
+    const pct = (part, total) => (num(total) > 0 ? Math.round((num(part) / num(total)) * 100) : 0);
+
+    const projectList = userData?.projects?.list || (Array.isArray(userData?.projects) ? userData.projects : []);
+    const currentProjectName = projectMeta?.project?.name
+        || projectList.find(p => (p.project_id === userData?.selected_project_id || p.id === userData?.selected_project_id))?.name
+        || 'your project';
+
+    const kpis = [
+        { label: 'Contacts', value: fmt(dashboardData?.contact?.total), note: 'Saved in this project', icon: FiUsers, to: '/contact' },
+        { label: 'Conversations', value: fmt(dashboardData?.chat?.total), note: 'Chats with your business', icon: FiMessageSquare, to: '/live-chat' },
+        { label: 'Sent today', value: fmt(dashboardData?.message?.today_sent), note: 'Template and session messages', icon: FiSend, to: null },
+        { label: 'Total messages', value: fmt(dashboardData?.message?.total), note: 'Since the project was created', icon: FiMail, to: null },
+        { label: 'Campaigns', value: fmt(dashboardData?.campaign?.total), note: 'Created in this project', icon: FiZap, to: '/campaigns' },
+        { label: 'Templates', value: fmt(dashboardData?.template?.total), note: 'Submitted to Meta', icon: FiFileText, to: '/template' },
     ];
 
-    // Campaign message metrics
-    const campaignMessageMetrics = dashboardData?.campaign?.message ? [
-        { title: "Total Messages", value: dashboardData.campaign.message.total?.toLocaleString() || "0", icon: <FiMail className="w-5 h-5" />, color: "text-blue-600", bgColor: "bg-blue-100" },
-        { title: "Sent", value: dashboardData.campaign.message.sent?.toLocaleString() || "0", icon: <FiSend className="w-5 h-5" />, color: "text-green-600", bgColor: "bg-green-100" },
-        { title: "Pending", value: dashboardData.campaign.message.pending?.toLocaleString() || "0", icon: <FiClock className="w-5 h-5" />, color: "text-yellow-600", bgColor: "bg-yellow-100" },
-        { title: "Delivered", value: dashboardData.campaign.message.delivered?.toLocaleString() || "0", icon: <FiCheckCircle className="w-5 h-5" />, color: "text-emerald-600", bgColor: "bg-emerald-100" },
-        { title: "Read", value: dashboardData.campaign.message.read?.toLocaleString() || "0", icon: <FiActivity className="w-5 h-5" />, color: "text-indigo-600", bgColor: "bg-indigo-100" },
-        { title: "Failed", value: dashboardData.campaign.message.failed?.toLocaleString() || "0", icon: <FiAlertCircle className="w-5 h-5" />, color: "text-red-600", bgColor: "bg-red-100" }
-    ] : [];
+    const cm = dashboardData?.campaign?.message || {};
+    const cmTotal = num(cm.total);
+    const funnel = [
+        { label: 'Read', value: cm.read, color: '#4A3BC4' },
+        { label: 'Delivered', value: cm.delivered, color: '#8C80EE' },
+        { label: 'Sent', value: cm.sent, color: '#CBC4F8' },
+        { label: 'Pending', value: cm.pending, color: '#E8A93A' },
+        { label: 'Failed', value: cm.failed, color: '#C2412D' },
+    ];
+    const funnelSum = funnel.reduce((s, f) => s + num(f.value), 0) || 1;
 
-    // Template status metrics
-    const templateMetrics = dashboardData?.template ? [
-        { title: "Approved", value: dashboardData.template.approved?.toLocaleString() || "0", icon: <FiUserCheck className="w-5 h-5" />, color: "text-green-600", bgColor: "bg-green-100", percentage: dashboardData.template.total > 0 ? Math.round((dashboardData.template.approved / dashboardData.template.total) * 100) : 0 },
-        { title: "Pending", value: dashboardData.template.pending?.toLocaleString() || "0", icon: <FiClock className="w-5 h-5" />, color: "text-yellow-600", bgColor: "bg-yellow-100", percentage: dashboardData.template.total > 0 ? Math.round((dashboardData.template.pending / dashboardData.template.total) * 100) : 0 },
-        { title: "Rejected", value: dashboardData.template.rejected?.toLocaleString() || "0", icon: <FiUserX className="w-5 h-5" />, color: "text-red-600", bgColor: "bg-red-100", percentage: dashboardData.template.total > 0 ? Math.round((dashboardData.template.rejected / dashboardData.template.total) * 100) : 0 }
-    ] : [];
+    const tpl = dashboardData?.template || {};
+    const tplRows = [
+        { label: 'Approved', value: tpl.approved, color: '#0E8A5F' },
+        { label: 'Pending review', value: tpl.pending, color: '#E8A93A' },
+        { label: 'Rejected', value: tpl.rejected, color: '#C2412D' },
+    ];
 
-    const activities = [
-        { id: 1, type: "Template", action: "Approved", name: "Order Confirmation", time: "10 min ago" },
-        { id: 2, type: "Campaign", action: "Launched", name: "Summer Sale", time: "1 hour ago" },
-        { id: 3, type: "Chat", action: "Assigned", name: "Customer #4582", time: "2 hours ago" },
+    const quickActions = [
+        { title: 'Create a template', sub: 'Marketing, Utility or Authentication', to: '/template-add' },
+        { title: 'Start a campaign', sub: 'Send an approved template to many people', to: '/create-campaign' },
+        { title: 'Import contacts', sub: 'Excel file or Google Sheet', to: '/contact' },
+        ...(isOwnerProject ? [{ title: 'Invite an agent', sub: 'Share the inbox with your team', to: '/agent-management' }] : []),
     ];
 
     return (
-        <div className="min-h-screen bg-[#f4f6fb]">
+        <div className="min-h-screen bg-surface-ground">
             <Header
                 mobileMenuOpen={mobileMenuOpen}
                 setMobileMenuOpen={setMobileMenuOpen}
@@ -462,154 +410,168 @@ function Dashboard() {
                 setIsMinimized={setIsMinimized}
             />
 
-            {/* Main content */}
             <div className={`pt-16 transition-all duration-300 ease-in-out ${isMinimized ? 'md:pl-20' : 'md:pl-[260px]'}`}>
-                <div className="w-full px-4 py-5">
+                <main className="w-full max-w-[1440px] px-4 sm:px-7 py-7 flex flex-col gap-5">
+                    <div className="flex flex-wrap items-end justify-between gap-4">
+                        <div>
+                            <h1 className="oc-page-title">Dashboard</h1>
+                            <p className="oc-page-sub">
+                                {hasSelectedProject
+                                    ? <>Performance for <span className="font-semibold text-ink">{currentProjectName}</span> on WhatsApp Business.</>
+                                    : 'Set up your first project to start messaging customers.'}
+                            </p>
+                        </div>
+                        {hasSelectedProject && (
+                            <button type="button" onClick={() => navigate('/create-campaign')} className="oc-btn-primary">
+                                <FiPlus size={16} /> New campaign
+                            </button>
+                        )}
+                    </div>
 
                     {!hasSelectedProject && (
                         <NewUserWelcome onCreateProject={() => setShowCreateModal(true)} />
                     )}
 
-                    {/* ------------------------------------------------------------- */}
-                    {/* UPDATED SECTION: Main Metrics & Project Profile Layout Fix     */}
-                    {/* ------------------------------------------------------------- */}
-
                     {hasSelectedProject && (
-                        <>
-                            {loading ? (
-                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
-                                    {[1, 2, 3, 4, 5, 6].map((index) => (
-                                        <div key={index} className="bg-white rounded-xl shadow p-6 animate-pulse">
-                                            <div className="h-4 bg-gray-200 rounded w-24 mb-4"></div>
-                                            <div className="h-8 bg-gray-200 rounded w-16"></div>
-                                        </div>
-                                    ))}
-                                </div>
-                            ) : error ? (
-                                <div className="bg-red-50 border border-red-200 rounded-xl p-4 mb-8">
-                                    <p className="text-red-600">{error}</p>
-                                </div>
-                            ) : (
-                                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8 items-stretch">
-                                    {/* Left Column: Metrics Grid (Takes 2/3 width on Desktop) */}
-                                    <div className="lg:col-span-2">
-                                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 h-full">
-                                            {mainMetrics.map((metric, index) => (
-                                                <EnhancedMetricCard key={index} {...metric} />
-                                            ))}
-                                        </div>
+                        <div className="grid grid-cols-1 xl:grid-cols-[minmax(0,1fr)_340px] gap-5 items-start">
+                            {/* Right: WhatsApp account — first on small screens, pinned on large screens */}
+                            <aside className="xl:col-start-2 xl:row-start-1 xl:sticky xl:top-[88px]">
+                                <ProjectProfileCard
+                                    project={projectMeta?.project}
+                                    profile={projectMeta?.profile}
+                                    loading={projectMetaLoading}
+                                    error={projectMetaError}
+                                    projectId={tokens?.selected_project_id}
+                                    navigate={navigate}
+                                />
+                            </aside>
+
+                            {/* Left: statistics */}
+                            <div className="xl:col-start-1 xl:row-start-1 min-w-0 flex flex-col gap-3.5">
+                                {loading && (
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3.5">
+                                        {[1, 2, 3, 4, 5, 6].map((i) => (
+                                            <div key={i} className="oc-card p-5 animate-pulse">
+                                                <div className="h-3.5 bg-line-soft rounded w-24 mb-4"></div>
+                                                <div className="h-7 bg-line-soft rounded w-20"></div>
+                                            </div>
+                                        ))}
                                     </div>
+                                )}
 
-                                    {/* Right Column: Project Profile (Takes 1/3 width on Desktop) */}
-                                    <div className="lg:col-span-1 h-full">
-                                        <ProjectProfileCard
-                                            project={projectMeta?.project}
-                                            profile={projectMeta?.profile}
-                                            loading={projectMetaLoading}
-                                            error={projectMetaError}
-                                            projectId={tokens?.selected_project_id}
-                                            navigate={navigate}
-                                        />
-                                    </div>
-                                </div>
-                            )}
-                        </>
-                    )}
+                                {!loading && error && (
+                                    <div role="alert" className="rounded-card border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div>
+                                )}
 
-                    {/* ------------------------------------------------------------- */}
-                    {/* End of Updated Section                                        */}
-                    {/* ------------------------------------------------------------- */}
+                                {!loading && !error && (
+                                    <>
+                                        <section aria-label="Key metrics" className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3.5">
+                                            {kpis.map((k) => {
+                                                const Icon = k.icon;
+                                                const body = (
+                                                    <>
+                                                        <div className="flex items-center justify-between">
+                                                            <span className="text-[13px] font-semibold text-ink-500">{k.label}</span>
+                                                            <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-brand-50 text-brand-700"><Icon size={16} /></span>
+                                                        </div>
+                                                        <div className="oc-num text-[28px] text-ink">{k.value}</div>
+                                                        <div className="text-xs text-ink-500">{k.note}</div>
+                                                    </>
+                                                );
+                                                return k.to ? (
+                                                    <button key={k.label} type="button" onClick={() => navigate(k.to)} className="oc-card p-[18px] flex flex-col gap-2.5 text-left hover:border-brand-300 transition-colors">{body}</button>
+                                                ) : (
+                                                    <div key={k.label} className="oc-card p-[18px] flex flex-col gap-2.5">{body}</div>
+                                                );
+                                            })}
+                                        </section>
 
-                    {/* Campaign Message Analytics */}
-                    {hasSelectedProject && !loading && !error && dashboardData?.campaign?.message && (
-                        <div className="mb-5">
-                            <div className="bg-white rounded-xl shadow p-6">
-                                <h3 className="text-lg font-semibold text-gray-900 mb-6 flex items-center">
-                                    <FiBarChart2 className="mr-2 text-blue-500" />
-                                    Campaign Message Analytics
-                                </h3>
-                                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
-                                    {campaignMessageMetrics.map((metric, index) => (
-                                        <MessageMetricCard key={index} {...metric} />
-                                    ))}
-                                </div>
+                                        <section className="oc-card p-5 flex flex-col gap-4">
+                                            <div className="flex flex-wrap items-start justify-between gap-3">
+                                                <div>
+                                                    <h2 className="text-base font-bold text-ink">Campaign delivery</h2>
+                                                    <p className="mt-1 text-[13px] text-ink-500">Status of every campaign message in this project</p>
+                                                </div>
+                                                <div className="text-right">
+                                                    <div className="oc-num text-[22px] text-ink">{fmt(cmTotal)}</div>
+                                                    <div className="text-xs text-ink-500">messages across {fmt(dashboardData?.campaign?.total)} campaigns</div>
+                                                </div>
+                                            </div>
+                                            {cmTotal > 0 ? (
+                                                <div
+                                                    className="flex h-3.5 rounded-full overflow-hidden gap-0.5 bg-line-soft"
+                                                    role="img"
+                                                    aria-label={funnel.map(f => `${f.label} ${pct(f.value, funnelSum)} percent`).join(', ')}
+                                                >
+                                                    {funnel.map(f => num(f.value) > 0 && (
+                                                        <div key={f.label} style={{ width: `${(num(f.value) / funnelSum) * 100}%`, background: f.color }} />
+                                                    ))}
+                                                </div>
+                                            ) : (
+                                                <div className="rounded-[10px] border border-dashed border-line-strong px-4 py-5 text-sm text-ink-500">
+                                                    No campaign messages yet. <button type="button" onClick={() => navigate('/create-campaign')} className="font-semibold text-brand-800 hover:text-brand-900">Start your first campaign</button>
+                                                </div>
+                                            )}
+                                            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2.5">
+                                                {funnel.map(f => (
+                                                    <div key={f.label} className="rounded-[10px] border border-line-soft bg-surface-soft p-3 flex flex-col gap-1">
+                                                        <div className="flex items-center gap-2 text-xs font-semibold text-ink-500">
+                                                            <span className="h-2.5 w-2.5 rounded-[3px]" style={{ background: f.color }} />{f.label}
+                                                        </div>
+                                                        <div className="oc-num text-lg text-ink">{fmt(f.value)}</div>
+                                                        <div className="text-xs text-ink-500">{pct(f.value, funnelSum)}%</div>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </section>
+
+                                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-3.5">
+                                            <section className="oc-card p-5 flex flex-col gap-3.5">
+                                                <div className="flex items-center justify-between">
+                                                    <h2 className="text-base font-bold text-ink">Template health</h2>
+                                                    <button type="button" onClick={() => navigate('/template')} className="text-[13px] font-semibold text-brand-800 hover:text-brand-900">View all</button>
+                                                </div>
+                                                <div className="flex items-baseline gap-2">
+                                                    <span className="oc-num text-[28px] text-ink">{fmt(tpl.total)}</span>
+                                                    <span className="text-[13px] text-ink-500">templates · {pct(tpl.approved, tpl.total)}% approval rate</span>
+                                                </div>
+                                                {tplRows.map(t => (
+                                                    <div key={t.label} className="flex flex-col gap-1.5">
+                                                        <div className="flex justify-between text-[13px]">
+                                                            <span className="font-semibold text-ink">{t.label}</span>
+                                                            <span className="oc-num text-ink">{fmt(t.value)}</span>
+                                                        </div>
+                                                        <div className="h-1.5 rounded-full bg-line-soft overflow-hidden">
+                                                            <div className="h-full rounded-full transition-all duration-500" style={{ width: `${pct(t.value, tpl.total)}%`, background: t.color }} />
+                                                        </div>
+                                                    </div>
+                                                ))}
+                                            </section>
+
+                                            <section className="oc-card p-5 flex flex-col gap-2.5">
+                                                <h2 className="text-base font-bold text-ink mb-1">Quick actions</h2>
+                                                {quickActions.map(q => (
+                                                    <button
+                                                        key={q.title}
+                                                        type="button"
+                                                        onClick={() => navigate(q.to)}
+                                                        className="flex items-center gap-3 rounded-[10px] border border-line-soft bg-surface-soft p-3 text-left hover:border-brand-200 hover:bg-brand-50/40 transition-colors"
+                                                    >
+                                                        <span className="flex-1">
+                                                            <span className="block text-[13px] font-bold text-ink">{q.title}</span>
+                                                            <span className="block text-xs text-ink-500">{q.sub}</span>
+                                                        </span>
+                                                        <FiChevronRight className="text-ink-400" size={16} />
+                                                    </button>
+                                                ))}
+                                            </section>
+                                        </div>
+                                    </>
+                                )}
                             </div>
                         </div>
                     )}
-
-                    {/* Template Status & Performance Grid */}
-                    {hasSelectedProject && (
-                        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
-                            {/* Left column - Analytics and Activity */}
-                            <div className="lg:col-span-2 space-y-6">
-
-                                {/* Template Status Overview */}
-                                {!loading && !error && dashboardData?.template && (
-                                    <div className="bg-white rounded-xl shadow p-6">
-                                        <h3 className="text-lg font-semibold text-gray-900 mb-6 flex items-center">
-                                            <FiFileText className="mr-2 text-orange-500" />
-                                            Template Status Overview
-                                        </h3>
-                                        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                                            {templateMetrics.map((metric, index) => (
-                                                <TemplateStatusCard key={index} {...metric} />
-                                            ))}
-                                        </div>
-                                    </div>
-                                )}
-                            </div>
-
-                            {/* Right column - Performance Stats */}
-                            <div className="lg:col-span-1">
-                                {!loading && !error && dashboardData && (
-                                    <div className="bg-white rounded-xl shadow p-6 h-full">
-                                        <h3 className="text-lg font-semibold text-gray-900 mb-6 flex items-center">
-                                            <FiTrendingUp className="mr-2 text-green-500" />
-                                            Performance
-                                        </h3>
-                                        <div className="space-y-6">
-                                            {/* Campaign Performance */}
-                                            <div className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-lg p-4">
-                                                <h4 className="font-medium text-gray-900 mb-3">Campaign Success</h4>
-                                                <div className="space-y-3">
-                                                    <div className="flex justify-between text-sm">
-                                                        <span className="text-gray-600">Sent Success</span>
-                                                        <span className="font-semibold text-green-600">
-                                                            {dashboardData.campaign?.message?.total > 0
-                                                                ? Math.round(((dashboardData.campaign.message.sent + dashboardData.campaign.message.delivered) / dashboardData.campaign.message.total) * 100)
-                                                                : 0}%
-                                                        </span>
-                                                    </div>
-                                                    <div className="w-full bg-blue-200 rounded-full h-1.5 mt-1">
-                                                        <div className="bg-green-500 h-1.5 rounded-full" style={{ width: `${dashboardData.campaign?.message?.total > 0 ? ((dashboardData.campaign.message.sent + dashboardData.campaign.message.delivered) / dashboardData.campaign.message.total) * 100 : 0}%` }}></div>
-                                                    </div>
-                                                </div>
-                                            </div>
-
-                                            {/* Template Approval */}
-                                            <div className="bg-gradient-to-br from-green-50 to-emerald-50 rounded-lg p-4">
-                                                <h4 className="font-medium text-gray-900 mb-3">Template Quality</h4>
-                                                <div className="space-y-3">
-                                                    <div className="flex justify-between text-sm">
-                                                        <span className="text-gray-600">Approval Rate</span>
-                                                        <span className="font-semibold text-green-600">
-                                                            {dashboardData.template?.total > 0
-                                                                ? Math.round((dashboardData.template.approved / dashboardData.template.total) * 100)
-                                                                : 0}%
-                                                        </span>
-                                                    </div>
-                                                    <div className="w-full bg-green-200 rounded-full h-1.5 mt-1">
-                                                        <div className="bg-green-600 h-1.5 rounded-full" style={{ width: `${dashboardData.template?.total > 0 ? (dashboardData.template.approved / dashboardData.template.total) * 100 : 0}%` }}></div>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
-                                )}
-                            </div>
-                        </div>
-                    )}
-                </div>
+                </main>
             </div>
 
             <CreateProjectModal
@@ -639,247 +601,73 @@ function Dashboard() {
 // Reusable Components
 // ----------------------------------------------------------------------
 
-function ProjectProfileCard({ project, profile, loading, error, projectId, navigate }) {
+function ProjectProfileCard({ project, profile, loading, error, navigate }) {
     if (loading) {
         return (
-            <div className="bg-white rounded-xl shadow p-6 h-full animate-pulse flex flex-col">
-                <div className="flex items-center gap-4 mb-6">
-                    <div className="w-16 h-16 bg-gray-200 rounded-xl flex-shrink-0" />
-                    <div className="flex-1 space-y-2 w-full">
-                        <div className="h-4 bg-gray-200 rounded w-3/4" />
-                        <div className="h-6 bg-gray-200 rounded w-1/2" />
-                    </div>
+            <div className="oc-card p-5 animate-pulse flex flex-col gap-4">
+                <div className="h-4 bg-line-soft rounded w-40" />
+                <div className="flex items-center gap-3">
+                    <div className="w-11 h-11 bg-line-soft rounded-full" />
+                    <div className="flex-1 space-y-2"><div className="h-3.5 bg-line-soft rounded w-1/2" /><div className="h-3 bg-line-soft rounded w-1/3" /></div>
                 </div>
-                <div className="space-y-3 mt-auto">
-                    {[1, 2, 3].map((key) => (
-                        <div key={key} className="h-10 bg-gray-100 rounded" />
-                    ))}
-                </div>
+                {[1, 2, 3].map((k) => <div key={k} className="h-4 bg-line-soft rounded" />)}
             </div>
         );
     }
 
     if (error || !project) {
         return (
-            <div className="bg-white rounded-xl shadow p-6 h-full flex flex-col items-center justify-center text-center">
-                <div className="bg-indigo-50 p-4 rounded-full mb-4">
-                    <FiUser className="text-indigo-500 w-8 h-8" />
-                </div>
-                <h3 className="text-lg font-semibold text-gray-900 mb-2">
-                    {error ? 'Error Loading Profile' : 'Project Information'}
-                </h3>
-                <p className="text-sm text-gray-500 max-w-xs mx-auto">
-                    {error || 'Select a project to view WhatsApp profile details.'}
-                </p>
+            <div className="oc-card p-6 flex flex-col items-center justify-center text-center gap-2">
+                <span className="flex h-12 w-12 items-center justify-center rounded-full bg-brand-50 text-brand-700"><FiUser size={22} /></span>
+                <h2 className="text-base font-bold text-ink">{error ? 'Could not load WhatsApp profile' : 'WhatsApp account'}</h2>
+                <p className="text-sm text-ink-500 max-w-xs">{error || 'Select a project to view WhatsApp profile details.'}</p>
             </div>
         );
     }
 
     const imageSrc = project?.wa_display_image || profile?.profile_picture_url;
-    const website = profile?.websites?.[0];
-    const wa_number = profile?.wa_number
+    const waNumber = profile?.wa_number || project?.wa_number;
+    const quality = project?.wa_quality_rating;
+    const qualityStyle = quality === 'GREEN'
+        ? 'bg-emerald-50 text-emerald-800'
+        : quality === 'YELLOW' ? 'bg-amber-50 text-amber-800' : quality === 'RED' ? 'bg-red-50 text-red-800' : 'bg-line-soft text-ink-700';
+    const rows = [
+        { label: 'Connection', value: project?.status ? project.status.charAt(0).toUpperCase() + project.status.slice(1) : null },
+        { label: 'Messaging tier', value: project?.wa_messaging_tier ? project.wa_messaging_tier.replace('TIER_', 'Tier ').replace('_', ' ') : null },
+        { label: 'Daily template limit', value: typeof project?.daily_template_limit === 'number' ? `${project.daily_template_limit.toLocaleString('en-IN')} templates` : project?.daily_template_limit },
+        { label: 'Product', value: profile?.messaging_product },
+    ].filter(r => r.value);
 
     return (
-        <div className="bg-white rounded-xl shadow p-6 h-full flex flex-col overflow-hidden">
-            {/* Header: Image & Name */}
-            <div className="flex items-start gap-4 mb-6">
-                <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-xl overflow-hidden bg-gray-100 flex-shrink-0 border border-gray-100">
-                    {imageSrc ? (
-                        <img
-                            src={imageSrc}
-                            alt="Profile"
-                            className="w-full h-full object-cover"
-                        />
-                    ) : (
-                        <div className="w-full h-full flex items-center justify-center">
-                            <FiUser className="text-gray-400 w-6 h-6 sm:w-8 sm:h-8" />
-                        </div>
-                    )}
+        <section className="oc-card p-5 flex flex-col gap-4">
+            <div className="flex items-center justify-between gap-3">
+                <h2 className="text-base font-bold text-ink">WhatsApp account</h2>
+                <button type="button" onClick={() => navigate('/project-details')} className="inline-flex items-center gap-1 text-[13px] font-semibold text-brand-800 hover:text-brand-900">
+                    Business profile <FiChevronRight size={14} />
+                </button>
+            </div>
+            <div className="flex flex-wrap items-center gap-3">
+                <div className="h-11 w-11 flex-none rounded-full overflow-hidden bg-ink text-white flex items-center justify-center">
+                    {imageSrc ? <img src={imageSrc} alt="" className="h-full w-full object-cover" /> : <FiUser size={18} />}
                 </div>
-
-                <div
-                    className="flex-1 min-w-0 group cursor-pointer p-4 rounded-lg border border-gray-200 
-               hover:border-indigo-400 hover:shadow-md hover:bg-indigo-50/30 
-               transition-all duration-200 active:scale-[0.99]"
-                    onClick={() => navigate('/project-details')}
-                    role="button"
-                    tabIndex={0}
-                    onKeyDown={(e) => e.key === 'Enter' && navigate('/project-details')}
-                >
-                    <div className="flex items-start justify-between gap-3">
-                        <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-2 mb-1">
-                                <p className="text-xs uppercase tracking-widest text-gray-500 font-semibold">Project</p>
-                                {project?.is_whatsapp_verified && (
-                                    <FiShield className="text-emerald-500 w-3 h-3" title="Verified" />
-                                )}
-                            </div>
-                            <h3
-                                className="text-lg sm:text-xl font-bold text-gray-900 truncate 
-                           group-hover:text-indigo-600 transition-colors"
-                                title={project?.name}
-                            >
-                                {project?.name || '—'}
-                            </h3>
-                            <p className="text-sm text-gray-500 truncate mt-1">{project?.wa_display_name}</p>
-                        </div>
-
-                        {/* Clickable indicator */}
-                        <FiChevronRight className="w-5 h-5 text-gray-400 flex-shrink-0 mt-1
-                                   group-hover:text-indigo-600 group-hover:translate-x-1 
-                                   transition-all duration-200" />
+                <div className="min-w-0">
+                    <div className="flex items-center gap-1.5">
+                        <span className="text-sm font-bold text-ink truncate" title={project?.name}>{project?.wa_display_name || project?.name || '—'}</span>
+                        {project?.is_whatsapp_verified && <FiShield className="text-emerald-600 flex-none" size={14} title="Verified" />}
                     </div>
+                    {waNumber && <div className="font-mono text-[13px] text-ink-500">{waNumber}</div>}
                 </div>
+                {quality && <span className={`oc-badge ml-auto ${qualityStyle}`}>Quality · {quality.charAt(0) + quality.slice(1).toLowerCase()}</span>}
             </div>
-
-            {/* Tags Section */}
-            <div className="flex flex-wrap gap-2 mb-6">
-                {project?.status && (
-                    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${project.status === 'connected' ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'
-                        }`}>
-                        {project.status.toUpperCase()}
-                    </span>
-                )}
-                {project?.wa_quality_rating && (
-                    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${project.wa_quality_rating === 'GREEN'
-                        ? 'bg-emerald-50 text-emerald-700 border border-emerald-100'
-                        : 'bg-yellow-50 text-yellow-700 border border-yellow-100'
-                        }`}>
-                        Quality: {project.wa_quality_rating}
-                    </span>
-                )}
-                {project?.wa_messaging_tier && (
-                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-50 text-blue-700 border border-blue-100">
-                        {project.wa_messaging_tier.replace('TIER_', 'T-').replace('_', ' ')}
-                    </span>
-                )}
-            </div>
-
-            {/* Details Grid */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-1 xl:grid-cols-2 gap-3 mt-auto">
-                <ProfileDetailRow
-                    icon={<FiPhone className="w-4 h-4" />}
-                    label="Number"
-                    value={wa_number || project?.wa_number}
-                />
-                <ProfileDetailRow
-                    icon={<FiFileText className="w-4 h-4" />}
-                    label="Daily Limit"
-                    value={typeof project?.daily_template_limit === 'number'
-                        ? `${project.daily_template_limit} Templates`
-                        : project?.daily_template_limit}
-                />
-                {/* <ProfileDetailRow
-                    icon={<FiGlobe className="w-4 h-4" />}
-                    label="Website"
-                    value={website}
-                    isLink={true}
-                /> */}
-
-                <ProfileDetailRow
-                    icon={<FiActivity className="w-4 h-4" />}
-                    label="Product"
-                    value={profile?.messaging_product}
-                />
-            </div>
-        </div>
-    );
-}
-
-function ProfileDetailRow({ icon, label, value, isLink }) {
-    if (!value) return null;
-
-    return (
-        <div className="flex items-start gap-3 p-3 bg-gray-50 rounded-lg border border-gray-100 hover:bg-gray-100 transition-colors">
-            <div className="text-indigo-500 mt-0.5 flex-shrink-0">
-                {icon}
-            </div>
-            <div className="min-w-0 flex-1">
-                <p className="text-[10px] uppercase tracking-wide text-gray-500 font-semibold mb-0.5">{label}</p>
-                {isLink ? (
-                    <a href={value} target="_blank" rel="noopener noreferrer" className="text-xs sm:text-sm font-semibold text-indigo-600 hover:text-indigo-800 truncate block">
-                        {value.replace(/^https?:\/\//, '')}
-                    </a>
-                ) : (
-                    <p className="text-xs sm:text-sm font-semibold text-gray-900 truncate" title={value}>
-                        {value}
-                    </p>
-                )}
-            </div>
-        </div>
-    );
-}
-
-function EnhancedMetricCard({ title, value, icon, color, bgColor, textColor }) {
-    return (
-        <div className="bg-white rounded-xl shadow p-4 sm:p-6 transition-all duration-200 hover:shadow-lg hover:-translate-y-1 h-full flex flex-col justify-between">
-            <div className="flex items-start justify-between gap-3">
-                <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-gray-500 mb-1">{title}</p>
-                    <h3 className="text-2xl font-bold text-gray-900 tracking-tight">{value}</h3>
-                </div>
-                <div className={`p-3 rounded-xl ${bgColor} flex-shrink-0`}>
-                    <div className={`${textColor} w-6 h-6`}>
-                        {React.cloneElement(icon, { className: 'w-full h-full' })}
-                    </div>
-                </div>
-            </div>
-        </div>
-    );
-}
-
-function MessageMetricCard({ title, value, icon, color, bgColor }) {
-    return (
-        <div className="bg-white border border-gray-100 rounded-lg p-4 hover:shadow-md transition-shadow">
-            <div className={`inline-flex items-center justify-center w-8 h-8 rounded-full ${bgColor} mb-3`}>
-                <div className={color}>
-                    {icon}
-                </div>
-            </div>
-            <h4 className="text-xs font-medium text-gray-500 mb-1 truncate">{title}</h4>
-            <p className="text-lg font-bold text-gray-900">{value}</p>
-        </div>
-    );
-}
-
-function TemplateStatusCard({ title, value, icon, color, bgColor, percentage }) {
-    return (
-        <div className="bg-white border border-gray-100 rounded-lg p-6 hover:shadow-md transition-shadow">
-            <div className="flex items-center justify-between mb-4">
-                <div className={`inline-flex items-center justify-center w-10 h-10 rounded-full ${bgColor}`}>
-                    <div className={color}>
-                        {icon}
-                    </div>
-                </div>
-                <span className={`text-sm font-bold ${color}`}>{percentage}%</span>
-            </div>
-            <h4 className="text-sm font-medium text-gray-500 mb-1">{title}</h4>
-            <p className="text-2xl font-bold text-gray-900">{value}</p>
-            <div className="mt-3 bg-gray-100 rounded-full h-1.5 overflow-hidden">
-                <div
-                    className={`h-full rounded-full transition-all duration-500 ${color.replace('text-', 'bg-')}`}
-                    style={{ width: `${percentage}%` }}
-                ></div>
-            </div>
-        </div>
-    );
-}
-
-function ActivityItem({ type, action, name, time }) {
-    return (
-        <div className="flex items-start p-2 rounded-lg hover:bg-gray-50 transition-colors">
-            <div className="flex-shrink-0 bg-indigo-50 rounded-lg p-2">
-                {type === "Template" && <FiMail className="text-indigo-600" size={16} />}
-                {type === "Campaign" && <FiZap className="text-indigo-600" size={16} />}
-                {type === "Chat" && <FiMessageSquare className="text-indigo-600" size={16} />}
-            </div>
-            <div className="ml-3 min-w-0">
-                <p className="text-sm font-medium text-gray-900 truncate">
-                    {action} <span className="text-indigo-600">{name}</span>
-                </p>
-                <p className="text-xs text-gray-500">{time}</p>
-            </div>
-        </div>
+            <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-2.5 text-[13px]">
+                {rows.map(r => (
+                    <React.Fragment key={r.label}>
+                        <dt className="text-ink-500">{r.label}</dt>
+                        <dd className="m-0 text-right font-semibold text-ink truncate">{r.value}</dd>
+                    </React.Fragment>
+                ))}
+            </dl>
+        </section>
     );
 }
 

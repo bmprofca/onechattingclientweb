@@ -31,7 +31,7 @@ const ContactPreview = ({ contactInfo, isOwnMessage }) => {
                         </div>
                         <a
                             href={`tel:${contactInfo.phone}`}
-                            className="inline-flex items-center space-x-1 px-2 sm:px-3 py-1 bg-green-500 hover:bg-green-600 text-white text-xs font-medium rounded-lg transition-colors flex-shrink-0"
+                            className="inline-flex items-center space-x-1 px-2 sm:px-3 py-1 bg-brand-600 hover:bg-brand-700 text-white text-xs font-medium rounded-lg transition-colors flex-shrink-0"
                         >
                             <span>Call</span>
                         </a>

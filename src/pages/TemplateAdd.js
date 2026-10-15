@@ -9,16 +9,11 @@ import {
   FiX,
   FiPlus,
   FiPaperclip,
-  FiLink,
-  FiPhone,
-  FiMessageSquare,
-  FiCopy,
-  FiMapPin,
   FiBold,
   FiItalic,
   FiUnderline,
   FiCode,
-  FiTrash2,
+  FiChevronLeft,
   FiCheckCircle,
   FiAlertCircle
 } from 'react-icons/fi';
@@ -28,6 +23,7 @@ import { RiSparklingFill } from 'react-icons/ri';
 import { useLocation } from 'react-router-dom';
 import { uploadFile } from '../utils/uploadFile';
 
+import AnimatedModal from '../component/Modals/AnimatedModal';
 function TemplateAdd() {
   const navigate = useNavigate();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -183,6 +179,12 @@ function TemplateAdd() {
     { code: 'AUTHENTICATION', name: 'Authentication' },
   ];
 
+  const categoryHints = {
+    MARKETING: 'Promotions, offers, and product updates you send to customers.',
+    UTILITY: 'Order updates, reminders and account alerts for something the customer started.',
+    AUTHENTICATION: 'One-time passwords customers use to verify their identity.',
+  };
+
   // Header formats
   const headerFormats = [
     { code: 'NONE', name: 'None' },
@@ -194,10 +196,9 @@ function TemplateAdd() {
 
   // Button types
   const buttonTypes = [
-    { type: 'QUICK_REPLY', label: 'Quick Reply', icon: <FiMessageSquare /> },
-    { type: 'PHONE_NUMBER', label: 'Phone Number', icon: <FiPhone /> },
-    { type: 'URL', label: 'URL', icon: <FiLink /> },
-    // { type: 'COPY_CODE', label: 'Copy Code', icon: <FiCopy /> }
+    { type: 'QUICK_REPLY', label: 'Quick reply' },
+    { type: 'URL', label: 'URL' },
+    { type: 'PHONE_NUMBER', label: 'Phone number' },
   ];
 
   // Handle form input changes
@@ -1007,8 +1008,12 @@ function TemplateAdd() {
       .replace(/```(.*?)```/gs, '<code>$1</code>');
   };
 
+  const fieldClass = 'h-[42px] w-full rounded-[9px] border border-line bg-white px-3 text-sm text-ink placeholder:text-ink-400 focus:outline-none focus:border-brand-600';
+  const areaClass = 'min-h-[120px] w-full resize-y rounded-[9px] border border-line bg-white px-3 py-2.5 text-sm text-ink placeholder:text-ink-400 focus:outline-none focus:border-brand-600';
+  const labelClass = 'mb-1.5 block text-[13px] font-medium text-ink';
+
   return (
-    <div className="min-h-screen bg-[#f4f6fb]">
+    <div className="min-h-screen bg-surface-ground">
       <Header
         mobileMenuOpen={mobileMenuOpen}
         setMobileMenuOpen={setMobileMenuOpen}
@@ -1025,123 +1030,161 @@ function TemplateAdd() {
       {/* Main content */}
       <div className={`pt-16 transition-all duration-300 ease-in-out ${isMinimized ? 'md:pl-20' : 'md:pl-[260px]'
         }`}>
-        <div className="w-full px-4 py-5">
-          {/* Page header */}
+        <div className="w-full max-w-[1320px] px-4 sm:px-7 py-7">
           <div className="mb-6">
-            <h2 className="text-2xl font-semibold tracking-tight text-slate-900">Create New WhatsApp Template</h2>
-            <p className="mt-1 text-sm text-gray-600">
-              Create a new WhatsApp message template following Aisensy API structure
-            </p>
-          </div>
-
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-            {/* Form section */}
-            <div className="bg-white shadow rounded-lg p-6">
-              <form onSubmit={handleSubmit}>
-                {/* AI Assistant Banner */}
-                <div className="mb-6 p-4 rounded-xl bg-gradient-to-r from-indigo-50 via-purple-50 to-pink-50 border border-indigo-100 flex items-center justify-between shadow-sm">
-                  <div className="flex items-center space-x-3">
-                    <div className="w-9 h-9 rounded-lg bg-indigo-600 flex items-center justify-center text-amber-300 shadow-sm flex-shrink-0">
-                      <RiSparklingFill className="w-5 h-5" />
-                    </div>
-                    <div>
-                      <h4 className="text-xs font-bold text-indigo-950">AI Template Assistant</h4>
-                      <p className="text-xs text-indigo-800/80">Need ideas? Describe your campaign and AI will build the template.</p>
-                    </div>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => setAiModalOpen(true)}
-                    className="text-xs font-bold px-3.5 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white transition-all shadow-sm active:scale-95 cursor-pointer flex-shrink-0"
-                  >
-                    Open AI
-                  </button>
-                </div>
-                {/* Template Name */}
-                <div className="mb-6">
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Template Name <span className="text-red-500">*</span>
-                  </label>
-                  <input
-                    type="text"
-                    name="name"
-                    value={formData.name}
-                    onChange={handleInputChange}
-                    className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-colors ${formData.name.trim() ? 'border-green-400' : 'border-gray-300'
-                      }`}
-                    required
-                    placeholder="e.g., welcome_message"
-                  />
-                  <p className="mt-1 text-xs text-indigo-600 font-medium">
-                    ✓ Automatically converted to lowercase (use underscores for spaces)
+            <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+              <div className="flex min-w-0 items-start gap-2">
+                <button
+                  type="button"
+                  onClick={() => navigate('/template')}
+                  className="mt-1 inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-[9px] text-ink-500 hover:bg-white hover:text-ink"
+                  aria-label="Back to templates"
+                >
+                  <FiChevronLeft size={20} />
+                </button>
+                <div className="min-w-0">
+                  <h1 className="text-[26px] font-extrabold tracking-tight text-ink leading-tight">New template</h1>
+                  <p className="mt-1 max-w-xl text-sm text-ink-500">
+                    Meta reviews every template before you can send it, usually within a few hours.
                   </p>
                 </div>
+              </div>
+              <div className="flex shrink-0 flex-wrap items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setAiModalOpen(true)}
+                  className="inline-flex h-[38px] items-center gap-1.5 rounded-[9px] border border-line bg-white px-3.5 text-[13px] font-semibold text-ink hover:bg-[#FAFAFD]"
+                >
+                  <RiSparklingFill className="text-brand-600" size={14} />
+                  Draft with AI
+                </button>
+                <button
+                  type="submit"
+                  form="new-template-form"
+                  disabled={isSubmitting || !isFormValid()}
+                  className="inline-flex h-[38px] items-center justify-center rounded-[9px] bg-brand-600 px-3.5 text-[13px] font-semibold text-white disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  {isSubmitting ? (
+                    <span className="inline-flex items-center gap-2">
+                      <svg className="h-4 w-4 animate-spin" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                      </svg>
+                      Submitting...
+                    </span>
+                  ) : (
+                    'Submit for review'
+                  )}
+                </button>
+              </div>
+            </div>
+            {!isFormValid() && (
+              <p className="mt-3 text-xs text-rose-600 lg:text-right">
+                {isAuthentication
+                  ? 'Please fill in Template Name, Category, Language, and Copy Code button label'
+                  : 'Please fill in all mandatory fields: Template Name, Category, Language, Body Content'}
+                {!isAuthentication && bodyVariables.length > 0 && bodyVariables.some(v => !v.sample || v.sample.trim() === '') &&
+                  ', and all variable sample values'}
+                {isAuthentication && authConfig.includeCodeExpiration &&
+                  (Number(authConfig.codeExpirationMinutes) < 1 || Number(authConfig.codeExpirationMinutes) > 90) &&
+                  '. Code expiration must be between 1 and 90 minutes'}
+              </p>
+            )}
+          </div>
 
-                {/* Category */}
-                <div className="mb-6">
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Category <span className="text-red-500">*</span>
-                  </label>
-                  <SearchableSelect
-                    name="category"
-                    value={formData.category}
-                    onChange={handleInputChange}
-                    options={[{ value: '', label: 'Select a category' }, ...categories.map((cat) => ({ value: cat.code, label: cat.name }))]}
-                    placeholder="Select a category"
-                    className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-colors ${formData.category ? 'border-green-400' : 'border-gray-300'}`}
-                  />
+          <div className="grid grid-cols-1 items-start gap-5 lg:grid-cols-[minmax(0,1fr)_320px]">
+            <form id="new-template-form" onSubmit={handleSubmit} className="min-w-0 space-y-4">
+              <section className="rounded-[14px] border border-line bg-white p-5 sm:p-6">
+                <div className="mb-4 flex items-center gap-2.5">
+                  <span className="inline-flex h-6 w-6 items-center justify-center rounded-[7px] bg-ink text-[12px] font-bold text-white">1</span>
+                  <h2 className="text-[15px] font-bold text-ink">Basics</h2>
                 </div>
 
-                {/* Language */}
-                <div className="mb-6">
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Language <span className="text-red-500">*</span>
-                  </label>
-                  <SearchableSelect
-                    name="language"
-                    value={formData.language}
-                    onChange={handleInputChange}
-                    options={[{ value: '', label: 'Select a language' }, ...languages.map((lang) => ({ value: lang.code, label: lang.name }))]}
-                    placeholder="Select a language"
-                    className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-colors ${formData.language ? 'border-green-400' : 'border-gray-300'}`}
-                  />
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                  <div>
+                    <label className={labelClass} htmlFor="template-name">Template name</label>
+                    <input
+                      id="template-name"
+                      type="text"
+                      name="name"
+                      value={formData.name}
+                      onChange={handleInputChange}
+                      className={fieldClass}
+                      required
+                      placeholder="e.g. order_update"
+                    />
+                    <p className="mt-1.5 text-xs text-ink-400">Lowercase letters, numbers and underscores only.</p>
+                  </div>
+                  <div>
+                    <label className={labelClass}>Language</label>
+                    <SearchableSelect
+                      name="language"
+                      value={formData.language}
+                      onChange={handleInputChange}
+                      options={[{ value: '', label: 'Select a language' }, ...languages.map((lang) => ({ value: lang.code, label: lang.name }))]}
+                      placeholder="Select a language"
+                      className={fieldClass}
+                    />
+                  </div>
+                </div>
+
+                <div className="mt-4">
+                  <label className={labelClass}>Category</label>
+                  <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+                    {categories.map((cat) => {
+                      const selected = formData.category === cat.code;
+                      return (
+                        <button
+                          key={cat.code}
+                          type="button"
+                          onClick={() => handleInputChange({ target: { name: 'category', value: cat.code } })}
+                          className={`h-[42px] rounded-[9px] border text-[13px] font-semibold ${selected ? 'border-line bg-[#F3F2FA] text-ink' : 'border-line bg-white text-ink-500 hover:text-ink'}`}
+                        >
+                          {cat.name}
+                        </button>
+                      );
+                    })}
+                  </div>
+                  {categoryHints[formData.category] && (
+                    <p className="mt-2 text-xs text-ink-500">{categoryHints[formData.category]}</p>
+                  )}
                 </div>
 
                 {isAuthentication && (
-                  <div className="mb-6 p-4 bg-indigo-50 border border-indigo-200 rounded-lg space-y-4">
+                  <div className="mt-5 space-y-4 border-t border-line pt-5">
                     <div>
-                      <h3 className="text-sm font-semibold text-indigo-900">Authentication Template Settings</h3>
-                      <p className="mt-1 text-xs text-indigo-700">
+                      <h3 className="text-[13px] font-semibold text-ink">Authentication template</h3>
+                      <p className="mt-1 text-xs text-ink-500">
                         Meta uses a fixed OTP message format. The verification code is supplied as {'{{1}}'} when you send the message.
                       </p>
                     </div>
 
-                    <label className="flex items-start gap-2 cursor-pointer">
+                    <label className="flex cursor-pointer items-start gap-2">
                       <input
                         type="checkbox"
-                        className="mt-0.5 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                        className="mt-0.5 rounded border-line text-brand-600 focus:ring-brand-600"
                         checked={authConfig.addSecurityRecommendation}
                         onChange={(e) => handleAuthConfigChange('addSecurityRecommendation', e.target.checked)}
                       />
-                      <span className="text-sm text-gray-700">
+                      <span className="text-sm text-ink">
                         Add security recommendation
-                        <span className="block text-xs text-gray-500">Appends &quot;For your security, do not share this code.&quot;</span>
+                        <span className="block text-xs text-ink-400">Appends &quot;For your security, do not share this code.&quot;</span>
                       </span>
                     </label>
 
                     <div className="space-y-2">
-                      <label className="flex items-start gap-2 cursor-pointer">
+                      <label className="flex cursor-pointer items-start gap-2">
                         <input
                           type="checkbox"
-                          className="mt-0.5 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                          className="mt-0.5 rounded border-line text-brand-600 focus:ring-brand-600"
                           checked={authConfig.includeCodeExpiration}
                           onChange={(e) => handleAuthConfigChange('includeCodeExpiration', e.target.checked)}
                         />
-                        <span className="text-sm text-gray-700">Include code expiration footer</span>
+                        <span className="text-sm text-ink">Include code expiration footer</span>
                       </label>
                       {authConfig.includeCodeExpiration && (
                         <div className="ml-6">
-                          <label className="block text-xs font-medium text-gray-600 mb-1">
+                          <label className="mb-1.5 block text-xs font-medium text-ink-500">
                             Expiration (minutes, 1–90)
                           </label>
                           <input
@@ -1150,59 +1193,61 @@ function TemplateAdd() {
                             max={90}
                             value={authConfig.codeExpirationMinutes}
                             onChange={(e) => handleAuthConfigChange('codeExpirationMinutes', e.target.value)}
-                            className="w-32 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                            className={`${fieldClass} w-32`}
                           />
                         </div>
                       )}
                     </div>
 
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        OTP Button Type
-                      </label>
+                      <label className={labelClass}>OTP button type</label>
                       <SearchableSelect
                         value={authConfig.otpType}
                         onChange={(e) => handleAuthConfigChange('otpType', e.target.value)}
                         options={[{ value: 'COPY_CODE', label: 'Copy Code' }]}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                        className={fieldClass}
                       />
-                      <p className="mt-1 text-xs text-gray-500">
+                      <p className="mt-1.5 text-xs text-ink-400">
                         ONE_TAP and ZERO_TAP require Android app package configuration in Meta Business Manager.
                       </p>
                     </div>
 
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Copy Code Button Label <span className="text-red-500">*</span>
+                      <label className={labelClass}>
+                        Copy code button label <span className="text-rose-600">*</span>
                       </label>
                       <input
                         type="text"
                         value={authConfig.otpButtonText}
                         onChange={(e) => handleAuthConfigChange('otpButtonText', e.target.value)}
-                        className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 ${authConfig.otpButtonText.trim() ? 'border-green-400' : 'border-gray-300'}`}
-                        placeholder="e.g., Copy code"
+                        className={fieldClass}
+                        placeholder="e.g. Copy code"
                         maxLength={25}
                         required
                       />
                     </div>
                   </div>
                 )}
+              </section>
 
-                {/* Header Format */}
-                {!isAuthentication && (
-                  <div className="mb-6">
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Header Format
-                    </label>
-                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+              {!isAuthentication && (
+                <section className="rounded-[14px] border border-line bg-white p-5 sm:p-6">
+                  <div className="mb-4 flex items-center gap-2.5">
+                    <span className="inline-flex h-6 w-6 items-center justify-center rounded-[7px] bg-ink text-[12px] font-bold text-white">2</span>
+                    <h2 className="text-[15px] font-bold text-ink">Message</h2>
+                  </div>
+
+                  <div>
+                    <label className={labelClass}>Header</label>
+                    <div className="flex flex-wrap gap-1.5">
                       {headerFormats.map(format => (
                         <button
                           key={format.code}
                           type="button"
                           onClick={() => handleHeaderFormatChange(format.code)}
-                          className={`p-2 border rounded-md text-sm text-center ${formData.components.header.format === format.code
-                            ? 'border-indigo-500 bg-indigo-50 text-indigo-700'
-                            : 'border-gray-300 hover:bg-gray-50'
+                          className={`h-8 rounded-[8px] px-3 text-[13px] font-medium ${formData.components.header.format === format.code
+                            ? 'bg-brand-50 text-brand-700'
+                            : 'text-ink-500 hover:bg-[#F6F5FA] hover:text-ink'
                             }`}
                         >
                           {format.name}
@@ -1210,454 +1255,344 @@ function TemplateAdd() {
                       ))}
                     </div>
                   </div>
-                )}
 
-                {/* Header Content based on format */}
-                {!isAuthentication && formData.components.header.format !== 'NONE' && (
-                  <div className="mb-6 p-4 bg-gray-50 rounded-md">
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Header Content ({formData.components.header.format})
-                    </label>
+                  {formData.components.header.format === 'TEXT' && (
+                    <div className="mt-4">
+                      <label className={labelClass}>Header text</label>
+                      <input
+                        type="text"
+                        value={formData.components.header.text}
+                        onChange={(e) => handleHeaderTextChange(e.target.value)}
+                        className={fieldClass}
+                        placeholder="Header text"
+                        maxLength={60}
+                      />
+                      <p className="mt-1.5 text-xs text-ink-400">
+                        {formData.components.header.text.length}/60 characters. Variables are not allowed in header text.
+                      </p>
+                    </div>
+                  )}
 
-                    {formData.components.header.format === 'TEXT' && (
-                      <div className="space-y-3">
-                        <div className="flex justify-between items-center">
-                          <span className="text-sm text-gray-600">Header Text</span>
-                        </div>
-                        <textarea
-                          rows={2}
-                          value={formData.components.header.text}
-                          onChange={(e) => handleHeaderTextChange(e.target.value)}
-                          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                          placeholder="Enter header text (no variables allowed)"
-                          maxLength={60}
-                        />
-                        <p className="text-xs text-gray-500">
-                          {formData.components.header.text.length}/60 characters. Variables are not allowed in header text.
-                        </p>
-                      </div>
-                    )}
-
-                    {(formData.components.header.format === 'IMAGE' || formData.components.header.format === 'VIDEO' || formData.components.header.format === 'DOCUMENT') && (
-                      <div>
-                        {formData.components.header.example.header_handle && formData.components.header.example.header_handle.length > 0 ? (
-                          <div className="flex items-center justify-between p-2 bg-white border rounded-md">
-                            <div className="flex items-center">
-                              <FiPaperclip className="text-gray-500 mr-2" />
-                              <span className="text-sm truncate">
-                                {formData.components.header.example.header_handle[0].split('/').pop()}
-                              </span>
-                            </div>
-                            <button
-                              type="button"
-                              onClick={() => handleHeaderFormatChange('NONE')}
-                              className="text-gray-500 hover:text-gray-700"
-                            >
-                              <FiX />
-                            </button>
+                  {(formData.components.header.format === 'IMAGE' || formData.components.header.format === 'VIDEO' || formData.components.header.format === 'DOCUMENT') && (
+                    <div className="mt-4">
+                      <label className={labelClass}>Header {formData.components.header.format.toLowerCase()}</label>
+                      {formData.components.header.example.header_handle && formData.components.header.example.header_handle.length > 0 ? (
+                        <div className="flex h-[42px] items-center justify-between rounded-[9px] border border-line bg-white px-3">
+                          <div className="flex min-w-0 items-center">
+                            <FiPaperclip className="mr-2 shrink-0 text-ink-400" />
+                            <span className="truncate text-sm text-ink">
+                              {formData.components.header.example.header_handle[0].split('/').pop()}
+                            </span>
                           </div>
-                        ) : (
-                          <label className={`flex flex-col items-center justify-center w-full h-32 border-2 border-dashed border-gray-300 rounded-md ${isUploading ? 'cursor-not-allowed opacity-50' : 'cursor-pointer hover:border-gray-400'}`}>
-                            <div className="flex flex-col items-center justify-center pt-5 pb-6">
-                              {isUploading ? (
-                                <>
-                                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600 mb-2"></div>
-                                  <p className="text-sm text-gray-500">Uploading...</p>
-                                </>
-                              ) : (
-                                <>
-                                  <FiPaperclip className="w-8 h-8 text-gray-400 mb-2" />
-                                  <p className="text-sm text-gray-500">Click to upload {formData.components.header.format.toLowerCase()}</p>
-                                  <p className="text-xs text-gray-400">MAX. 5MB</p>
-                                </>
-                              )}
-                            </div>
-                            <input
-                              type="file"
-                              className="hidden"
-                              onChange={handleHeaderMediaUpload}
-                              disabled={isUploading}
-                              accept={
-                                formData.components.header.format === 'IMAGE' ? 'image/*' :
-                                  formData.components.header.format === 'VIDEO' ? 'video/*' :
-                                    '*'
-                              }
-                            />
-                          </label>
-                        )}
-                      </div>
-                    )}
-                  </div>
-                )}
+                          <button
+                            type="button"
+                            onClick={() => handleHeaderFormatChange('NONE')}
+                            className="text-ink-400 hover:text-ink"
+                            aria-label="Remove header media"
+                          >
+                            <FiX />
+                          </button>
+                        </div>
+                      ) : (
+                        <label className={`flex h-28 w-full flex-col items-center justify-center rounded-[9px] border border-dashed border-line bg-[#FAFAFD] ${isUploading ? 'cursor-not-allowed opacity-60' : 'cursor-pointer hover:border-brand-300'}`}>
+                          <div className="flex flex-col items-center justify-center">
+                            {isUploading ? (
+                              <>
+                                <div className="mb-2 h-6 w-6 animate-spin rounded-full border-2 border-line border-t-brand-600"></div>
+                                <p className="text-sm text-ink-500">Uploading...</p>
+                              </>
+                            ) : (
+                              <>
+                                <FiPaperclip className="mb-2 h-5 w-5 text-ink-400" />
+                                <p className="text-sm text-ink-500">Click to upload {formData.components.header.format.toLowerCase()}</p>
+                                <p className="text-xs text-ink-400">MAX. 5MB</p>
+                              </>
+                            )}
+                          </div>
+                          <input
+                            type="file"
+                            className="hidden"
+                            onChange={handleHeaderMediaUpload}
+                            disabled={isUploading}
+                            accept={
+                              formData.components.header.format === 'IMAGE' ? 'image/*' :
+                                formData.components.header.format === 'VIDEO' ? 'video/*' :
+                                  '*'
+                            }
+                          />
+                        </label>
+                      )}
+                    </div>
+                  )}
 
-                {/* Body Content */}
-                {!isAuthentication && (
-                  <div className="mb-6">
-                    <div className="flex justify-between items-center mb-1">
-                      <label className="block text-sm font-medium text-gray-700">
-                        Body Content <span className="text-red-500">*</span>
-                      </label>
+                  <div className="mt-4">
+                    <div className="mb-1.5 flex items-center justify-between gap-3">
+                      <label className="text-[13px] font-medium text-ink">Body</label>
                       <button
                         type="button"
                         onClick={addBodyVariable}
-                        className="flex items-center gap-1 text-xs bg-indigo-100 text-indigo-700 px-3 py-1.5 rounded-md hover:bg-indigo-200 transition-colors font-medium"
+                        className="inline-flex items-center gap-1 text-[13px] font-semibold text-ink-500 hover:text-ink"
                         title={`Add variable {{${getNextVariableNumber()}}}`}
                       >
-                        <FiPlus size={12} />
-                        Add Variable {`{{${getNextVariableNumber()}}}`}
+                        <FiPlus size={13} />
+                        Add variable
                       </button>
                     </div>
                     <textarea
                       ref={textareaRef}
                       rows={4}
-                      className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-colors ${formData.components.body.text.trim() ? 'border-green-400' : 'border-gray-300'
-                        }`}
+                      className={areaClass}
                       placeholder="Enter your message content here. Use {{1}} for variables."
                       value={formData.components.body.text}
                       onChange={handleBodyInputChange}
                       onKeyDown={handleBodyKeyDown}
                       required
                     ></textarea>
-
-                    {/* Text formatting toolbar */}
-                    <div className="mt-2 flex space-x-2">
-                      <button
-                        type="button"
-                        onClick={() => applyFormatting('bold')}
-                        className="p-1.5 rounded border border-gray-300 hover:bg-gray-100"
-                        title="Bold"
-                      >
-                        <FiBold size={16} />
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => applyFormatting('italic')}
-                        className="p-1.5 rounded border border-gray-300 hover:bg-gray-100"
-                        title="Italic"
-                      >
-                        <FiItalic size={16} />
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => applyFormatting('underline')}
-                        className="p-1.5 rounded border border-gray-300 hover:bg-gray-100"
-                        title="Strikethrough"
-                      >
-                        <FiUnderline size={16} />
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => applyFormatting('code')}
-                        className="p-1.5 rounded border border-gray-300 hover:bg-gray-100"
-                        title="Monospace"
-                      >
-                        <FiCode size={16} />
-                      </button>
+                    <div className="mt-2 flex items-center justify-between gap-3">
+                      <p className="text-xs text-ink-400">{formData.components.body.text.length}/1024 characters</p>
+                      <div className="flex gap-1.5">
+                        <button type="button" onClick={() => applyFormatting('bold')} className="inline-flex h-8 w-8 items-center justify-center rounded-[8px] border border-line text-ink-500 hover:bg-[#F6F5FA] hover:text-ink" title="Bold">
+                          <FiBold size={14} />
+                        </button>
+                        <button type="button" onClick={() => applyFormatting('italic')} className="inline-flex h-8 w-8 items-center justify-center rounded-[8px] border border-line text-ink-500 hover:bg-[#F6F5FA] hover:text-ink" title="Italic">
+                          <FiItalic size={14} />
+                        </button>
+                        <button type="button" onClick={() => applyFormatting('underline')} className="inline-flex h-8 w-8 items-center justify-center rounded-[8px] border border-line text-ink-500 hover:bg-[#F6F5FA] hover:text-ink" title="Strikethrough">
+                          <FiUnderline size={14} />
+                        </button>
+                        <button type="button" onClick={() => applyFormatting('code')} className="inline-flex h-8 w-8 items-center justify-center rounded-[8px] border border-line text-ink-500 hover:bg-[#F6F5FA] hover:text-ink" title="Monospace">
+                          <FiCode size={14} />
+                        </button>
+                      </div>
                     </div>
 
-
-                    {/* Body Variables */}
                     {bodyVariables.length > 0 && (
-                      <div className="mt-3 space-y-3">
+                      <div className="mt-3 space-y-2">
                         {bodyVariables.map((variable, index) => (
-                          <div key={variable.id} className="p-3 bg-gray-50 border border-gray-200 rounded-md hover:border-indigo-300 transition-colors">
-                            <div className="flex justify-between items-center mb-2">
-                              <div className="flex items-center gap-2">
-                                <span className="text-xs font-bold text-indigo-600 bg-indigo-100 px-2 py-0.5 rounded">
-                                  {`{{${index + 1}}}`}
-                                </span>
-                                <span className="text-sm font-medium text-gray-700">
-                                  {variable.name}
-                                </span>
-                              </div>
-                              <button
-                                type="button"
-                                onClick={() => removeBodyVariable(variable.id)}
-                                className="text-red-500 hover:text-red-700 hover:bg-red-50 p-1 rounded transition-colors"
-                                title="Remove variable"
-                              >
-                                <FiTrash2 size={14} />
-                              </button>
-                            </div>
+                          <div key={variable.id} className="flex items-center gap-2">
+                            <span className="w-12 shrink-0 font-mono text-[13px] text-ink-500">{`{{${index + 1}}}`}</span>
                             <input
                               type="text"
-                              placeholder={`Sample value for {{${index + 1}}}`}
-                              className={`w-full px-3 py-2 text-sm border rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-colors ${variable.sample && variable.sample.trim() !== ''
-                                ? 'border-green-400 bg-green-50'
-                                : 'border-gray-300 bg-white'
-                                }`}
+                              placeholder="Sample value"
+                              className={fieldClass}
                               value={variable.sample}
                               onChange={e => updateBodyVariable(variable.id, e.target.value)}
                               required
                             />
-                            <p className="mt-1 text-xs text-gray-500">
-                              This value will replace <span className="font-mono text-indigo-600">{`{{${index + 1}}}`}</span> in the message preview
-                            </p>
+                            <button
+                              type="button"
+                              onClick={() => removeBodyVariable(variable.id)}
+                              className="inline-flex h-[42px] w-[42px] shrink-0 items-center justify-center rounded-[9px] border border-line text-ink-400 hover:text-ink"
+                              title="Remove variable"
+                            >
+                              <FiX size={16} />
+                            </button>
                           </div>
                         ))}
                       </div>
                     )}
                   </div>
-                )}
 
-                {/* Footer */}
-                {!isAuthentication && (
-                  <div className="mb-6">
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Footer Text
-                    </label>
+                  <div className="mt-4">
+                    <label className={labelClass}>Footer (optional)</label>
                     <input
                       type="text"
                       value={formData.components.footer.text}
                       onChange={(e) => handleFooterTextChange(e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                      placeholder="Optional footer text"
+                      className={fieldClass}
+                      placeholder="Footer text"
                       maxLength={60}
                     />
-                    <p className="mt-1 text-xs text-gray-500">
+                    <p className="mt-1.5 text-xs text-ink-400">
                       {formData.components.footer.text.length}/60 characters
                     </p>
                   </div>
-                )}
+                </section>
+              )}
 
-                {/* Buttons */}
-                {!isAuthentication && (
-                  <div className="mb-6">
-                    <div className="flex justify-between items-center mb-2">
-                      <label className="block text-sm font-medium text-gray-700">
-                        Buttons
-                      </label>
-                      <span className="text-sm text-gray-500">
-                        {formData.components.buttons.buttons.length}/3 added
-                      </span>
-                    </div>
+              {!isAuthentication && (
+                <section className="rounded-[14px] border border-line bg-white p-5 sm:p-6">
+                  <div className="mb-4 flex items-center gap-2.5">
+                    <span className="inline-flex h-6 w-6 items-center justify-center rounded-[7px] bg-ink text-[12px] font-bold text-white">3</span>
+                    <h2 className="text-[15px] font-bold text-ink">Buttons</h2>
+                    <span className="text-[13px] font-normal text-ink-400">optional, up to 3</span>
+                  </div>
 
-                    {/* Button selection */}
-                    <div className="grid grid-cols-2 gap-2 mb-4">
-                      {buttonTypes.map(btn => (
-                        <button
-                          key={btn.type}
-                          type="button"
-                          onClick={() => addButton(btn.type)}
-                          disabled={formData.components.buttons.buttons.length >= 3}
-                          className="flex items-center justify-center p-2 border border-gray-300 rounded-md text-sm hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-                        >
-                          <span className="mr-1">{btn.icon}</span>
-                          {btn.label}
-                        </button>
-                      ))}
-                    </div>
-
-                    {/* Added buttons */}
-                    <div className="space-y-3">
-                      {formData.components.buttons.buttons.map((btn, index) => (
-                        <div key={index} className="p-3 border border-gray-200 rounded-md bg-gray-50">
-                          <div className="flex justify-between items-center mb-2">
-                            <span className="text-sm font-medium text-gray-700">
-                              {buttonTypes.find(b => b.type === btn.type)?.label}
-                            </span>
-                            <button
-                              type="button"
-                              onClick={() => removeButton(index)}
-                              className="text-gray-500 hover:text-gray-700"
-                            >
-                              <FiX size={16} />
-                            </button>
-                          </div>
-
-                          {/* Button Text */}
+                  <div className="space-y-3">
+                    {formData.components.buttons.buttons.map((btn, index) => (
+                      <div key={index} className="space-y-2">
+                        <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+                          <span className="inline-flex h-[42px] w-full shrink-0 items-center rounded-[9px] border border-line bg-white px-3 text-[13px] text-ink sm:w-[140px]">
+                            {buttonTypes.find(b => b.type === btn.type)?.label}
+                          </span>
                           <input
                             type="text"
                             placeholder="Button text"
-                            className="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-indigo-500 mb-2"
+                            className={fieldClass}
                             value={btn.text}
                             onChange={e => updateButton(index, 'text', e.target.value)}
                           />
+                          <button
+                            type="button"
+                            onClick={() => removeButton(index)}
+                            className="inline-flex h-[42px] w-[42px] shrink-0 items-center justify-center rounded-[9px] border border-line text-ink-400 hover:text-ink"
+                            aria-label="Remove button"
+                          >
+                            <FiX size={16} />
+                          </button>
+                        </div>
 
-                          {/* Phone Number Button */}
-                          {btn.type === 'PHONE_NUMBER' && (
+                        {btn.type === 'PHONE_NUMBER' && (
+                          <input
+                            type="tel"
+                            placeholder="Phone number (e.g., 917089379345)"
+                            className={fieldClass}
+                            value={btn.phone_number}
+                            onChange={e => updateButton(index, 'phone_number', e.target.value)}
+                          />
+                        )}
+
+                        {btn.type === 'URL' && (
+                          <div className="space-y-2">
                             <input
-                              type="tel"
-                              placeholder="Phone number (e.g., 917089379345)"
-                              className="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-indigo-500"
-                              value={btn.phone_number}
-                              onChange={e => updateButton(index, 'phone_number', e.target.value)}
+                              type="url"
+                              placeholder="URL (e.g., https://example.com/{{1}})"
+                              className={fieldClass}
+                              value={btn.url}
+                              onChange={e => updateButton(index, 'url', e.target.value)}
                             />
-                          )}
-
-                          {/* URL Button */}
-                          {btn.type === 'URL' && (
-                            <div className="space-y-2">
-                              <input
-                                type="url"
-                                placeholder="URL (e.g., https://example.com/{{1}})"
-                                className="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-indigo-500"
-                                value={btn.url}
-                                onChange={e => updateButton(index, 'url', e.target.value)}
-                              />
-                              <div className="flex justify-between items-center">
-                                <span className="text-xs text-gray-600">URL Examples:</span>
+                            <div className="flex items-center justify-between">
+                              <span className="text-xs text-ink-400">URL examples</span>
+                              <button
+                                type="button"
+                                onClick={() => addButtonUrlExample(index)}
+                                className="text-[13px] font-semibold text-brand-700 hover:text-brand-800"
+                              >
+                                + Add example
+                              </button>
+                            </div>
+                            {btn.example?.map((example, exIndex) => (
+                              <div key={exIndex} className="flex gap-2">
+                                <input
+                                  type="url"
+                                  placeholder="Example URL"
+                                  className={fieldClass}
+                                  value={example}
+                                  onChange={e => updateButtonUrlExample(index, exIndex, e.target.value)}
+                                />
                                 <button
                                   type="button"
-                                  onClick={() => addButtonUrlExample(index)}
-                                  className="text-xs bg-green-100 text-green-700 px-2 py-1 rounded hover:bg-green-200"
+                                  onClick={() => removeButtonUrlExample(index, exIndex)}
+                                  className="inline-flex h-[42px] w-[42px] shrink-0 items-center justify-center rounded-[9px] border border-line text-ink-400 hover:text-ink"
+                                  aria-label="Remove example"
                                 >
-                                  + Add Example
+                                  <FiX size={14} />
                                 </button>
                               </div>
-                              {btn.example?.map((example, exIndex) => (
-                                <div key={exIndex} className="flex gap-2">
-                                  <input
-                                    type="url"
-                                    placeholder="Example URL"
-                                    className="flex-1 px-2 py-1 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-indigo-500"
-                                    value={example}
-                                    onChange={e => updateButtonUrlExample(index, exIndex, e.target.value)}
-                                  />
-                                  <button
-                                    type="button"
-                                    onClick={() => removeButtonUrlExample(index, exIndex)}
-                                    className="px-2 text-red-500 hover:text-red-700"
-                                  >
-                                    <FiX size={14} />
-                                  </button>
-                                </div>
-                              ))}
-                            </div>
-                          )}
-
-                          {/* Copy Code Button */}
-                          {/* {btn.type === 'COPY_CODE' && (
-                          <div className="space-y-2">
-                            <p className="text-xs text-gray-600 mb-1">
-                              This button will be converted to OTP format with type "otp" and otp_type "copy_code"
-                            </p>
-                            <input
-                              type="text"
-                              placeholder="Code to copy"
-                              className="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-indigo-500"
-                              value={btn.copy_code}
-                              onChange={e => updateButton(index, 'copy_code', e.target.value)}
-                            />
+                            ))}
                           </div>
-                        )} */}
-                        </div>
-                      ))}
-                    </div>
+                        )}
+                      </div>
+                    ))}
                   </div>
-                )}
 
-                {/* Submit button */}
-                <div className="mt-8">
-                  <button
-                    type="submit"
-                    disabled={isSubmitting || !isFormValid()}
-                    className={`w-full py-3 px-4 rounded-md font-medium transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:cursor-not-allowed ${isFormValid() && !isSubmitting
-                      ? 'bg-indigo-600 text-white hover:bg-indigo-700 shadow-md hover:shadow-lg'
-                      : 'bg-gray-300 text-gray-500 cursor-not-allowed'
-                      }`}
-                  >
-                    {isSubmitting ? (
-                      <span className="flex items-center justify-center">
-                        <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                        </svg>
-                        Submitting...
-                      </span>
-                    ) : (
-                      'Submit Template for Approval'
-                    )}
-                  </button>
-                  {!isFormValid() && (
-                    <p className="mt-2 text-sm text-red-600 text-center">
-                      {isAuthentication
-                        ? 'Please fill in Template Name, Category, Language, and Copy Code button label'
-                        : 'Please fill in all mandatory fields: Template Name, Category, Language, Body Content'}
-                      {!isAuthentication && bodyVariables.length > 0 && bodyVariables.some(v => !v.sample || v.sample.trim() === '') &&
-                        ', and all variable sample values'}
-                      {isAuthentication && authConfig.includeCodeExpiration &&
-                        (Number(authConfig.codeExpirationMinutes) < 1 || Number(authConfig.codeExpirationMinutes) > 90) &&
-                        '. Code expiration must be between 1 and 90 minutes'}
-                    </p>
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    {buttonTypes.map(btn => (
+                      <button
+                        key={btn.type}
+                        type="button"
+                        onClick={() => addButton(btn.type)}
+                        disabled={formData.components.buttons.buttons.length >= 3}
+                        className="inline-flex h-8 items-center gap-1 rounded-[9px] border border-line bg-white px-2.5 text-[13px] font-medium text-ink-500 hover:text-ink disabled:cursor-not-allowed disabled:opacity-40"
+                      >
+                        <FiPlus size={12} />
+                        {btn.label}
+                      </button>
+                    ))}
+                  </div>
+                </section>
+              )}
+            </form>
+
+            <aside className="space-y-4 lg:sticky lg:top-24">
+              <div className="rounded-[14px] border border-line bg-white p-4">
+                <div className="mb-3 flex items-center justify-between">
+                  <h3 className="text-[15px] font-bold text-ink">Preview</h3>
+                  {formData.category && (
+                    <span className="rounded-full bg-brand-50 px-2 py-0.5 text-[11px] font-semibold text-brand-700">
+                      {categories.find((cat) => cat.code === formData.category)?.name || formData.category}
+                    </span>
                   )}
                 </div>
-              </form>
-            </div>
-
-            {/*WhatsApp Preview section */}
-            <div className="lg:col-span-1">
-              <div className="lg:sticky lg:top-24 lg:self-start">
-                <div className="bg-white shadow rounded-lg p-6">
-                  <div className="flex items-center justify-between mb-4">
-                    <h3 className="text-lg font-semibold text-gray-900">Template Preview</h3>
-                    <span className="text-xs font-medium text-green-600 bg-green-50 px-2 py-1 rounded-full">
-                      Live
-                    </span>
-                  </div>
-                  <WhatsAppPreview
-                    formData={formData}
-                    bodyVariables={bodyVariables}
-                    authConfig={authConfig}
-                    darkMode={false}
-                  />
-                </div>
+                <WhatsAppPreview
+                  formData={formData}
+                  bodyVariables={bodyVariables}
+                  authConfig={authConfig}
+                  darkMode={false}
+                />
               </div>
-            </div>
+              <div className="rounded-[14px] border border-line bg-white p-4">
+                <p className="text-[13px] leading-relaxed text-ink-500">
+                  <span className="font-semibold text-ink">Before you submit:</span> give every variable a sample value, and avoid starting or ending the body with a variable. Meta rejects templates that do.
+                </p>
+              </div>
+            </aside>
 
           </div>
         </div>
       </div>
 
       {/* Success Popup Modal */}
-      {showSuccessPopup && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
-            <div className="flex items-center justify-center mb-4">
-              <FiCheckCircle className="text-green-500 text-4xl" />
-            </div>
-            <h3 className="text-lg font-semibold text-gray-900 text-center mb-2">
-              Template Created Successfully!
-            </h3>
-            {successData && (
-              <div className="bg-gray-50 rounded-md p-4 mb-4">
-                <div className="space-y-2 text-sm">
-                  <div className="flex justify-between">
-                    <span className="text-gray-600">Template Name:</span>
-                    <span className="font-medium">{successData.template_name}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-gray-600">Template ID:</span>
-                    <span className="font-medium text-xs">{successData.template_id}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-gray-600">Status:</span>
-                    <span className="font-medium">{successData.status}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-gray-600">Language:</span>
-                    <span className="font-medium">{successData.language_code}</span>
+      <AnimatedModal open={showSuccessPopup}>
+        {showSuccessPopup && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+            <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
+              <div className="flex items-center justify-center mb-4">
+                <FiCheckCircle className="text-green-500 text-4xl" />
+              </div>
+              <h3 className="text-lg font-semibold text-gray-900 text-center mb-2">
+                Template Created Successfully!
+              </h3>
+              {successData && (
+                <div className="bg-gray-50 rounded-md p-4 mb-4">
+                  <div className="space-y-2 text-sm">
+                    <div className="flex justify-between">
+                      <span className="text-gray-600">Template Name:</span>
+                      <span className="font-medium">{successData.template_name}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-gray-600">Template ID:</span>
+                      <span className="font-medium text-xs">{successData.template_id}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-gray-600">Status:</span>
+                      <span className="font-medium">{successData.status}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-gray-600">Language:</span>
+                      <span className="font-medium">{successData.language_code}</span>
+                    </div>
                   </div>
                 </div>
+              )}
+              <div className="flex space-x-3">
+                <button
+                  onClick={closeSuccessPopup}
+                  className="flex-1 px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                >
+                  Stay Here
+                </button>
+                <button
+                  onClick={handleRedirectToTemplates}
+                  className="flex-1 px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                >
+                  Go to Templates
+                </button>
               </div>
-            )}
-            <div className="flex space-x-3">
-              <button
-                onClick={closeSuccessPopup}
-                className="flex-1 px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-              >
-                Stay Here
-              </button>
-              <button
-                onClick={handleRedirectToTemplates}
-                className="flex-1 px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-              >
-                Go to Templates
-              </button>
             </div>
           </div>
-        </div>
-      )}
+        )}
+      </AnimatedModal>
 
       {/* AI Template Modal */}
       <AiTemplateModal
@@ -1672,29 +1607,31 @@ function TemplateAdd() {
       />
 
       {/* Error Message Modal */}
-      {errorMessage && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
-            <div className="flex items-center justify-center mb-4">
-              <FiAlertCircle className="text-red-500 text-4xl" />
-            </div>
-            <h3 className="text-lg font-semibold text-gray-900 text-center mb-2">
-              Template Creation Failed
-            </h3>
-            <div className="bg-red-50 border border-red-200 rounded-md p-4 mb-4">
-              <p className="text-sm text-red-800">{errorMessage}</p>
-            </div>
-            <div className="flex justify-center">
-              <button
-                onClick={clearErrorMessage}
-                className="px-6 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500"
-              >
-                Close
-              </button>
+      <AnimatedModal open={errorMessage}>
+        {errorMessage && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+            <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
+              <div className="flex items-center justify-center mb-4">
+                <FiAlertCircle className="text-red-500 text-4xl" />
+              </div>
+              <h3 className="text-lg font-semibold text-gray-900 text-center mb-2">
+                Template Creation Failed
+              </h3>
+              <div className="bg-red-50 border border-red-200 rounded-md p-4 mb-4">
+                <p className="text-sm text-red-800">{errorMessage}</p>
+              </div>
+              <div className="flex justify-center">
+                <button
+                  onClick={clearErrorMessage}
+                  className="px-6 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500"
+                >
+                  Close
+                </button>
+              </div>
             </div>
           </div>
-        </div>
-      )}
+        )}
+      </AnimatedModal>
     </div>
   );
 }

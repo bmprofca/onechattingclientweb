@@ -1,111 +1,48 @@
 import React, { useState, useEffect } from 'react';
 import {
   Phone, ShieldCheck, ArrowRight, X, Loader2,
-  Radio, Users, Bot, Link2, Zap, LayoutTemplate, BarChart3,
 } from 'lucide-react';
 import { useNavigate, useLocation, Link } from 'react-router-dom';
 import { useDispatch } from 'react-redux';
 import { setAuthData, setSelectedProjectId } from '../store/authSlice';
 import { loginUser, sendOtp } from '../api/auth';
 
-// ---- Design tokens --------------------------------------------------------
-const C = {
-  ink: '#120F26',
-  panelFrom: '#1B1445',
-  panelVia: '#2A1B63',
-  panelTo: '#120F26',
-  brand: '#6C5CE7',
-  brandDark: '#5847D6',
-  mint: '#2FE6B8',
-  amber: '#FFB020',
-  coral: '#FF6B6B',
-  sky: '#5FB3F0',
-  rose: '#F472B6',
-  surfaceSoft: '#F7F6FC',
-  text: '#171426',
-  muted: '#6F6B85',
-  border: '#E7E4F2',
-  danger: '#DC2626',
-  dangerBg: '#FEF2F2',
-  dangerBorder: '#FECACA',
-};
-
-const ORBIT = [
-  { label: 'Broadcast', icon: Radio, color: C.coral, top: 6, left: 50 },
-  { label: 'Team Inbox', icon: Users, color: C.amber, top: 22.5, left: 84.4 },
-  { label: 'Chatbots', icon: Bot, color: C.mint, top: 59.8, left: 92.9 },
-  { label: 'Analytics', icon: BarChart3, color: C.sky, top: 89.6, left: 69.1 },
-  { label: 'Templates', icon: LayoutTemplate, color: C.rose, top: 89.6, left: 30.9 },
-  { label: 'Auto-Replies', icon: Zap, color: C.amber, top: 59.8, left: 7.1 },
-  { label: 'CRM Sync', icon: Link2, color: C.mint, top: 22.5, left: 15.6 },
+const FEATURES = [
+  { step: '1', title: 'Create your account', desc: 'Name, business and mobile number' },
+  { step: '2', title: 'Connect your WhatsApp number', desc: "Through Meta's official sign-up" },
+  { step: '3', title: 'Invite your team and start chatting', desc: 'Shared inbox, templates and campaigns' },
 ];
 
 const Logo = ({ dark }) => (
-  <div className="flex items-center gap-2">
-    <div
-      className="w-9 h-9 rounded-xl flex items-center justify-center relative shrink-0 overflow-hidden"
-      style={{ background: `linear-gradient(135deg, ${C.brand}, ${C.mint})` }}
-    >
-      <img src="/logo.png" alt="OneChatting" className="h-full w-full object-cover" />
-    </div>
-    <span className="text-xl font-bold" style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}>
-      <span style={{ color: dark ? '#fff' : C.text }}>1</span>
-      <span style={{ color: C.brand }}>Chatting</span>
-    </span>
+  <div className="flex items-center gap-2.5">
+    <img src="/logo.png" alt="" className="h-9 w-9 rounded-[10px] object-cover shrink-0" />
+    <span className={`text-lg font-extrabold tracking-tight ${dark ? 'text-white' : 'text-ink'}`}>OneChatting</span>
   </div>
 );
 
-const OrbitPanel = () => (
-  <div className="hidden md:flex md:w-[56%] relative flex-col justify-between p-8 overflow-hidden"
-    style={{ background: `linear-gradient(160deg, ${C.panelFrom} 0%, ${C.panelVia} 55%, ${C.panelTo} 100%)` }}>
-    <style>{`
-      @keyframes ringGrow { 0% { transform: scale(1); opacity:.55 } 100% { transform: scale(6.2); opacity:0 } }
-    `}</style>
-
-    <div className="relative flex-1 flex items-center justify-center">
-      <div className="relative w-full max-w-[300px] aspect-square">
-        <div className="absolute inset-[6%] rounded-full border border-white/10" />
-        <div className="absolute inset-[22%] rounded-full border border-white/10 border-dashed" />
-
-        <div className="absolute inset-0 flex items-center justify-center">
-          <span
-            className="absolute w-16 h-16 rounded-full border"
-            style={{ borderColor: 'rgba(108,92,231,0.45)', animation: 'ringGrow 3.2s ease-out infinite' }}
-          />
-          <span
-            className="absolute w-16 h-16 rounded-full border"
-            style={{ borderColor: 'rgba(47,230,184,0.35)', animation: 'ringGrow 3.2s ease-out infinite 1.1s' }}
-          />
-          <div
-            className="relative w-[76px] h-[76px] rounded-full flex items-center justify-center shadow-lg"
-            style={{ background: '#fff', boxShadow: '0 12px 30px -8px rgba(108,92,231,0.55)' }}
-          >
-            <div className="w-11 h-11 rounded-2xl flex items-center justify-center overflow-hidden"
-              style={{ background: `linear-gradient(135deg, ${C.brand}, ${C.mint})` }}>
-              <img src="/logo.png" alt="" className="h-full w-full object-cover" />
-            </div>
-          </div>
-        </div>
-
-        {ORBIT.map(({ label, icon: Icon, color, top, left }) => (
-          <div
-            key={label}
-            className="absolute flex items-center gap-1.5 pl-1.5 pr-3 py-1.5 rounded-full text-[11px] font-semibold text-white whitespace-nowrap"
-            style={{
-              top: `${top}%`, left: `${left}%`, transform: 'translate(-50%, -50%)',
-              background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.12)',
-              backdropFilter: 'blur(2px)', fontFamily: "'Inter', sans-serif",
-            }}
-          >
-            <span className="w-5 h-5 rounded-full flex items-center justify-center shrink-0" style={{ background: color }}>
-              <Icon className="w-3 h-3 text-[#120F26]" strokeWidth={2.6} />
+const BrandPanel = () => (
+  <section aria-label="About OneChatting" className="hidden md:flex md:w-1/2 flex-col gap-10 bg-ink-900 text-white px-10 lg:px-14 py-12">
+    <Logo dark />
+    <div className="flex-1 flex flex-col justify-center gap-7 max-w-[520px]">
+      <h1 className="text-[34px] lg:text-[40px] leading-[1.12] font-extrabold tracking-[-0.03em]">
+        Set up your WhatsApp workspace in a few minutes.
+      </h1>
+      <ol className="flex flex-col gap-5">
+        {FEATURES.map(({ step, title, desc }) => (
+          <li key={step} className="flex gap-3.5 items-start">
+            <span className="flex h-7 w-7 flex-none items-center justify-center rounded-full bg-[#2A2450] text-[13px] font-bold text-[#C4BAFF]">
+              {step}
             </span>
-            {label}
-          </div>
+            <span>
+              <span className="block text-sm font-bold">{title}</span>
+              <span className="block text-[13px] text-[#A9A4C2] mt-0.5">{desc}</span>
+            </span>
+          </li>
         ))}
-      </div>
+      </ol>
     </div>
-  </div>
+    <p className="text-xs text-[#8F8AAB]">Built on the official WhatsApp Business Platform (Cloud API)</p>
+  </section>
 );
 
 const Login = () => {
@@ -248,130 +185,92 @@ const Login = () => {
   };
 
   return (
-    <div className="min-h-screen w-full flex items-center justify-center p-4" style={{ background: C.surfaceSoft }}>
-      <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@500;600;700;800&family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@500;600&display=swap');
-        @keyframes stepIn { from { opacity:0; transform: translateX(10px) } to { opacity:1; transform: translateX(0) } }
-        .step-in { animation: stepIn .25s ease-out both; }
-      `}</style>
-
-      <div
-        className="w-full max-w-[1200px] min-h-[600px] rounded-2xl overflow-hidden flex flex-col md:flex-row"
-        style={{ background: '#fff', border: `1px solid ${C.border}`, boxShadow: '0 30px 80px -24px rgba(18,15,38,0.18)', fontFamily: "'Inter', sans-serif" }}
-      >
-        <OrbitPanel />
-
-        {/* Form panel */}
-        <div className="w-full md:w-[44%] flex flex-col justify-center p-6 md:p-10">
-          <div className="mb-7"><Logo /></div>
-
-          <h2 className="text-2xl font-bold" style={{ color: C.text, fontFamily: "'Plus Jakarta Sans', sans-serif" }}>
-            Good to see you again
-          </h2>
-          <p className="text-sm mt-1" style={{ color: C.muted }}>
-            {step === 1 ? "We'll text a one-time code to your business number." : `Enter the code sent to +91 ${formData.mobile}`}
-          </p>
+    <div className="oc-force-light min-h-screen w-full flex bg-white font-sans text-ink">
+      <BrandPanel />
+      <main className="w-full md:w-1/2 flex items-center justify-center px-6 py-12">
+        <div className="w-full max-w-[400px] flex flex-col gap-7">
+          <div className="md:hidden"><Logo /></div>
+          <div>
+            <h2 className="text-[28px] font-extrabold tracking-tight">Sign in</h2>
+            <p className="mt-2 text-sm leading-relaxed text-ink-500">
+              {step === 1
+                ? "We'll send a one-time code to your business mobile number."
+                : <>Enter the 6-digit code sent to <strong className="text-ink font-semibold">+91 {formData.mobile}</strong></>}
+            </p>
+          </div>
 
           {showGlobalError && errors.global && (
-            <div
-              className="mt-4 p-3 rounded-xl text-sm flex items-center justify-between step-in"
-              style={{ background: C.dangerBg, border: `1px solid ${C.dangerBorder}`, color: C.danger }}
-            >
+            <div role="alert" className="flex items-start justify-between gap-3 rounded-[10px] border border-red-200 bg-red-50 px-3.5 py-3 text-sm text-red-700">
               <span>{errors.global}</span>
-              <button onClick={dismissGlobalError} aria-label="Dismiss"><X className="w-4 h-4" /></button>
+              <button type="button" onClick={dismissGlobalError} aria-label="Dismiss" className="text-red-700/70 hover:text-red-800"><X className="w-4 h-4" /></button>
             </div>
           )}
 
-          <form onSubmit={handleSubmit} className="mt-6 space-y-5">
+          <form onSubmit={handleSubmit} className="flex flex-col gap-5" noValidate>
             {step === 1 ? (
-              <div key="mobile" className="step-in">
-                <label htmlFor="mobile" className="block text-sm font-medium mb-1.5" style={{ color: C.text }}>
-                  Business phone number <span style={{ color: C.danger }}>*</span>
-                </label>
-                <div className="relative flex items-center">
-                  <span
-                    className="absolute left-3.5 flex items-center gap-1.5 pr-2.5 text-sm"
-                    style={{ color: C.muted, borderRight: `1px solid ${C.border}` }}
-                  >
-                    <Phone className="w-4 h-4" /> +91
+              <div key="mobile">
+                <label htmlFor="mobile" className="oc-label">Business mobile number</label>
+                <div className={`flex items-center h-[50px] rounded-[10px] border bg-white overflow-hidden transition-shadow focus-within:border-brand-600 focus-within:ring-[3px] focus-within:ring-brand-600/20 ${errors.mobile ? 'border-red-300' : 'border-line-strong'}`}>
+                  <span className="flex items-center gap-1.5 h-full px-3.5 border-r border-[#ECEAF3] bg-surface-soft text-sm font-semibold text-ink-700">
+                    <Phone className="w-4 h-4 text-ink-400" /> +91
                   </span>
                   <input
-                    type="tel" id="mobile" name="mobile" autoFocus value={formData.mobile} onChange={handleChange}
+                    type="tel" id="mobile" name="mobile" autoFocus inputMode="numeric" autoComplete="tel-national"
+                    value={formData.mobile} onChange={handleChange}
                     placeholder="98765 43210" maxLength={10}
-                    className="w-full pl-24 pr-4 py-3.5 rounded-xl text-sm focus:outline-none transition-all"
-                    style={{
-                      background: C.surfaceSoft, border: `1px solid ${errors.mobile ? '#FCA5A5' : C.border}`,
-                      color: C.text,
-                    }}
-                    onFocus={(e) => (e.target.style.boxShadow = `0 0 0 3px ${C.brand}22`, e.target.style.borderColor = C.brand)}
-                    onBlur={(e) => (e.target.style.boxShadow = 'none', e.target.style.borderColor = errors.mobile ? '#FCA5A5' : C.border)}
+                    aria-invalid={Boolean(errors.mobile)} aria-describedby={errors.mobile ? 'mobile-error' : undefined}
+                    className="flex-1 h-full px-3.5 bg-transparent outline-none font-mono text-[15px] text-ink placeholder:text-ink-400"
                   />
                 </div>
-                {errors.mobile && <p className="text-xs mt-1.5" style={{ color: C.danger }}>{errors.mobile}</p>}
+                {errors.mobile && <p id="mobile-error" className="mt-1.5 text-xs text-red-700">{errors.mobile}</p>}
               </div>
             ) : (
-              <div key="otp" className="step-in">
-                <label htmlFor="otp" className="block text-sm font-medium mb-1.5" style={{ color: C.text }}>
-                  Verification code <span style={{ color: C.danger }}>*</span>
-                </label>
-                <div className="relative">
-                  <ShieldCheck className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4" style={{ color: C.muted }} />
+              <div key="otp">
+                <label htmlFor="otp" className="oc-label">Verification code</label>
+                <div className={`flex items-center h-[54px] rounded-[10px] border bg-white transition-shadow focus-within:border-brand-600 focus-within:ring-[3px] focus-within:ring-brand-600/20 ${errors.otp ? 'border-red-300' : 'border-line-strong'}`}>
+                  <ShieldCheck className="ml-3.5 w-4 h-4 text-ink-400 flex-none" />
                   <input
-                    type="text" id="otp" name="otp" autoFocus inputMode="numeric" value={formData.otp} onChange={handleChange}
+                    type="text" id="otp" name="otp" autoFocus inputMode="numeric" autoComplete="one-time-code"
+                    value={formData.otp} onChange={handleChange}
                     placeholder="000000" maxLength={6}
-                    className="w-full pl-11 pr-4 py-3.5 rounded-xl text-sm tracking-[0.4em] focus:outline-none transition-all"
-                    style={{
-                      background: C.surfaceSoft, border: `1px solid ${errors.otp ? '#FCA5A5' : C.border}`,
-                      color: C.text, fontFamily: "'IBM Plex Mono', monospace",
-                    }}
-                    onFocus={(e) => (e.target.style.boxShadow = `0 0 0 3px ${C.brand}22`, e.target.style.borderColor = C.brand)}
-                    onBlur={(e) => (e.target.style.boxShadow = 'none', e.target.style.borderColor = errors.otp ? '#FCA5A5' : C.border)}
+                    aria-invalid={Boolean(errors.otp)} aria-describedby={errors.otp ? 'otp-error' : undefined}
+                    className="flex-1 h-full px-3 bg-transparent outline-none font-mono text-xl font-semibold tracking-[0.5em] text-ink placeholder:text-ink-400/60"
                   />
                 </div>
-                {errors.otp && <p className="text-xs mt-1.5" style={{ color: C.danger }}>{errors.otp}</p>}
-                <button
-                  type="button" onClick={() => setStep(1)}
-                  className="text-sm font-medium mt-2"
-                  style={{ color: C.brand }}
-                >
-                  ← Use a different number
-                </button>
+                {errors.otp && <p id="otp-error" className="mt-1.5 text-xs text-red-700">{errors.otp}</p>}
+                <div className="mt-2.5 flex justify-end">
+                  <button type="button" onClick={() => setStep(1)} className="text-[13px] font-semibold text-brand-800 hover:text-brand-900">
+                    Change number
+                  </button>
+                </div>
               </div>
             )}
 
             <button
               type="submit" disabled={isLoading}
-              className="w-full py-3.5 rounded-xl text-sm font-semibold text-white transition-all flex items-center justify-center gap-2"
-              style={{ background: isLoading ? C.brandDark : C.brand, opacity: isLoading ? 0.85 : 1, cursor: isLoading ? 'not-allowed' : 'pointer' }}
+              className="h-[50px] w-full rounded-[10px] bg-brand-600 text-white text-[15px] font-bold flex items-center justify-center gap-2 transition-colors hover:bg-brand-700 disabled:opacity-80 disabled:cursor-not-allowed"
             >
               {isLoading ? (
                 <><Loader2 className="w-4 h-4 animate-spin" /> {step === 1 ? 'Sending code…' : 'Verifying…'}</>
               ) : (
-                <>{step === 1 ? 'Send code' : 'Verify & sign in'} <ArrowRight className="w-4 h-4" /></>
+                <>{step === 1 ? 'Send code' : 'Verify and sign in'} <ArrowRight className="w-4 h-4" /></>
               )}
             </button>
           </form>
 
-          <p className="mt-5 text-center text-sm" style={{ color: C.muted }}>
+          <div className="h-px bg-[#ECEAF3]" />
+          <p className="text-center text-sm text-ink-500">
             New to OneChatting?{' '}
-            <Link to="/register" className="font-medium" style={{ color: C.brand }}>
-              Register
-            </Link>
+            <Link to="/register" className="font-bold text-brand-800 hover:text-brand-900">Create an account</Link>
           </p>
         </div>
-      </div>
-
+      </main>
       {toastMsg && (
-        <div
-          className="fixed bottom-6 left-1/2 -translate-x-1/2 px-4 py-2.5 rounded-xl text-sm text-white shadow-lg step-in"
-          style={{ background: C.ink }}
-        >
+        <div role="status" className="fixed bottom-6 left-1/2 -translate-x-1/2 px-4 py-2.5 rounded-[10px] text-sm font-medium text-white bg-ink shadow-pop">
           {toastMsg}
         </div>
       )}
-
     </div>
   );
 };
-
 export default Login;

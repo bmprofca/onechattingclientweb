@@ -4,6 +4,7 @@ import { FiGitBranch, FiPlus, FiEdit3, FiPower, FiRefreshCw, FiTrash2, FiX } fro
 import toast from 'react-hot-toast';
 import { getFlowStatus, listFlows, deleteFlows } from '../../api/flowBuilder';
 
+import AnimatedModal from '../../component/Modals/AnimatedModal';
 export default function FlowList() {
   const [minimized, setMinimized] = useState(() => JSON.parse(localStorage.getItem('sidebarMinimized') || 'false'));
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -76,14 +77,14 @@ export default function FlowList() {
   const selectedCount = selected.size;
 
   return (
-    <div className="min-h-screen bg-[#f4f6fb] dark:bg-gray-900">
+    <div className="min-h-screen bg-surface-ground dark:bg-gray-900">
       <Header mobileMenuOpen={mobileMenuOpen} setMobileMenuOpen={setMobileMenuOpen} isMinimized={minimized} setIsMinimized={setMinimized} />
       <Sidebar mobileMenuOpen={mobileMenuOpen} setMobileMenuOpen={setMobileMenuOpen} isMinimized={minimized} setIsMinimized={setMinimized} />
       <main className={`pt-16 transition-all ${minimized ? 'md:pl-20' : 'md:pl-[260px]'}`}>
-        <div className="w-full px-4 py-5">
+        <div className="w-full max-w-[1320px] px-4 sm:px-7 py-7">
           <div className="mb-5 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
             <div>
-              <h1 className="text-2xl font-semibold tracking-tight text-slate-900 dark:text-white flex items-center gap-2"><FiGitBranch className="text-indigo-600" /> Flow Library</h1>
+              <h1 className="text-[26px] leading-tight font-extrabold tracking-tight text-ink dark:text-white flex items-center gap-2"><FiGitBranch className="text-indigo-600" /> Flow Library</h1>
               <p className="text-sm text-slate-500 mt-1">All conversation flows for the selected project.</p>
             </div>
             <div className="flex gap-2">
@@ -151,27 +152,29 @@ export default function FlowList() {
         </div>
       </main>
 
-      {confirmTarget && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-          <div className="bg-white rounded-2xl shadow-lg max-w-sm w-full p-6">
-            <div className="flex justify-between items-start mb-3">
-              <h3 className="text-lg font-semibold text-slate-900">Delete {confirmTarget.mode === 'bulk' ? 'flows' : 'flow'}?</h3>
-              <button onClick={() => setConfirmTarget(null)} className="text-slate-400 hover:text-slate-600"><FiX /></button>
-            </div>
-            <p className="text-sm text-slate-600 mb-6">
-              {confirmTarget.mode === 'bulk'
-                ? `This will permanently delete ${confirmTarget.label}. This action cannot be undone.`
-                : `This will permanently delete "${confirmTarget.label}". This action cannot be undone.`}
-            </p>
-            <div className="flex justify-end gap-2">
-              <button onClick={() => setConfirmTarget(null)} disabled={deleting} className="px-4 py-2 rounded-lg text-sm font-medium text-slate-600 hover:bg-slate-100">Cancel</button>
-              <button onClick={runDelete} disabled={deleting} className="px-4 py-2 rounded-lg text-sm font-medium bg-rose-600 text-white hover:bg-rose-700 disabled:opacity-50">
-                {deleting ? 'Deleting...' : 'Delete'}
-              </button>
+      <AnimatedModal open={confirmTarget}>
+        {confirmTarget && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+            <div className="bg-white rounded-2xl shadow-lg max-w-sm w-full p-6">
+              <div className="flex justify-between items-start mb-3">
+                <h3 className="text-lg font-semibold text-slate-900">Delete {confirmTarget.mode === 'bulk' ? 'flows' : 'flow'}?</h3>
+                <button onClick={() => setConfirmTarget(null)} className="text-slate-400 hover:text-slate-600"><FiX /></button>
+              </div>
+              <p className="text-sm text-slate-600 mb-6">
+                {confirmTarget.mode === 'bulk'
+                  ? `This will permanently delete ${confirmTarget.label}. This action cannot be undone.`
+                  : `This will permanently delete "${confirmTarget.label}". This action cannot be undone.`}
+              </p>
+              <div className="flex justify-end gap-2">
+                <button onClick={() => setConfirmTarget(null)} disabled={deleting} className="px-4 py-2 rounded-lg text-sm font-medium text-slate-600 hover:bg-slate-100">Cancel</button>
+                <button onClick={runDelete} disabled={deleting} className="px-4 py-2 rounded-lg text-sm font-medium bg-rose-600 text-white hover:bg-rose-700 disabled:opacity-50">
+                  {deleting ? 'Deleting...' : 'Delete'}
+                </button>
+              </div>
             </div>
           </div>
-        </div>
-      )}
+        )}
+      </AnimatedModal>
     </div>
   );
 }

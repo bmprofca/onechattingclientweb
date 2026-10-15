@@ -1,9 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { FiCheck, FiCreditCard, FiX, FiDollarSign, FiEye } from 'react-icons/fi';
-import RowActionMenu from '../component/table/RowActionMenu';
+import { FiCheck, FiCreditCard, FiX, FiDollarSign } from 'react-icons/fi';
 import RecordDetailsModal from '../component/table/RecordDetailsModal';
-import { TableSkeletonRows } from '../component/table/TableSkeleton';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Header, Sidebar } from '../component/Menu';
 import Pagination from '../component/Pagination';
@@ -79,6 +77,7 @@ function MySubscription() {
     const [projectPageSize, setProjectPageSize] = useState(20);
     // Selected projects for renewal: { [project_id]: 'monthly' | 'yearly' }
     const [selectedForRenewal, setSelectedForRenewal] = useState({});
+    const [billingDefault, setBillingDefault] = useState('monthly');
     const [loading, setLoading] = useState(true);
     const [projectDetail, setProjectDetail] = useState(null);
     const [processing, setProcessing] = useState(false);
@@ -197,7 +196,7 @@ function MySubscription() {
             setSelectedForRenewal({});
         } else {
             setSelectedForRenewal(
-                packageRecord.reduce((acc, r) => ({ ...acc, [r.project_id]: 'monthly' }), {})
+                packageRecord.reduce((acc, r) => ({ ...acc, [r.project_id]: billingDefault }), {})
             );
         }
     };
@@ -296,7 +295,7 @@ function MySubscription() {
     };
 
     return (
-        <div className="min-h-screen bg-[#f4f6fb]">
+        <div className="min-h-screen bg-surface-ground">
             <Header
                 mobileMenuOpen={mobileMenuOpen}
                 setMobileMenuOpen={setMobileMenuOpen}
@@ -312,242 +311,210 @@ function MySubscription() {
 
             {/* Main content */}
             <div className={`pt-16 transition-all duration-300 ease-in-out ${isMinimized ? 'md:pl-20' : 'md:pl-[260px]'}`}>
-                <div className="w-full px-4 py-5">
-                    {/* Page header */}
+                <div className="w-full max-w-[1320px] px-4 sm:px-7 py-7">
                     <div className="mb-6">
-                        <h1 className="text-2xl font-semibold tracking-tight text-slate-900 dark:text-white">My Subscription</h1>
-                        <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">Plans are per project. View package pricing and project validity below.</p>
+                        <h1 className="oc-page-title">My subscription</h1>
+                        <p className="oc-page-sub">Renew projects from your wallet balance.</p>
                     </div>
-
+                    <div>
                     {loading ? (
-                        <div className="space-y-6">
-                            <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl p-6 animate-pulse">
-                                <div className="h-6 bg-gray-200 dark:bg-gray-600 rounded w-1/3 mb-4"></div>
-                                <div className="grid grid-cols-2 gap-4">
-                                    <div className="h-24 bg-gray-200 dark:bg-gray-600 rounded-lg"></div>
-                                    <div className="h-24 bg-gray-200 dark:bg-gray-600 rounded-lg"></div>
-                                </div>
-                            </div>
-                            <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl overflow-hidden">
-                                <table className="w-full">
-                                    <thead>
-                                        <tr>
-                                            {['#', '', 'Project', 'Billing', 'Cost', 'Status', 'Valid until', ''].map((label, index) => (
-                                                <th key={`${label}-${index}`} className="px-4 py-3 text-left text-xs font-semibold text-gray-500">{label}</th>
-                                            ))}
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        <TableSkeletonRows rows={5} cells={['index', 'short', 'text', 'short', 'short', 'badge', 'short', 'action']} />
-                                    </tbody>
-                                </table>
-                            </div>
+                        <div className="oc-card p-6 animate-pulse space-y-3">
+                            <div className="h-5 bg-[#F0EEF6] rounded w-1/3" />
+                            <div className="h-16 bg-[#F0EEF6] rounded-[12px]" />
+                            <div className="h-16 bg-[#F0EEF6] rounded-[12px]" />
                         </div>
                     ) : (
                         <>
-                            {/* Package pricing - no tab, show both */}
-                            {subscriptionPackage && (
-                                <div className="mb-6">
-                                    <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-3">Subscription Package</h2>
-                                    <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">Select projects below and choose Monthly or Yearly per project.</p>
-                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                                        <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl p-5">
-                                            <div className="text-sm text-gray-500 dark:text-gray-400 mb-1">Monthly</div>
-                                            <div className="text-2xl font-bold text-gray-900 dark:text-white">
-                                                ₹{subscriptionPackage.monthly?.amount ? Number(subscriptionPackage.monthly.amount).toLocaleString() : '0'}
+                            {(() => {
+                                const summary = getSelectedSummary();
+                                const selectedCount = summary.length;
+                                const total = getTotalAmount();
+                                const cycles = [...new Set(summary.map((item) => item.billingCycle))];
+                                const uniformCycle = cycles.length === 1 ? cycles[0] : null;
+                                const billingLabel = uniformCycle === 'yearly' ? 'Yearly' : uniformCycle === 'monthly' ? 'Monthly' : (cycles.length > 1 ? 'Mixed' : (billingDefault === 'yearly' ? 'Yearly' : 'Monthly'));
+                                const amounts = [...new Set(summary.map((item) => item.amount))];
+                                const unitAmount = selectedCount === 0
+                                    ? getAmountForCycle(billingDefault)
+                                    : (amounts.length === 1 ? amounts[0] : null);
+                                let walletBalance = null;
+                                try {
+                                    const stored = JSON.parse(localStorage.getItem('userData') || 'null');
+                                    if (stored && stored.balance != null && stored.balance !== '') {
+                                        const parsedBalance = Number(stored.balance);
+                                        walletBalance = Number.isFinite(parsedBalance) ? parsedBalance : null;
+                                    }
+                                } catch (_) {}
+                                const money = (value) => `₹${Number(value || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+                                const applyCycle = (cycle) => {
+                                    setBillingDefault(cycle);
+                                    setSelectedForRenewal((prev) => {
+                                        const next = { ...prev };
+                                        Object.keys(next).forEach((id) => { next[id] = cycle; });
+                                        return next;
+                                    });
+                                };
+                                const statusFor = (record) => {
+                                    if (!record.has_package_record) return { label: 'No plan', className: 'bg-[#F3F2FA] text-ink-500' };
+                                    const days = getDaysLeft(record.end_date);
+                                    if (days != null && days < 0) return { label: 'Expired', className: 'bg-red-50 text-red-600' };
+                                    if (days != null && days <= 30) return { label: 'Expires soon', className: 'bg-amber-50 text-amber-700' };
+                                    return { label: 'Active', className: 'bg-emerald-50 text-emerald-700' };
+                                };
+                                return (
+                                    <div className="grid grid-cols-1 xl:grid-cols-[minmax(0,1fr)_300px] gap-4 items-start">
+                                        <section className="oc-card p-4 sm:p-5">
+                                            <div className="flex items-center justify-between gap-3 mb-4">
+                                                <h2 className="text-[15px] font-bold text-ink">Select projects to renew</h2>
+                                                <div className="inline-flex rounded-[9px] border border-line bg-[#F6F5FA] p-0.5">
+                                                    {['monthly', 'yearly'].map((cycle) => (
+                                                        <button
+                                                            key={cycle}
+                                                            type="button"
+                                                            onClick={() => applyCycle(cycle)}
+                                                            className={`h-7 px-3 rounded-[7px] text-xs font-semibold ${uniformCycle === cycle || (selectedCount === 0 && billingDefault === cycle) ? 'bg-white text-ink shadow-sm' : 'text-ink-500'}`}
+                                                        >
+                                                            {cycle === 'monthly' ? 'Monthly' : 'Yearly'}
+                                                        </button>
+                                                    ))}
+                                                </div>
                                             </div>
-                                            <div className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">per project</div>
-                                        </div>
-                                        <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl p-5">
-                                            <div className="text-sm text-gray-500 dark:text-gray-400 mb-1">Yearly</div>
-                                            <div className="text-2xl font-bold text-gray-900 dark:text-white">
-                                                ₹{subscriptionPackage.yearly?.amount ? Number(subscriptionPackage.yearly.amount).toLocaleString() : '0'}
-                                            </div>
-                                            <div className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">per project</div>
-                                        </div>
-                                    </div>
-                                </div>
-                            )}
-
-                            {/* Project subscription status (package_record) - with checkbox and per-project billing */}
-                            <div className="mb-6">
-                                <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-3">Select projects for renewal</h2>
-                                <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl overflow-hidden shadow-sm">
-                                    <div className="overflow-x-auto">
-                                        <table className="w-full min-w-[640px]">
-                                            <thead>
-                                                <tr className="border-b border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-700/60">
-                                                    <th className="w-12 pl-5 pr-2 py-3.5 text-center text-xs font-semibold text-gray-600 dark:text-gray-300 uppercase tracking-wider">#</th>
-                                                    <th className="w-14 pl-5 pr-3 py-3.5 text-left">
-                                                        <div className="flex items-center gap-2">
-                                                            <AnimatedCheckbox
-                                                                checked={allSelected}
-                                                                indeterminate={someSelected && !allSelected}
-                                                                onChange={(checked) => {
-                                                                    if (checked) setSelectedForRenewal(packageRecord.reduce((acc, r) => ({ ...acc, [r.project_id]: 'monthly' }), {}));
-                                                                    else setSelectedForRenewal({});
-                                                                }}
-                                                                aria-label="All projects"
-                                                            />
-                                                        </div>
-                                                    </th>
-                                                    <th className="text-left px-4 py-3.5 text-xs font-semibold text-gray-600 dark:text-gray-300 uppercase tracking-wider">Project</th>
-                                                    <th className="text-left px-4 py-3.5 text-xs font-semibold text-gray-600 dark:text-gray-300 uppercase tracking-wider">Billing</th>
-                                                    <th className="text-left px-4 py-3.5 text-xs font-semibold text-gray-600 dark:text-gray-300 uppercase tracking-wider">Renewal cost</th>
-                                                    <th className="text-left px-4 py-3.5 text-xs font-semibold text-gray-600 dark:text-gray-300 uppercase tracking-wider">Status</th>
-                                                    <th className="text-left px-4 py-3.5 pr-5 text-xs font-semibold text-gray-600 dark:text-gray-300 uppercase tracking-wider">Valid until</th>
-                                                    <th className="w-16 px-3 py-3.5 text-right text-xs font-semibold text-gray-600 dark:text-gray-300 uppercase tracking-wider">Actions</th>
-                                                </tr>
-                                            </thead>
-                                            <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
+                                            {packageRecord.length > 0 && (
+                                                <div className="mb-3 flex items-center gap-2">
+                                                    <AnimatedCheckbox
+                                                        checked={allSelected}
+                                                        indeterminate={someSelected && !allSelected}
+                                                        onChange={() => handleSelectAll()}
+                                                        aria-label="All projects"
+                                                    />
+                                                    <span className="text-sm text-ink-500">All projects</span>
+                                                </div>
+                                            )}
+                                            <div className="space-y-2.5">
                                                 {packageRecord.length === 0 ? (
-                                                    <tr>
-                                                        <td colSpan={8} className="px-5 py-10 text-center text-sm text-gray-500 dark:text-gray-400">
-                                                            No projects found
-                                                        </td>
-                                                    </tr>
-                                                ) : (
-                                                    pagedProjects.map((record, index) => {
-                                                        const isSelected = !!selectedForRenewal[record.project_id];
-                                                        const cycle = selectedForRenewal[record.project_id] || 'monthly';
-                                                        const renewalAmount = getAmountForCycle(cycle);
-                                                        const expired = record.has_package_record && record.end_date && isValidityExpired(record.end_date);
-                                                        return (
-                                                            <tr
-                                                                key={record.project_id}
-                                                                className="bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700/40 transition-colors"
-                                                            >
-                                                                <td className="pl-5 pr-2 py-3 text-center text-sm text-gray-500 dark:text-gray-400">{(safeProjectPage - 1) * projectPageSize + index + 1}</td>
-                                                                <td className="pl-5 pr-3 py-3 align-middle">
-                                                                    <AnimatedCheckbox
-                                                                        checked={isSelected}
-                                                                        indeterminate={false}
-                                                                        onChange={(checked) => {
-                                                                            if (checked) setSelectedForRenewal((prev) => ({ ...prev, [record.project_id]: 'monthly' }));
-                                                                            else setSelectedForRenewal((prev) => {
-                                                                                const next = { ...prev };
-                                                                                delete next[record.project_id];
-                                                                                return next;
-                                                                            });
-                                                                        }}
-                                                                        aria-label={`Select ${record.project_name || record.project_id}`}
-                                                                    />
-                                                                </td>
-                                                                <td className="px-4 py-3 text-sm font-medium text-gray-900 dark:text-white">{record.project_name || record.project_id}</td>
-                                                                <td className="px-4 py-3">
-                                                                    <div className="inline-flex rounded-lg border border-gray-200 dark:border-gray-600 p-0.5 bg-gray-100 dark:bg-gray-700/50">
-                                                                        <button
-                                                                            type="button"
-                                                                            onClick={() => isSelected && setProjectBillingCycle(record.project_id, 'monthly')}
-                                                                            disabled={!isSelected}
-                                                                            className={`px-3 py-1.5 text-sm font-medium rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${cycle === 'monthly'
-                                                                                ? 'bg-white dark:bg-gray-800 text-indigo-600 dark:text-indigo-400 shadow-sm border border-gray-200 dark:border-gray-600'
-                                                                                : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white disabled:hover:text-gray-600'
-                                                                                }`}
-                                                                        >
-                                                                            Monthly
-                                                                        </button>
-                                                                        <button
-                                                                            type="button"
-                                                                            onClick={() => isSelected && setProjectBillingCycle(record.project_id, 'yearly')}
-                                                                            disabled={!isSelected}
-                                                                            className={`px-3 py-1.5 text-sm font-medium rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${cycle === 'yearly'
-                                                                                ? 'bg-white dark:bg-gray-800 text-indigo-600 dark:text-indigo-400 shadow-sm border border-gray-200 dark:border-gray-600'
-                                                                                : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white disabled:hover:text-gray-600'
-                                                                                }`}
-                                                                        >
-                                                                            Yearly
-                                                                        </button>
+                                                    <p className="py-8 text-center text-sm text-ink-500">No projects found</p>
+                                                ) : pagedProjects.map((record) => {
+                                                    const isSelected = !!selectedForRenewal[record.project_id];
+                                                    const cycle = selectedForRenewal[record.project_id] || billingDefault;
+                                                    const status = statusFor(record);
+                                                    const validLabel = record.has_package_record && record.end_date ? formatDate(record.end_date) : '';
+                                                    return (
+                                                        <div key={record.project_id} className={`rounded-[12px] border p-3.5 ${isSelected ? 'border-brand-600 bg-brand-50' : 'border-line bg-white'}`}>
+                                                            <div className="flex items-start gap-3">
+                                                                <AnimatedCheckbox
+                                                                    checked={isSelected}
+                                                                    indeterminate={false}
+                                                                    onChange={() => toggleProjectSelection(record.project_id, billingDefault)}
+                                                                    aria-label={`Select ${record.project_name || record.project_id}`}
+                                                                />
+                                                                <div className="min-w-0 flex-1">
+                                                                    <div className="flex items-start justify-between gap-3">
+                                                                        <div className="min-w-0">
+                                                                            <p className="text-sm font-semibold text-ink truncate">{record.project_name || record.project_id}</p>
+                                                                            {validLabel && validLabel !== '—' && (
+                                                                                <p className="mt-0.5 text-xs text-ink-500">Valid until {validLabel}</p>
+                                                                            )}
+                                                                        </div>
+                                                                        <span className={`oc-badge ${status.className}`}>{status.label}</span>
                                                                     </div>
-                                                                </td>
-                                                                <td className="px-4 py-3 text-sm font-medium text-gray-900 dark:text-white">
-                                                                    {isSelected ? (
-                                                                        <span className="text-indigo-600 dark:text-indigo-400">₹{renewalAmount.toLocaleString()}</span>
-                                                                    ) : (
-                                                                        <span className="text-gray-400 dark:text-gray-500">—</span>
-                                                                    )}
-                                                                </td>
-                                                                <td className="px-4 py-3">
-                                                                    {record.has_package_record ? (
-                                                                        expired ? (
-                                                                            <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300">
-                                                                                Expired
-                                                                            </span>
-                                                                        ) : (
-                                                                            <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300">
-                                                                                <FiCheck className="w-3 h-3" />
-                                                                                Active
-                                                                            </span>
-                                                                        )
-                                                                    ) : (
-                                                                        <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400">
-                                                                            No plan
-                                                                        </span>
-                                                                    )}
-                                                                </td>
-                                                                <td className="px-4 pr-5 py-3 text-sm text-gray-600 dark:text-gray-400">
-                                                                    {formatValidity(record)}
-                                                                </td>
-                                                                <td className="px-3 py-3 text-right">
-                                                                    <RowActionMenu
-                                                                        items={[{
-                                                                            label: 'Details',
-                                                                            icon: <FiEye className="w-4 h-4" />,
-                                                                            onClick: () => setProjectDetail(record),
-                                                                        }]}
-                                                                    />
-                                                                </td>
-                                                            </tr>
-                                                        );
-                                                    })
+                                                                    <div className="mt-2.5 flex flex-wrap items-center justify-between gap-2">
+                                                                        <div className="inline-flex rounded-[9px] border border-line bg-white p-0.5">
+                                                                            {['monthly', 'yearly'].map((option) => (
+                                                                                <button
+                                                                                    key={option}
+                                                                                    type="button"
+                                                                                    onClick={() => isSelected && setProjectBillingCycle(record.project_id, option)}
+                                                                                    disabled={!isSelected}
+                                                                                    className={`h-7 px-2.5 rounded-[7px] text-xs font-semibold disabled:cursor-not-allowed ${cycle === option ? 'bg-brand-50 text-brand-800' : 'text-ink-500'}`}
+                                                                                >
+                                                                                    {option === 'monthly' ? 'Monthly' : 'Yearly'}
+                                                                                </button>
+                                                                            ))}
+                                                                        </div>
+                                                                        <div className="flex items-center gap-3">
+                                                                            {isSelected && (
+                                                                                <span className="oc-num text-sm text-ink">{money(getAmountForCycle(cycle))}</span>
+                                                                            )}
+                                                                            <button type="button" onClick={() => setProjectDetail(record)} className="text-xs font-semibold text-ink-500 hover:text-ink">
+                                                                                Details
+                                                                            </button>
+                                                                        </div>
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                    );
+                                                })}
+                                            </div>
+                                            {packageRecord.length > 0 ? (
+                                                <Pagination
+                                                    currentPage={safeProjectPage}
+                                                    totalPages={projectPageCount}
+                                                    totalRecords={packageRecord.length}
+                                                    pageSize={projectPageSize}
+                                                    onPageChange={setProjectPage}
+                                                    onPageSizeChange={(size) => {
+                                                        setProjectPageSize(size);
+                                                        setProjectPage(1);
+                                                    }}
+                                                    pageSizeOptions={[10, 20, 50, 100]}
+                                                />
+                                            ) : null}
+                                        </section>
+                                        {subscriptionPackage && (
+                                            <aside ref={paymentSectionRef} className="oc-card p-5 xl:sticky xl:top-24">
+                                                <h2 className="text-[15px] font-bold text-ink">Order summary</h2>
+                                                <dl className="mt-4 space-y-3 text-sm">
+                                                    <div className="flex items-center justify-between gap-3">
+                                                        <dt className="text-ink-500">Projects selected</dt>
+                                                        <dd className="font-semibold text-ink">{selectedCount}</dd>
+                                                    </div>
+                                                    {billingLabel && (
+                                                        <div className="flex items-center justify-between gap-3">
+                                                            <dt className="text-ink-500">Billing</dt>
+                                                            <dd className="font-semibold text-ink">{billingLabel}</dd>
+                                                        </div>
+                                                    )}
+                                                    {unitAmount != null && (
+                                                        <div className="flex items-center justify-between gap-3">
+                                                            <dt className="text-ink-500">Renewal cost per project</dt>
+                                                            <dd className="oc-num text-ink">{money(unitAmount)}</dd>
+                                                        </div>
+                                                    )}
+                                                    <div className="flex items-center justify-between gap-3 border-t border-line pt-3">
+                                                        <dt className="font-semibold text-ink">Total</dt>
+                                                        <dd className="oc-num text-ink">{money(total)}</dd>
+                                                    </div>
+                                                    {walletBalance != null && (
+                                                        <div className="flex items-center justify-between gap-3">
+                                                            <dt className="text-ink-500">Wallet balance</dt>
+                                                            <dd className="oc-num text-ink">{money(walletBalance)}</dd>
+                                                        </div>
+                                                    )}
+                                                </dl>
+                                                {walletBalance != null && total > walletBalance && (
+                                                    <div className="mt-4 rounded-[10px] border border-amber-200 bg-amber-50 px-3 py-2.5 text-xs text-amber-800">
+                                                        If your wallet balance is lower than the total, recharge first.{' '}
+                                                        <button type="button" onClick={() => navigate('/wallet-recharge')} className="font-semibold text-brand-800 underline">
+                                                            Recharge wallet
+                                                        </button>
+                                                    </div>
                                                 )}
-                                            </tbody>
-                                        </table>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setShowPaymentModal(true)}
+                                                    disabled={total < 1}
+                                                    className="oc-btn-primary w-full mt-4"
+                                                >
+                                                    {selectedCount > 0 ? `Renew ${selectedCount} project${selectedCount === 1 ? '' : 's'}` : 'Renew projects'}
+                                                </button>
+                                            </aside>
+                                        )}
                                     </div>
-                                    {packageRecord.length > 0 ? (
-                                        <Pagination
-                                            currentPage={safeProjectPage}
-                                            totalPages={projectPageCount}
-                                            totalRecords={packageRecord.length}
-                                            pageSize={projectPageSize}
-                                            onPageChange={setProjectPage}
-                                            onPageSizeChange={(size) => {
-                                                setProjectPageSize(size);
-                                                setProjectPage(1);
-                                            }}
-                                            pageSizeOptions={[10, 20, 50, 100]}
-                                        />
-                                    ) : null}
-                                </div>
-                            </div>
-
-                            {/* Payment CTA */}
-                            {subscriptionPackage && (
-                                <div ref={paymentSectionRef} className="fixed sm:static bottom-0 left-0 right-0 bg-gray-50 dark:bg-gray-800/80 border-t sm:border sm:border-gray-200 dark:border-gray-700 sm:rounded-xl p-4 sm:p-6 shadow-lg sm:shadow-none z-10">
-                                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-                                        <div>
-                                            <h3 className="text-sm font-semibold text-gray-900 dark:text-white">
-                                                {getSelectedSummary().length === 0
-                                                    ? 'Select projects for renewal'
-                                                    : `${getSelectedSummary().length} project(s) selected — ₹${getTotalAmount().toLocaleString()} total`}
-                                            </h3>
-                                            <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
-                                                Choose projects above and set Monthly or Yearly per project.
-                                            </p>
-                                        </div>
-                                        <button
-                                            onClick={() => setShowPaymentModal(true)}
-                                            disabled={getTotalAmount() < 1}
-                                            className="inline-flex items-center justify-center px-5 py-2.5 rounded-lg text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
-                                        >
-                                            <FiCreditCard className="mr-2 w-4 h-4" />
-                                            Continue to Payment
-                                        </button>
-                                    </div>
-                                </div>
-                            )}
+                                );
+                            })()}
                         </>
                     )}
+                    </div>
                 </div>
             </div>
 

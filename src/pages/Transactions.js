@@ -1,12 +1,13 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { API_BASE_URL } from '../config/api';
 import { Header, Sidebar } from '../component/Menu';
 import SearchableSelect from '../component/SearchableSelect';
 import {
-  FiDownload, FiFileText, FiCalendar, FiDollarSign,
-  FiRefreshCw, FiX, FiUser, FiCreditCard, FiHash,
-  FiMail, FiPhone, FiCalendar as FiCalendarIcon,
-  FiMessageSquare, FiCopy
+  FiFileText,
+  FiRefreshCw, FiX, FiUser, FiCreditCard,
+  FiMessageSquare, FiCopy, FiArrowDownLeft, FiArrowUpRight,
+  FiTrendingUp, FiList, FiDownload, FiEye, FiSend, FiRepeat,
+  FiPlusCircle, FiRotateCcw, FiInbox, FiAlertCircle
 } from 'react-icons/fi';
 import moment from 'moment';
 import { parseServerDate } from '../utils/dateTime';
@@ -15,13 +16,37 @@ import autoTable from 'jspdf-autotable';
 import axios from 'axios';
 import { Encrypt } from './encryption/payload-encryption';
 import Pagination from '../component/Pagination';
-import RowActionMenu from '../component/table/RowActionMenu';
-import DateRangePicker from '../component/DateRangePicker';
-import MultiSelect from '../component/MultiSelect';
+import DateRangeFilter, { formatRangeLabel } from '../component/DateRangeFilter';
+import ProjectFilter from '../component/ProjectFilter';
+import StatCard from '../component/StatCard';
+import AnimatedModal from '../component/Modals/AnimatedModal';
+
 const formatMoment = (value, format) => {
   const date = parseServerDate(value);
   return date ? moment(date).format(format) : 'N/A';
 };
+
+const inr = (value) =>
+  `₹${Number(value || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+
+const isOwnedProject = (project) => project?.owned === true || project?.type === 'admin';
+
+const defaultFrom = () => moment().subtract(29, 'days').format('YYYY-MM-DD');
+const defaultTo = () => moment().format('YYYY-MM-DD');
+
+const ENTRY_OPTIONS = [
+  { value: 'all', label: 'All' },
+  { value: '1', label: 'Credit', icon: FiArrowDownLeft },
+  { value: '0', label: 'Debit', icon: FiArrowUpRight },
+];
+
+const TYPE_OPTIONS = [
+  { value: 'all', label: 'All transaction types' },
+  { value: 'template send', label: 'Template send' },
+  { value: 'wallet topup', label: 'Wallet top-up' },
+  { value: 'project renewal', label: 'Project renewal' },
+  { value: 'project create', label: 'Project create' },
+];
 
 const Transactions = () => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -39,6 +64,7 @@ const Transactions = () => {
   const [totalRecords, setTotalRecords] = useState(0);
   const [totalCredit, setTotalCredit] = useState(0);
   const [totalDebit, setTotalDebit] = useState(0);
+  const [refreshKey, setRefreshKey] = useState(0);
   // Modal state
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedTransaction, setSelectedTransaction] = useState(null);
@@ -46,22 +72,21 @@ const Transactions = () => {
   const [copiedField, setCopiedField] = useState(null);
 
   // Server-side filters (payload options)
-  const [fromDate, setFromDate] = useState(() => moment().subtract(30, 'days').format('YYYY-MM-DD'));
-  const [toDate, setToDate] = useState(() => moment().format('YYYY-MM-DD'));
+  const [fromDate, setFromDate] = useState(defaultFrom);
+  const [toDate, setToDate] = useState(defaultTo);
   const [transactionType, setTransactionType] = useState('all'); // template send | wallet topup | project renewal | project create | all
   const [entryType, setEntryType] = useState('all'); // Credit=1, Debit=0, all
   const [selectedProjects, setSelectedProjects] = useState([]); // Array of project_ids, empty array = all projects
+
+  // Guards against out-of-order responses when filters change quickly
+  const requestIdRef = useRef(0);
 
   useEffect(() => {
     localStorage.setItem('sidebarMinimized', JSON.stringify(isMinimized));
   }, [isMinimized]);
 
   useEffect(() => {
-    if (mobileMenuOpen) {
-      document.body.style.overflow = 'hidden';
-    } else {
-      document.body.style.overflow = 'auto';
-    }
+    document.body.style.overflow = mobileMenuOpen ? 'hidden' : 'auto';
     return () => {
       document.body.style.overflow = 'auto';
     };
@@ -69,59 +94,47 @@ const Transactions = () => {
 
   // Load auth tokens
   useEffect(() => {
-    const loadTokens = async () => {
-      try {
-        const sessionData = localStorage.getItem('userData');
-        if (sessionData) {
-          const parsed = JSON.parse(sessionData);
-          if (parsed && typeof parsed === 'object') {
-            setTokens(parsed);
-          }
-        }
-      } catch (e) {
-        console.error('Failed to load tokens:', e);
-        setError('Failed to load authentication data');
+    try {
+      const sessionData = localStorage.getItem('userData');
+      if (sessionData) {
+        const parsed = JSON.parse(sessionData);
+        if (parsed && typeof parsed === 'object') setTokens(parsed);
       }
-    };
-
-    loadTokens();
+      if (!sessionData) {
+        setError('Your session has expired. Please sign in again.');
+        setLoading(false);
+      }
+    } catch (e) {
+      console.error('Failed to load tokens:', e);
+      setError('Failed to load authentication data');
+      setLoading(false);
+    }
   }, []);
 
-  // Fetch transactions from API
-  const fetchTransactions = async (page = currentPage, limit = pageSize, overrides = {}) => {
+  // Fetch transactions from API (reads the current filter state)
+  const fetchTransactions = async () => {
     if (!tokens?.token || !tokens?.username) return;
+    const requestId = ++requestIdRef.current;
 
     try {
       setLoading(true);
       setError('');
 
-      const effectiveFromDate = overrides.fromDate ?? fromDate;
-      const effectiveToDate = overrides.toDate ?? toDate;
-      const effectiveTransactionType = overrides.transactionType ?? transactionType;
-      const effectiveEntryType = overrides.entryType ?? entryType;
-      const effectiveSelectedProjects = overrides.selectedProjects ?? selectedProjects;
-
-      // When "All" is selected, pass empty array (no project_id); backend treats [] as all projects
-      const projectIds = effectiveSelectedProjects;
-
       const payload = {
-        page_no: page,
-        limit: limit,
-        project_ids: projectIds,
-        ...(effectiveFromDate ? { from_date: effectiveFromDate } : {}),
-        ...(effectiveToDate ? { to_date: effectiveToDate } : {}),
-        ...(effectiveTransactionType !== 'all' ? { transaction_type: effectiveTransactionType } : {}),
-        ...(effectiveEntryType !== 'all' ? { type: effectiveEntryType } : {})
+        page_no: currentPage,
+        limit: pageSize,
+        // Empty array = all projects (backend contract)
+        project_ids: selectedProjects,
+        ...(fromDate ? { from_date: fromDate } : {}),
+        ...(toDate ? { to_date: toDate } : {}),
+        ...(transactionType !== 'all' ? { transaction_type: transactionType } : {}),
+        ...(entryType !== 'all' ? { type: entryType } : {})
       };
 
-      console.log('📤 Fetching transactions:', payload);
-
       const { data, key } = Encrypt(payload);
-      const data_pass = JSON.stringify({ data, key });
-
       const response = await axios.post(
         `${API_BASE_URL}/payment/transaction-history`,
-        data_pass,
+        JSON.stringify({ data, key }),
         {
           headers: {
             'token': tokens.token,
@@ -131,66 +144,53 @@ const Transactions = () => {
         }
       );
 
-      console.log('📥 Transaction response:', response.data);
+      if (requestId !== requestIdRef.current) return; // a newer request superseded this one
 
       if (response?.data?.error) {
         setError(response?.data?.message || 'Failed to fetch transactions');
         return;
       }
 
-      const responseData = response.data;
-      const newTransactions = responseData.data || [];
-
-      setTransactions(newTransactions);
-
-      // Totals from API
+      const responseData = response.data || {};
+      const rows = responseData.data || [];
+      setTransactions(rows);
       setTotalCredit(parseFloat(responseData.total_credit || 0));
       setTotalDebit(parseFloat(responseData.total_debit || 0));
 
-      // Extract pagination metadata
       if (responseData.meta) {
-        setCurrentPage(responseData.meta.page_no || page);
-        setPageSize(responseData.meta.limit || limit);
         setTotalPages(responseData.meta.total_pages || 1);
         setTotalRecords(responseData.meta.total_records || 0);
       } else {
-        // Fallback if meta is not available
-        setTotalRecords(newTransactions.length);
+        setTotalRecords(rows.length);
         setTotalPages(1);
       }
-
-    } catch (error) {
-      console.error('Failed to fetch transactions:', error);
+    } catch (err) {
+      if (requestId !== requestIdRef.current) return;
+      console.error('Failed to fetch transactions:', err);
       setError('Failed to fetch transactions. Please try again.');
     } finally {
-      setLoading(false);
+      if (requestId === requestIdRef.current) setLoading(false);
     }
   };
 
-  // Load transactions when tokens are available
+  // Single source of truth: any filter / paging change triggers exactly one fetch
   useEffect(() => {
-    if (tokens?.token && tokens?.username) {
-      fetchTransactions(1, pageSize);
-    }
+    if (tokens?.token && tokens?.username) fetchTransactions();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tokens]);
+  }, [tokens, fromDate, toDate, transactionType, entryType, selectedProjects, currentPage, pageSize, refreshKey]);
 
-  // Auto-apply: Fetch transactions when filters change (EXCLUDING selectedProjects)
-  useEffect(() => {
-    if (tokens?.token && tokens?.username) {
-      setCurrentPage(1); // Reset to first page when filters change
-      fetchTransactions(1, pageSize);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [fromDate, toDate, transactionType, entryType]); // selectedProjects removed from here
+  const projectOptions = useMemo(
+    () => (tokens?.projects || [])
+      .filter(isOwnedProject)
+      .map((project) => ({ value: project.project_id, label: project.name })),
+    [tokens]
+  );
 
-  // Fetch transactions when page or page size changes
-  useEffect(() => {
-    if (tokens?.token && tokens?.username) {
-      fetchTransactions(currentPage, pageSize);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentPage, pageSize]);
+  const projectNameById = (projectId) => {
+    if (!projectId) return '';
+    const match = (tokens?.projects || []).find((project) => String(project.project_id) === String(projectId));
+    return match?.name || '';
+  };
 
   // Transform API data to match component expectations
   const transformedTransactions = transactions.map((transaction, index) => ({
@@ -204,6 +204,7 @@ const Transactions = () => {
     create_by: transaction.create_by,
     payment_details: transaction.payment_details,
     message_details: transaction.message_details,
+    projectLabel: transaction.project_name || transaction.project?.name || projectNameById(transaction.project_id) || '',
     serialNumber: (currentPage - 1) * pageSize + index + 1
   }));
 
@@ -463,348 +464,266 @@ const Transactions = () => {
     });
   };
 
-  const getTransactionTypeDisplay = (transactionType) => {
-    return (transactionType || '').split(' ').map(word =>
+  const getTransactionTypeDisplay = (value) => {
+    return (value || '').split(' ').map(word =>
       word.charAt(0).toUpperCase() + word.slice(1)
     ).join(' ');
   };
 
-  const getTypeColor = (type) => {
-    return type === 'Credit'
-      ? 'text-green-600 font-semibold'
-      : 'text-red-600 font-semibold';
+  // Visual identity per transaction type: icon tile + badge colour
+  const typeVisual = (description, credit) => {
+    const key = (description || '').toLowerCase();
+    if (key.includes('topup') || key.includes('top-up')) return { Icon: FiArrowDownLeft, tile: 'bg-emerald-50 text-emerald-700', badge: 'bg-emerald-50 text-emerald-700' };
+    if (key.includes('template') || key.includes('send')) return { Icon: FiSend, tile: 'bg-brand-50 text-brand-700', badge: 'bg-brand-50 text-brand-800' };
+    if (key.includes('renew')) return { Icon: FiRepeat, tile: 'bg-sky-50 text-sky-700 dark:bg-sky-500/15 dark:text-sky-300', badge: 'bg-sky-50 text-sky-700 dark:bg-sky-500/15 dark:text-sky-300' };
+    if (key.includes('create')) return { Icon: FiPlusCircle, tile: 'bg-amber-50 text-amber-700', badge: 'bg-amber-50 text-amber-800' };
+    return credit
+      ? { Icon: FiArrowDownLeft, tile: 'bg-emerald-50 text-emerald-700', badge: 'bg-emerald-50 text-emerald-700' }
+      : { Icon: FiArrowUpRight, tile: 'bg-surface-soft text-ink-700', badge: 'bg-surface-soft text-ink-700' };
   };
 
-  // Refresh transactions
-  const handleRefresh = () => {
-    if (tokens?.token && tokens?.username) {
-      setCurrentPage(1);
-      fetchTransactions(1, pageSize);
+  const detailLines = (transaction) => {
+    const message = transaction.message_details;
+    const payment = transaction.payment_details;
+    if (message?.template_name || message?.number) {
+      const extra = [message.category, message.number ? `To ${message.number}` : ''].filter(Boolean).join(' · ');
+      return { title: message.template_name || transaction.remark || getTransactionTypeDisplay(transaction.description), sub: extra };
     }
+    if (payment?.utr || payment?.payment_id) {
+      return {
+        title: transaction.remark || 'Razorpay payment',
+        sub: payment.utr ? `UTR ${payment.utr}` : payment.payment_id
+      };
+    }
+    if (transaction.remark) return { title: transaction.remark, sub: '' };
+    return { title: getTransactionTypeDisplay(transaction.description), sub: '' };
   };
+
+  // ---- Filter handlers: every change returns to page 1 (one fetch via the effect) ----
+  const handleDateChange = ({ from, to }) => {
+    setFromDate(from);
+    setToDate(to);
+    setCurrentPage(1);
+  };
+  const handleEntryType = (value) => {
+    setEntryType(value);
+    setCurrentPage(1);
+  };
+  const handleTransactionType = (value) => {
+    setTransactionType(value);
+    setCurrentPage(1);
+  };
+  const handleProjects = (ids) => {
+    setSelectedProjects([...ids]);
+    setCurrentPage(1);
+  };
+
+  const handleRefresh = () => setRefreshKey((k) => k + 1);
+
+  const filtersDirty =
+    fromDate !== defaultFrom() || toDate !== defaultTo() || transactionType !== 'all' || entryType !== 'all' || selectedProjects.length > 0;
 
   const handleResetFilters = () => {
-    const resetFromDate = moment().subtract(30, 'days').format('YYYY-MM-DD');
-    const resetToDate = moment().format('YYYY-MM-DD');
-
-    setFromDate(resetFromDate);
-    setToDate(resetToDate);
+    setFromDate(defaultFrom());
+    setToDate(defaultTo());
     setTransactionType('all');
     setEntryType('all');
     setSelectedProjects([]);
-
-    // Fetch with reset filters
     setCurrentPage(1);
-    fetchTransactions(1, pageSize, {
-      fromDate: resetFromDate,
-      toDate: resetToDate,
-      transactionType: 'all',
-      entryType: 'all',
-      selectedProjects: []
-    });
   };
 
-  // Handle page change
-  const handlePageChange = (page) => {
-    setCurrentPage(page);
-  };
-
-  // Handle page size change
+  const handlePageChange = (page) => setCurrentPage(page);
   const handlePageSizeChange = (newPageSize) => {
     setPageSize(newPageSize);
     setCurrentPage(1);
   };
 
-  // Skeleton Loading Component for Desktop Table
+  const netFlow = Number(totalCredit || 0) - Number(totalDebit || 0);
+  const rangeLabel = formatRangeLabel(fromDate, toDate);
+  const firstRow = totalRecords ? (currentPage - 1) * pageSize + 1 : 0;
+  const lastRow = Math.min(currentPage * pageSize, totalRecords);
+
+  // ---------- Loading skeletons ----------
   const DesktopTableSkeleton = () => (
-    <div className="hidden md:block overflow-x-auto">
-      <table className="w-full">
-        <thead className="bg-gray-50">
-          <tr>
-            {[1, 2, 3, 4, 5, 6].map((col) => (
-              <th key={col} className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                <div className="h-4 bg-gray-200 rounded animate-pulse"></div>
-              </th>
-            ))}
-          </tr>
-        </thead>
-        <tbody className="bg-white divide-y divide-gray-200">
-          {Array.from({ length: pageSize }).map((_, rowIndex) => (
-            <tr key={rowIndex} className="hover:bg-gray-50">
-              {Array.from({ length: 6 }).map((_, colIndex) => (
-                <td key={colIndex} className="px-6 py-4 whitespace-nowrap">
-                  <div className={`h-4 bg-gray-100 rounded animate-pulse ${colIndex === 5 ? 'w-3/4' : 'w-full'
-                    }`}></div>
-                </td>
-              ))}
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
+    <tbody>
+      {Array.from({ length: 8 }).map((_, rowIndex) => (
+        <tr key={rowIndex} className="animate-pulse">
+          <td className="oc-td"><div className="mx-auto h-3 w-5 rounded bg-surface-soft" /></td>
+          <td className="oc-td"><div className="h-3 w-20 rounded bg-surface-soft" /><div className="mt-2 h-2.5 w-12 rounded bg-surface-soft" /></td>
+          <td className="oc-td">
+            <div className="flex items-center gap-3">
+              <div className="h-9 w-9 rounded-[10px] bg-surface-soft" />
+              <div className="flex-1"><div className="h-3 w-40 rounded bg-surface-soft" /><div className="mt-2 h-2.5 w-24 rounded bg-surface-soft" /></div>
+            </div>
+          </td>
+          <td className="oc-td"><div className="h-5 w-24 rounded-md bg-surface-soft" /></td>
+          <td className="oc-td"><div className="h-3 w-24 rounded bg-surface-soft" /></td>
+          <td className="oc-td"><div className="ml-auto h-3 w-20 rounded bg-surface-soft" /></td>
+          <td className="oc-td"><div className="ml-auto h-8 w-16 rounded-lg bg-surface-soft" /></td>
+        </tr>
+      ))}
+    </tbody>
   );
 
-  // Skeleton Loading Component for Mobile Cards
   const MobileCardsSkeleton = () => (
-    <div className="md:hidden divide-y divide-gray-200">
+    <div className="divide-y divide-line-soft md:hidden">
       {Array.from({ length: 5 }).map((_, index) => (
-        <div key={index} className="p-4">
-          <div className="flex justify-between items-start mb-3">
-            <div className="flex-1 space-y-2">
-              <div className="h-4 bg-gray-100 rounded animate-pulse w-1/2"></div>
-              <div className="h-3 bg-gray-100 rounded animate-pulse w-1/3"></div>
-            </div>
-            <div className="h-6 bg-gray-100 rounded animate-pulse w-20"></div>
+        <div key={index} className="flex animate-pulse items-center gap-3 p-4">
+          <div className="h-10 w-10 rounded-[10px] bg-surface-soft" />
+          <div className="flex-1 space-y-2">
+            <div className="h-3 w-2/3 rounded bg-surface-soft" />
+            <div className="h-2.5 w-1/3 rounded bg-surface-soft" />
           </div>
-          <div className="space-y-2 mb-3">
-            <div className="h-4 bg-gray-100 rounded animate-pulse"></div>
-            <div className="h-3 bg-gray-100 rounded animate-pulse w-2/3"></div>
-          </div>
-          <div className="flex gap-2">
-            <div className="flex-1 h-10 bg-gray-100 rounded-lg animate-pulse"></div>
-            <div className="flex-1 h-10 bg-gray-100 rounded-lg animate-pulse"></div>
-          </div>
+          <div className="h-3 w-16 rounded bg-surface-soft" />
         </div>
       ))}
     </div>
   );
 
-  // Skeleton Loading Component for Summary Cards
-  const SummaryCardsSkeleton = () => (
-    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-      {Array.from({ length: 3 }).map((_, index) => (
-        <div key={index} className="bg-white rounded-xl shadow p-6">
-          <div className="flex items-center justify-between">
-            <div className="space-y-2">
-              <div className="h-4 bg-gray-100 rounded animate-pulse w-24"></div>
-              <div className="h-8 bg-gray-100 rounded animate-pulse w-20"></div>
-            </div>
-            <div className="bg-gray-100 rounded-lg p-3">
-              <div className="w-6 h-6 bg-gray-200 rounded animate-pulse"></div>
-            </div>
-          </div>
-        </div>
-      ))}
+  const EmptyState = () => (
+    <div className="flex flex-col items-center justify-center px-6 py-16 text-center">
+      <span className="mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-brand-50 text-brand-700">
+        <FiInbox size={24} />
+      </span>
+      <h3 className="text-base font-bold text-ink">No transactions in this view</h3>
+      <p className="mt-1 max-w-sm text-sm text-ink-500">
+        Nothing matches {rangeLabel.toLowerCase() === 'all time' ? 'these filters' : <>the selected range <span className="font-semibold text-ink-700">{rangeLabel}</span></>}. Try widening the date range or clearing filters.
+      </p>
+      {filtersDirty && (
+        <button type="button" onClick={handleResetFilters} className="oc-btn-ghost mt-5">
+          <FiRotateCcw size={14} /> Reset filters
+        </button>
+      )}
     </div>
   );
 
   // ============= MODAL – VERTICAL LAYOUT, RECEIPT COLOR SCHEME, COPY BUTTONS =============
+  const DetailRow = ({ label, children }) => (
+    <div className="grid grid-cols-1 gap-1 py-2 sm:grid-cols-[140px_1fr] sm:gap-4">
+      <span className="text-[13px] font-medium text-ink-500">{label}</span>
+      <div className="min-w-0 text-sm text-ink">{children}</div>
+    </div>
+  );
+
+  const CopyChip = ({ value, field }) => (
+    <button
+      type="button"
+      onClick={() => copyToClipboard(value, field)}
+      className="inline-flex shrink-0 items-center gap-1 rounded-md bg-brand-50 px-2 py-0.5 text-[11px] font-semibold text-brand-800 hover:bg-brand-100"
+    >
+      <FiCopy size={11} />
+      {copiedField === field ? 'Copied' : 'Copy'}
+    </button>
+  );
+
   const TransactionDetailsModal = () => {
     if (!selectedTransaction) return null;
-
     const { payment_details, message_details, create_by, remark } = selectedTransaction;
+    const credit = selectedTransaction.type === 'Credit';
+    const visual = typeVisual(selectedTransaction.description, credit);
 
     return (
-      <div className="fixed inset-0 z-50 overflow-y-auto" aria-labelledby="modal-title" role="dialog" aria-modal="true">
-        <div className="flex items-end justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
-          <div className="fixed inset-0 bg-gray-900 bg-opacity-75 transition-opacity" onClick={closeDetailsModal}></div>
-          <span className="hidden sm:inline-block sm:align-middle sm:h-screen">&#8203;</span>
-          <div className="inline-block align-bottom bg-white rounded-2xl text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-2xl w-full">
-            {/* Header – indigo gradient (matches receipt header line) */}
-            <div className="flex items-center justify-between px-6 py-4 bg-gradient-to-r from-indigo-600 to-indigo-700">
-              <h3 className="text-lg font-semibold text-white flex items-center gap-2">
-                <FiFileText className="w-5 h-5" />
-                Transaction Details
-              </h3>
-              <button
-                onClick={closeDetailsModal}
-                className="text-white/80 hover:text-white transition-colors"
-              >
-                <FiX className="w-5 h-5" />
-              </button>
+      <div className="fixed inset-0 z-50 flex items-end justify-center p-0 sm:items-center sm:p-4" role="dialog" aria-modal="true" aria-labelledby="txn-modal-title">
+        <div className="fixed inset-0 bg-ink/60 backdrop-blur-[2px]" onClick={closeDetailsModal} />
+        <div className="relative flex max-h-[92vh] w-full max-w-2xl flex-col overflow-hidden rounded-t-2xl bg-white shadow-2xl sm:rounded-2xl">
+          {/* Summary header */}
+          <div className="flex items-start gap-4 border-b border-line-soft px-6 py-5">
+            <span className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl ${visual.tile}`}>
+              <visual.Icon size={20} />
+            </span>
+            <div className="min-w-0 flex-1">
+              <p id="txn-modal-title" className="text-xs font-bold uppercase tracking-wider text-ink-400">
+                {getTransactionTypeDisplay(selectedTransaction.description) || 'Transaction'}
+              </p>
+              <p className={`mt-1 font-mono text-[26px] font-bold leading-none ${credit ? 'text-emerald-600' : 'text-ink'}`}>
+                {credit ? '+' : '−'} {inr(selectedTransaction.amount)}
+              </p>
+              <p className="mt-1.5 text-xs text-ink-500">{formatMoment(selectedTransaction.date, 'DD MMM YYYY, hh:mm A')}</p>
             </div>
+            <button type="button" onClick={closeDetailsModal} aria-label="Close" className="rounded-lg p-2 text-ink-400 hover:bg-surface-soft hover:text-ink">
+              <FiX size={18} />
+            </button>
+          </div>
 
-            {/* Body – clean, vertical layout with receipt color accents */}
-            <div className="px-6 py-5 max-h-[70vh] overflow-y-auto bg-white">
-
-              {/* ----- BASIC INFO – LINE BY LINE (like receipt overview) ----- */}
-              <div className="mb-6">
-                <h4 className="text-md font-semibold text-indigo-600 mb-3 flex items-center gap-2 border-b border-indigo-200 pb-2">
-                  <FiFileText className="w-4 h-4" />
-                  Transaction Overview
-                </h4>
-                <div className="bg-gray-50 rounded-xl p-4 space-y-2">
-                  {/* Transaction ID with copy */}
-                  <div className="flex flex-col sm:flex-row sm:items-start group">
-                    <span className="text-sm font-medium text-gray-500 w-32 shrink-0">Transaction ID:</span>
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <span className="text-sm font-mono text-gray-900 break-all">{selectedTransaction.id}</span>
-                      <button
-                        onClick={() => copyToClipboard(selectedTransaction.id, 'transactionId')}
-                        className="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium text-indigo-600 bg-indigo-50 rounded-md hover:bg-indigo-100 transition-colors"
-                      >
-                        <FiCopy className="w-3.5 h-3.5" />
-                        {copiedField === 'transactionId' ? 'Copied!' : 'Copy'}
-                      </button>
-                    </div>
+          <div className="flex-1 space-y-5 overflow-y-auto px-6 py-5">
+            <section>
+              <h4 className="mb-1 flex items-center gap-2 text-[13px] font-bold text-ink"><FiFileText size={14} className="text-brand-700" /> Overview</h4>
+              <div className="divide-y divide-line-soft">
+                <DetailRow label="Transaction ID">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="break-all font-mono text-[13px]">{selectedTransaction.id}</span>
+                    <CopyChip value={selectedTransaction.id} field="transactionId" />
                   </div>
-                  <div className="flex flex-col sm:flex-row sm:items-start">
-                    <span className="text-sm font-medium text-gray-500 w-32 shrink-0">Date & Time:</span>
-                    <span className="text-sm text-gray-900">{formatMoment(selectedTransaction.date, 'MMMM DD, YYYY hh:mm A')}</span>
-                  </div>
-                  <div className="flex flex-col sm:flex-row sm:items-start">
-                    <span className="text-sm font-medium text-gray-500 w-32 shrink-0">Type:</span>
-                    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${selectedTransaction.type === 'Credit'
-                      ? 'bg-emerald-100 text-emerald-800 border border-emerald-200'
-                      : 'bg-rose-100 text-rose-800 border border-rose-200'
-                      }`}>
-                      {selectedTransaction.type}
-                    </span>
-                  </div>
-                  <div className="flex flex-col sm:flex-row sm:items-start">
-                    <span className="text-sm font-medium text-gray-500 w-32 shrink-0">Amount:</span>
-                    <span className={`text-sm font-semibold ${selectedTransaction.type === 'Credit' ? 'text-emerald-600' : 'text-rose-600'
-                      }`}>
-                      {selectedTransaction.type === 'Credit' ? '+' : '-'}₹{selectedTransaction.amount.toFixed(2)}
-                    </span>
-                  </div>
-                  <div className="flex flex-col sm:flex-row sm:items-start">
-                    <span className="text-sm font-medium text-gray-500 w-32 shrink-0">Transaction Type:</span>
-                    <span className="text-sm text-gray-900">{getTransactionTypeDisplay(selectedTransaction.description)}</span>
-                  </div>
-                </div>
+                </DetailRow>
+                <DetailRow label="Entry">
+                  <span className={`oc-badge ${credit ? 'bg-emerald-50 text-emerald-700' : 'bg-rose-50 text-rose-600'}`}>{selectedTransaction.type}</span>
+                </DetailRow>
+                <DetailRow label="Project">{selectedTransaction.projectLabel || '—'}</DetailRow>
               </div>
+            </section>
 
-              {/* ----- PAYMENT DETAILS – if available ----- */}
-              {payment_details && (
-                <div className="mb-6">
-                  <h4 className="text-md font-semibold text-indigo-600 mb-3 flex items-center gap-2 border-b border-indigo-200 pb-2">
-                    <FiCreditCard className="w-4 h-4" />
-                    Payment Details
-                  </h4>
-                  <div className="bg-blue-50 rounded-xl p-4 border border-blue-100 space-y-2">
-                    {/* Payment ID with copy */}
-                    <div className="flex flex-col sm:flex-row sm:items-start group">
-                      <span className="text-sm font-medium text-gray-500 w-32 shrink-0">Payment ID:</span>
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <span className="text-sm font-mono bg-white px-2 py-0.5 rounded border border-blue-200 text-gray-800 break-all">
-                          {payment_details.payment_id || 'N/A'}
-                        </span>
-                        {payment_details.payment_id && (
-                          <button
-                            onClick={() => copyToClipboard(payment_details.payment_id, 'paymentId')}
-                            className="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium text-blue-600 bg-blue-50 rounded-md hover:bg-blue-100 transition-colors"
-                          >
-                            <FiCopy className="w-3.5 h-3.5" />
-                            {copiedField === 'paymentId' ? 'Copied!' : 'Copy'}
-                          </button>
-                        )}
-                      </div>
+            {payment_details && (
+              <section>
+                <h4 className="mb-1 flex items-center gap-2 text-[13px] font-bold text-ink"><FiCreditCard size={14} className="text-brand-700" /> Payment</h4>
+                <div className="divide-y divide-line-soft">
+                  <DetailRow label="Payment ID">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="break-all font-mono text-[13px]">{payment_details.payment_id || 'N/A'}</span>
+                      {payment_details.payment_id && <CopyChip value={payment_details.payment_id} field="paymentId" />}
                     </div>
-                    {/* UTR with copy */}
-                    <div className="flex flex-col sm:flex-row sm:items-start group">
-                      <span className="text-sm font-medium text-gray-500 w-32 shrink-0">UTR:</span>
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <span className="text-sm font-mono bg-white px-2 py-0.5 rounded border border-blue-200 text-gray-800 break-all">
-                          {payment_details.utr || 'N/A'}
-                        </span>
-                        {payment_details.utr && (
-                          <button
-                            onClick={() => copyToClipboard(payment_details.utr, 'utr')}
-                            className="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium text-blue-600 bg-blue-50 rounded-md hover:bg-blue-100 transition-colors"
-                          >
-                            <FiCopy className="w-3.5 h-3.5" />
-                            {copiedField === 'utr' ? 'Copied!' : 'Copy'}
-                          </button>
-                        )}
-                      </div>
+                  </DetailRow>
+                  <DetailRow label="UTR">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="break-all font-mono text-[13px]">{payment_details.utr || 'N/A'}</span>
+                      {payment_details.utr && <CopyChip value={payment_details.utr} field="utr" />}
                     </div>
-                    <div className="flex flex-col sm:flex-row sm:items-start">
-                      <span className="text-sm font-medium text-gray-500 w-32 shrink-0">Name:</span>
-                      <span className="text-sm text-gray-900">{payment_details.name || 'N/A'}</span>
-                    </div>
-                    <div className="flex flex-col sm:flex-row sm:items-start">
-                      <span className="text-sm font-medium text-gray-500 w-32 shrink-0">Email:</span>
-                      <span className="text-sm text-gray-900 break-all">{payment_details.email || 'N/A'}</span>
-                    </div>
-                    <div className="flex flex-col sm:flex-row sm:items-start">
-                      <span className="text-sm font-medium text-gray-500 w-32 shrink-0">Mobile:</span>
-                      <span className="text-sm text-gray-900">{payment_details.mobile || 'N/A'}</span>
-                    </div>
-                    <div className="flex flex-col sm:flex-row sm:items-start">
-                      <span className="text-sm font-medium text-gray-500 w-32 shrink-0">Payment Date:</span>
-                      <span className="text-sm text-gray-900">
-                        {payment_details.create_date ? formatMoment(payment_details.create_date, 'MMMM DD, YYYY hh:mm A') : 'N/A'}
-                      </span>
-                    </div>
-                  </div>
+                  </DetailRow>
+                  <DetailRow label="Name">{payment_details.name || 'N/A'}</DetailRow>
+                  <DetailRow label="Email"><span className="break-all">{payment_details.email || 'N/A'}</span></DetailRow>
+                  <DetailRow label="Mobile">{payment_details.mobile || 'N/A'}</DetailRow>
+                  <DetailRow label="Payment date">{payment_details.create_date ? formatMoment(payment_details.create_date, 'DD MMM YYYY, hh:mm A') : 'N/A'}</DetailRow>
                 </div>
-              )}
+              </section>
+            )}
 
-              {/* ----- MESSAGE DETAILS – if available ----- */}
-              {message_details && (
-                <div className="mb-6">
-                  <h4 className="text-md font-semibold text-indigo-600 mb-3 flex items-center gap-2 border-b border-indigo-200 pb-2">
-                    <FiMessageSquare className="w-4 h-4" />
-                    Message Details
-                  </h4>
-                  <div className="bg-purple-50 rounded-xl p-4 border border-purple-100 space-y-2">
-                    <div className="flex flex-col sm:flex-row sm:items-start">
-                      <span className="text-sm font-medium text-gray-500 w-32 shrink-0">Template Name:</span>
-                      <span className="text-sm text-gray-900">{message_details.template_name || 'N/A'}</span>
-                    </div>
-                    <div className="flex flex-col sm:flex-row sm:items-start">
-                      <span className="text-sm font-medium text-gray-500 w-32 shrink-0">Number:</span>
-                      <span className="text-sm text-gray-900">{message_details.number || 'N/A'}</span>
-                    </div>
-                    <div className="flex flex-col sm:flex-row sm:items-start">
-                      <span className="text-sm font-medium text-gray-500 w-32 shrink-0">Category:</span>
-                      <span className="text-sm text-gray-900">{message_details.category || 'N/A'}</span>
-                    </div>
-                    <div className="flex flex-col sm:flex-row sm:items-start">
-                      <span className="text-sm font-medium text-gray-500 w-32 shrink-0">Language:</span>
-                      <span className="text-sm text-gray-900">{message_details.language_code || 'N/A'}</span>
-                    </div>
-                    <div className="flex flex-col sm:flex-row sm:items-start">
-                      <span className="text-sm font-medium text-gray-500 w-32 shrink-0">Message By:</span>
-                      <span className="text-sm text-gray-900">{message_details.message_by || 'N/A'}</span>
-                    </div>
-                    <div className="flex flex-col sm:flex-row sm:items-start">
-                      <span className="text-sm font-medium text-gray-500 w-32 shrink-0">WAMID:</span>
-                      <span className="text-sm font-mono bg-white px-2 py-0.5 rounded border border-purple-200 text-gray-800 break-all">{message_details.wamid || 'N/A'}</span>
-                    </div>
-                    <div className="flex flex-col sm:flex-row sm:items-start">
-                      <span className="text-sm font-medium text-gray-500 w-32 shrink-0">Message Date:</span>
-                      <span className="text-sm text-gray-900">
-                        {message_details.create_date ? formatMoment(message_details.create_date, 'MMMM DD, YYYY hh:mm A') : 'N/A'}
-                      </span>
-                    </div>
-                  </div>
+            {message_details && (
+              <section>
+                <h4 className="mb-1 flex items-center gap-2 text-[13px] font-bold text-ink"><FiMessageSquare size={14} className="text-brand-700" /> Message</h4>
+                <div className="divide-y divide-line-soft">
+                  <DetailRow label="Template">{message_details.template_name || 'N/A'}</DetailRow>
+                  <DetailRow label="Number">{message_details.number || 'N/A'}</DetailRow>
+                  <DetailRow label="Category">{message_details.category || 'N/A'}</DetailRow>
+                  <DetailRow label="Language">{message_details.language_code || 'N/A'}</DetailRow>
+                  <DetailRow label="Message by">{message_details.message_by || 'N/A'}</DetailRow>
+                  <DetailRow label="WAMID"><span className="break-all font-mono text-[12px]">{message_details.wamid || 'N/A'}</span></DetailRow>
+                  <DetailRow label="Message date">{message_details.create_date ? formatMoment(message_details.create_date, 'DD MMM YYYY, hh:mm A') : 'N/A'}</DetailRow>
                 </div>
-              )}
+              </section>
+            )}
 
-              {/* ----- REMARK & CREATED BY – side by side on large screens, stacked on mobile ----- */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            {(remark || create_by) && (
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 {remark && (
-                  <div className="bg-gray-50 rounded-xl p-4 border border-gray-100">
-                    <span className="text-xs font-medium text-gray-500 uppercase tracking-wider flex items-center gap-1 mb-1">
-                      <FiFileText className="w-3 h-3" />
-                      Remark
-                    </span>
-                    <p className="text-sm text-gray-900">{remark}</p>
+                  <div className="rounded-xl border border-line-soft bg-surface-soft p-4">
+                    <span className="mb-1 flex items-center gap-1 text-[11px] font-bold uppercase tracking-wider text-ink-400"><FiFileText size={11} /> Remark</span>
+                    <p className="text-sm text-ink">{remark}</p>
                   </div>
                 )}
                 {create_by && (
-                  <div className="bg-gray-50 rounded-xl p-4 border border-gray-100">
-                    <span className="text-xs font-medium text-gray-500 uppercase tracking-wider flex items-center gap-1 mb-1">
-                      <FiUser className="w-3 h-3" />
-                      Created By
-                    </span>
-                    <p className="text-sm font-medium text-indigo-600">{create_by.username || 'N/A'}</p>
+                  <div className="rounded-xl border border-line-soft bg-surface-soft p-4">
+                    <span className="mb-1 flex items-center gap-1 text-[11px] font-bold uppercase tracking-wider text-ink-400"><FiUser size={11} /> Created by</span>
+                    <p className="text-sm font-semibold text-brand-800">{create_by.username || 'N/A'}</p>
                   </div>
                 )}
               </div>
-            </div>
+            )}
+          </div>
 
-            {/* Footer */}
-            <div className="px-6 py-4 bg-gray-50 flex justify-end border-t border-gray-100">
-              <button
-                onClick={closeDetailsModal}
-                className="px-5 py-2 bg-white border border-gray-300 rounded-lg text-gray-700 font-medium hover:bg-gray-50 transition-colors shadow-sm"
-              >
-                Close
-              </button>
-            </div>
+          <div className="flex items-center justify-end gap-2 border-t border-line-soft bg-surface-soft px-6 py-3.5">
+            <button type="button" onClick={closeDetailsModal} className="oc-btn-ghost">Close</button>
+            <button type="button" onClick={() => generatePDF(selectedTransaction)} className="oc-btn-primary">
+              <FiDownload size={14} /> Download receipt
+            </button>
           </div>
         </div>
       </div>
@@ -812,7 +731,7 @@ const Transactions = () => {
   };
 
   return (
-    <div className="min-h-screen bg-[#f4f6fb]">
+    <div className="min-h-screen bg-surface-ground">
       <Header
         mobileMenuOpen={mobileMenuOpen}
         setMobileMenuOpen={setMobileMenuOpen}
@@ -826,389 +745,256 @@ const Transactions = () => {
         setIsMinimized={setIsMinimized}
       />
 
-      {/* Main content */}
-      <div className={`pt-16 transition-all duration-300 ease-in-out ${isMinimized ? 'md:pl-20' : 'md:pl-[260px]'}`}>
-        <div className="w-full px-4 py-5">
-          {/* Header Section */}
-          <div className="mb-5">
-            <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-              <div className="min-w-0">
-              <h1 className="text-2xl font-semibold tracking-tight text-slate-900">Transactions</h1>
-              <p className="mt-1 text-sm text-slate-500">View and download receipts for all your transactions</p>
+      <main className={`pt-16 transition-all duration-300 ease-in-out ${isMinimized ? 'md:pl-20' : 'md:pl-[260px]'}`}>
+        <div className="w-full max-w-[1320px] px-4 sm:px-7 py-7">
+          {/* ---------- Page header ---------- */}
+          <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex items-center gap-3.5">
+              <span className="hidden h-12 w-12 shrink-0 items-center justify-center rounded-[14px] bg-brand-600 text-white shadow-[0_8px_20px_-8px_rgba(108,92,231,0.7)] sm:flex">
+                <FiCreditCard size={22} />
+              </span>
+              <div>
+                <h1 className="oc-page-title">Transactions</h1>
+                <p className="oc-page-sub !mt-1">Every wallet credit and debit, with downloadable receipts.</p>
               </div>
-              <button
-                onClick={handleRefresh}
-                disabled={loading}
-                className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-              >
-                <FiRefreshCw className={loading ? 'animate-spin' : ''} size={16} />
-                <span className="hidden sm:inline">Refresh</span>
-              </button>
             </div>
-            {error && (
-              <div className="mt-2 p-3 bg-red-100 border border-red-300 text-red-700 rounded-lg">
-                {error}
-              </div>
-            )}
+            <button type="button" onClick={handleRefresh} disabled={loading} className="oc-btn-ghost self-start sm:self-auto">
+              <FiRefreshCw className={loading ? 'animate-spin' : ''} size={15} />
+              Refresh
+            </button>
           </div>
 
-          {/* Summary Cards - Show skeleton when loading */}
-          {loading ? (
-            <SummaryCardsSkeleton />
-          ) : !error ? (
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-              <div className="bg-white rounded-xl shadow p-6">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm text-gray-600 mb-1">Total Records</p>
-                    <p className="text-2xl font-bold text-gray-900">{totalRecords || transformedTransactions.length}</p>
-                  </div>
-                  <div className="bg-indigo-100 rounded-lg p-3">
-                    <FiFileText className="text-indigo-600" size={24} />
-                  </div>
-                </div>
-              </div>
-              <div className="bg-white rounded-xl shadow p-6">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm text-gray-600 mb-1">Total Credit</p>
-                    <p className="text-2xl font-bold text-green-600">₹{Number(totalCredit || 0).toFixed(2)}</p>
-                  </div>
-                  <div className="bg-green-100 rounded-lg p-3">
-                    <FiDollarSign className="text-green-600" size={24} />
-                  </div>
-                </div>
-              </div>
-              <div className="bg-white rounded-xl shadow p-6">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm text-gray-600 mb-1">Total Debit</p>
-                    <p className="text-2xl font-bold text-red-600">₹{Number(totalDebit || 0).toFixed(2)}</p>
-                  </div>
-                  <div className="bg-blue-100 rounded-lg p-3">
-                    <FiCalendar className="text-blue-600" size={24} />
-                  </div>
-                </div>
-              </div>
-            </div>
-          ) : null}
+          {/* ---------- KPI cards ---------- */}
+          <div className="mb-5 grid grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-4">
+            <StatCard icon={FiArrowDownLeft} tone="emerald" label="Total credit" value={inr(totalCredit)} hint={rangeLabel} loading={loading && !error} />
+            <StatCard icon={FiArrowUpRight} tone="rose" valueTone="brand" label="Total debit" value={inr(totalDebit)} hint={rangeLabel} loading={loading && !error} />
+            <StatCard
+              icon={FiTrendingUp}
+              tone="brand"
+              valueTone={netFlow >= 0 ? 'emerald' : 'rose'}
+              label="Net flow"
+              value={`${netFlow >= 0 ? '+' : '−'} ${inr(Math.abs(netFlow))}`}
+              hint="Credit minus debit"
+              loading={loading && !error}
+            />
+            <StatCard icon={FiList} tone="amber" label="Records" value={Number(totalRecords || 0).toLocaleString('en-IN')} hint="Matching current filters" loading={loading && !error} />
+          </div>
 
-          {/* Filters - Show only when not loading or has error */}
-          {!loading && !error && (
-            <div className="bg-white rounded-xl shadow p-4 md:p-6 mb-6">
-              <div className="flex items-center justify-between mb-4">
-                <h2 className="text-lg font-semibold text-gray-900">Filters</h2>
+          {/* ---------- Filter toolbar ---------- */}
+          <div className="oc-card mb-4 p-3">
+            <div className="flex flex-col gap-3 2xl:flex-row 2xl:items-center">
+              <div className="inline-flex h-[42px] shrink-0 self-start rounded-[10px] border border-line bg-surface-soft p-1" role="tablist" aria-label="Entry type">
+                {ENTRY_OPTIONS.map((option) => {
+                  const active = entryType === option.value;
+                  const Icon = option.icon;
+                  return (
+                    <button
+                      key={option.value}
+                      type="button"
+                      role="tab"
+                      aria-selected={active}
+                      onClick={() => handleEntryType(option.value)}
+                      className={`inline-flex h-full items-center gap-1.5 rounded-[8px] px-3.5 text-[13px] font-semibold transition-all ${
+                        active ? 'bg-white text-ink shadow-card ring-1 ring-line' : 'text-ink-500 hover:text-ink'
+                      }`}
+                    >
+                      {Icon ? <Icon size={13} className={option.value === '1' ? 'text-emerald-600' : 'text-rose-600'} /> : null}
+                      {option.label}
+                    </button>
+                  );
+                })}
+              </div>
+
+              <div className="grid flex-1 grid-cols-1 gap-2 sm:grid-cols-2 xl:grid-cols-[minmax(220px,1.3fr)_minmax(170px,1fr)_minmax(170px,1fr)_auto]">
+                <DateRangeFilter from={fromDate} to={toDate} onChange={handleDateChange} disabled={!tokens} />
+                <SearchableSelect
+                  value={transactionType}
+                  onChange={(e) => handleTransactionType(e.target.value)}
+                  options={TYPE_OPTIONS}
+                  className="oc-input w-full font-semibold"
+                  searchable={false}
+                />
+                <ProjectFilter options={projectOptions} value={selectedProjects} onChange={handleProjects} align="right" />
                 <button
+                  type="button"
                   onClick={handleResetFilters}
-                  disabled={loading}
-                  className="text-sm text-indigo-600 hover:text-indigo-700 font-medium disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                  disabled={!filtersDirty}
+                  className="oc-btn-ghost h-[42px]"
+                  title="Reset filters"
                 >
-                  Reset All
+                  <FiRotateCcw size={14} />
+                  Reset
                 </button>
               </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                {/* Unified Date Range Picker */}
-                {/* Unified Date Range Picker */}
-                <DateRangePicker
-                  startDate={fromDate}
-                  endDate={toDate}
-                  onStartDateChange={setFromDate}
-                  onEndDateChange={setToDate}
-                  maxDate={moment().format('YYYY-MM-DD')}
-                />
-
-                {/* Transaction Type Dropdown - with Project Create */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Transaction Type</label>
-                  <SearchableSelect
-                    value={transactionType}
-                    onChange={(e) => setTransactionType(e.target.value)}
-                    options={[
-                      { value: 'all', label: 'All' },
-                      { value: 'template send', label: 'Template Send' },
-                      { value: 'wallet topup', label: 'Wallet Topup' },
-                      { value: 'project renewal', label: 'Project Renewal' },
-                      { value: 'project create', label: 'Project Create' },
-                    ]}
-                    className="w-full px-4 py-2.5 border border-gray-300 rounded-lg bg-white focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-sm text-gray-800 font-medium"
-                  />
-                </div>
-
-                {/* Entry Type Dropdown - Premium */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Entry Type</label>
-                  <SearchableSelect
-                    value={entryType}
-                    onChange={(e) => setEntryType(e.target.value)}
-                    options={[
-                      { value: 'all', label: 'All' },
-                      { value: '1', label: 'Credit' },
-                      { value: '0', label: 'Debit' },
-                    ]}
-                    className="w-full px-4 py-2.5 border border-gray-300 rounded-lg bg-white focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-sm text-gray-800 font-medium"
-                  />
-                </div>
-
-                {/* Multi-Select Projects */}
-                <div>
-                  <MultiSelect
-                    options={(tokens?.projects || []).map(project => ({
-                      value: project.project_id,
-                      label: project.name
-                    }))}
-                    selectedValues={selectedProjects}
-                    onChange={(newSelectedProjects) => {
-                      setSelectedProjects([...newSelectedProjects]);
-                    }}
-                    onSearch={(selectedProjectIds) => {
-                      console.log('Searching with projects:', selectedProjectIds);
-                      setCurrentPage(1);
-                      fetchTransactions(1, pageSize, {
-                        selectedProjects: selectedProjectIds
-                      });
-                    }}
-                    label="Projects"
-                    placeholder="Select projects"
-                    allOptionLabel="All Projects"
-                    showSearchButton={true}
-                  />
-                </div>
-              </div>
             </div>
-          )}
+          </div>
 
-          {/* Transactions Table with Skeleton Loading */}
-          <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
-            {loading ? (
-              <>
-                <DesktopTableSkeleton />
-                <MobileCardsSkeleton />
-              </>
-            ) : error ? (
-              <div className="p-8">
-                <div className="text-center">
-                  <div className="text-red-500 mb-4">
-                    <FiFileText size={48} className="mx-auto" />
-                  </div>
-                  <h3 className="text-lg font-semibold text-gray-900 mb-2">Unable to Load Transactions</h3>
-                  <p className="text-gray-600 mb-4">{error}</p>
-                  <button
-                    onClick={handleRefresh}
-                    className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors"
-                  >
-                    Try Again
-                  </button>
-                </div>
+          {/* ---------- Table card ---------- */}
+          <section className="oc-card overflow-hidden">
+            <div className="flex flex-col gap-1 border-b border-line-soft px-4 py-3.5 sm:flex-row sm:items-center sm:justify-between sm:px-5">
+              <h2 className="text-[15px] font-bold text-ink">Transaction history</h2>
+              <p className="text-xs text-ink-500">
+                {loading ? 'Loading…' : totalRecords ? (
+                  <>Showing <span className="font-semibold text-ink-700">{firstRow}–{lastRow}</span> of <span className="font-semibold text-ink-700">{Number(totalRecords).toLocaleString('en-IN')}</span> · {rangeLabel}</>
+                ) : rangeLabel}
+              </p>
+            </div>
+
+            {error ? (
+              <div className="flex flex-col items-center px-6 py-14 text-center">
+                <span className="mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-rose-50 text-rose-600"><FiAlertCircle size={24} /></span>
+                <h3 className="mb-1 text-base font-bold text-ink">Unable to load transactions</h3>
+                <p className="mb-5 text-sm text-ink-500">{error}</p>
+                <button type="button" onClick={handleRefresh} className="oc-btn-primary">Try again</button>
               </div>
             ) : (
               <>
-                {/* Desktop Table */}
-                <div className="hidden md:block overflow-x-auto rounded-xl border border-gray-200 shadow-sm bg-white">
-                  <table className="w-full divide-y divide-gray-200">
-                    <thead className="bg-gradient-to-r from-gray-50 to-gray-100/50">
+                {/* Desktop table */}
+                <div className="hidden overflow-x-auto md:block">
+                  <table className="w-full min-w-[860px] table-fixed">
+                    <colgroup>
+                      <col className="w-[52px]" />
+                      <col className="w-[120px]" />
+                      <col />
+                      <col className="w-[150px]" />
+                      <col className="w-[150px]" />
+                      <col className="w-[140px]" />
+                      <col className="w-[96px]" />
+                    </colgroup>
+                    <thead>
                       <tr>
-                        <th className="px-6 py-4 text-center text-xs font-semibold text-gray-700 uppercase tracking-wider border-r border-gray-200/50">
-                          <div className="flex flex-col items-center justify-center gap-1">
-                            <div className="text-gray-400">#</div>
-                            <div>S.No</div>
-                          </div>
-                        </th>
-                        <th className="px-6 py-4 text-center text-xs font-semibold text-gray-700 uppercase tracking-wider border-r border-gray-200/50">
-                          <div className="flex flex-col items-center justify-center gap-1">
-                            <svg className="w-3.5 h-3.5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                            </svg>
-                            <div>Date</div>
-                          </div>
-                        </th>
-                        <th className="px-6 py-4 text-center text-xs font-semibold text-gray-700 uppercase tracking-wider border-r border-gray-200/50">
-                          <div className="flex flex-col items-center justify-center gap-1">
-                            <svg className="w-3.5 h-3.5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                            </svg>
-                            <div>Transaction Type</div>
-                          </div>
-                        </th>
-                        <th className="px-6 py-4 text-center text-xs font-semibold text-gray-700 uppercase tracking-wider border-r border-gray-200/50">
-                          <div className="flex flex-col items-center justify-center gap-1">
-                            <svg className="w-3.5 h-3.5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                            </svg>
-                            <div>Type</div>
-                          </div>
-                        </th>
-                        <th className="px-6 py-4 text-center text-xs font-semibold text-gray-700 uppercase tracking-wider border-r border-gray-200/50">
-                          <div className="flex flex-col items-center justify-center gap-1">
-                            <svg className="w-3.5 h-3.5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                            </svg>
-                            <div>Amount</div>
-                          </div>
-                        </th>
-                        <th className="w-16 px-3 py-4 text-right text-xs font-semibold text-gray-700 uppercase tracking-wider">
-                          Actions
-                        </th>
+                        <th className="oc-th text-center">#</th>
+                        <th className="oc-th">Date</th>
+                        <th className="oc-th">Transaction</th>
+                        <th className="oc-th">Type</th>
+                        <th className="oc-th">Project</th>
+                        <th className="oc-th text-right">Amount</th>
+                        <th className="oc-th text-right">Actions</th>
                       </tr>
                     </thead>
-                    <tbody className="bg-white divide-y divide-gray-100">
-                      {transformedTransactions.length === 0 ? (
-                        <tr>
-                          <td colSpan="6" className="px-6 py-12 text-center">
-                            <div className="flex flex-col items-center justify-center gap-3">
-                              <svg className="w-12 h-12 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M9 12h3.75M9 15h3.75M9 18h3.75m3 .75H18a2.25 2.25 0 002.25-2.25V6.108c0-1.135-.845-2.098-1.976-2.192a48.424 48.424 0 00-1.123-.08m-5.801 0c-.065.21-.1.433-.1.664 0 .414.336.75.75.75h4.5a.75.75 0 00.75-.75 2.25 2.25 0 00-.1-.664m-5.8 0A2.251 2.251 0 0113.5 2.25H15c1.012 0 1.867.668 2.15 1.586m-5.8 0c-.376.023-.75.05-1.124.08C9.095 4.01 8.25 4.973 8.25 6.108V8.25m0 0H4.875c-.621 0-1.125.504-1.125 1.125v11.25c0 .621.504 1.125 1.125 1.125h9.75c.621 0 1.125-.504 1.125-1.125V9.375c0-.621-.504-1.125-1.125-1.125H8.25zM6.75 12h.008v.008H6.75V12zm0 3h.008v.008H6.75V15zm0 3h.008v.008H6.75V18z" />
-                              </svg>
-                              <div>
-                                <p className="text-gray-500 font-medium">No transactions found</p>
-                                <p className="text-gray-400 text-sm mt-1">Transactions will appear here once available</p>
-                              </div>
-                            </div>
-                          </td>
-                        </tr>
-                      ) : (
-                        transformedTransactions.map((transaction) => (
-                          <tr key={transaction.id} className="hover:bg-gray-50/80 transition-all duration-150 group">
-                            <td className="px-6 py-4 whitespace-nowrap border-r border-gray-100 text-center align-middle">
-                              <div className="flex items-center justify-center">
-                                <div className="flex items-center justify-center w-7 h-7 rounded-full bg-gray-100 text-gray-700 text-sm font-semibold">
-                                  {transaction.serialNumber}
+                    {loading ? (
+                      <DesktopTableSkeleton />
+                    ) : (
+                      <tbody>
+                        {transformedTransactions.length === 0 ? (
+                          <tr><td colSpan="7"><EmptyState /></td></tr>
+                        ) : transformedTransactions.map((transaction) => {
+                          const detail = detailLines(transaction);
+                          const credit = transaction.type === 'Credit';
+                          const visual = typeVisual(transaction.description, credit);
+                          return (
+                            <tr key={transaction.id} className="group transition-colors hover:bg-surface-soft">
+                              <td className="oc-td text-center text-xs text-ink-400 oc-num">{transaction.serialNumber}</td>
+                              <td className="oc-td whitespace-nowrap">
+                                <span className="block text-sm font-semibold text-ink">{formatMoment(transaction.date, 'DD MMM YYYY')}</span>
+                                <span className="block text-xs text-ink-400">{formatMoment(transaction.date, 'hh:mm A')}</span>
+                              </td>
+                              <td className="oc-td">
+                                <button type="button" onClick={() => openDetailsModal(transaction)} className="flex w-full min-w-0 items-center gap-3 text-left">
+                                  <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-[10px] ${visual.tile}`}>
+                                    <visual.Icon size={16} />
+                                  </span>
+                                  <span className="min-w-0">
+                                    <span className="block truncate text-sm font-semibold text-ink group-hover:text-brand-800">{detail.title}</span>
+                                    <span className="block truncate text-xs text-ink-500">{detail.sub || transaction.id}</span>
+                                  </span>
+                                </button>
+                              </td>
+                              <td className="oc-td">
+                                <span className={`oc-badge max-w-full truncate ${visual.badge}`}>{getTransactionTypeDisplay(transaction.description) || transaction.type}</span>
+                              </td>
+                              <td className="oc-td">
+                                <span className="block truncate text-sm text-ink-700" title={transaction.projectLabel}>{transaction.projectLabel || '—'}</span>
+                              </td>
+                              <td className="oc-td whitespace-nowrap text-right">
+                                <span className={`font-mono text-sm font-bold ${credit ? 'text-emerald-600' : 'text-ink'}`}>
+                                  {credit ? '+' : '−'} {inr(transaction.amount)}
+                                </span>
+                                <span className={`mt-0.5 block text-[11px] font-semibold ${credit ? 'text-emerald-600' : 'text-rose-600'}`}>{transaction.type}</span>
+                              </td>
+                              <td className="oc-td">
+                                <div className="flex items-center justify-end gap-1">
+                                  <button type="button" onClick={() => openDetailsModal(transaction)} title="View details" aria-label="View details" className="flex h-8 w-8 items-center justify-center rounded-lg text-ink-500 hover:bg-brand-50 hover:text-brand-800">
+                                    <FiEye size={15} />
+                                  </button>
+                                  <button type="button" onClick={() => generatePDF(transaction)} title="Download receipt" aria-label="Download receipt" className="flex h-8 w-8 items-center justify-center rounded-lg text-ink-500 hover:bg-brand-50 hover:text-brand-800">
+                                    <FiDownload size={15} />
+                                  </button>
                                 </div>
-                              </div>
-                            </td>
-                            <td className="px-6 py-4 whitespace-nowrap border-r border-gray-100 text-center align-middle">
-                              <div className="space-y-1">
-                                <div className="text-sm font-medium text-gray-900">
-                                  {formatMoment(transaction.date, 'MMM DD, YYYY')}
-                                </div>
-                                <div className="text-xs text-gray-500 bg-gray-50 px-2 py-1 rounded-md inline-flex items-center justify-center gap-1">
-                                  <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                                  </svg>
-                                  {formatMoment(transaction.date, 'hh:mm A')}
-                                </div>
-                              </div>
-                            </td>
-                            <td className="px-6 py-4 border-r border-gray-100 text-center align-middle">
-                              <div className="inline-flex items-center px-3 py-1 rounded-full bg-blue-50 text-blue-700 text-sm font-medium justify-center">
-                                {getTransactionTypeDisplay(transaction.description)}
-                              </div>
-                            </td>
-                            <td className="px-6 py-4 whitespace-nowrap border-r border-gray-100 text-center align-middle">
-                              <div className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-semibold justify-center ${transaction.type === 'Credit' ? 'bg-emerald-50 text-emerald-700 border border-emerald-100' : 'bg-rose-50 text-rose-700 border border-rose-100'}`}>
-                                {transaction.type === 'Credit' ? (
-                                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 10l7-7m0 0l7 7m-7-7v18" />
-                                  </svg>
-                                ) : (
-                                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 14l-7 7m0 0l-7-7m7 7V3" />
-                                  </svg>
-                                )}
-                                {transaction.type}
-                              </div>
-                            </td>
-                            <td className="px-6 py-4 whitespace-nowrap border-r border-gray-100 text-center align-middle">
-                              <div className={`flex items-center justify-center gap-2 text-lg font-semibold ${transaction.type === 'Credit' ? 'text-emerald-600' : 'text-rose-600'}`}>
-                                {transaction.type === 'Credit' ? (
-                                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
-                                  </svg>
-                                ) : (
-                                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 14l-7 7m0 0l-7-7m7 7V3" />
-                                  </svg>
-                                )}
-                                <span>{transaction.type === 'Credit' ? '+' : '-'}₹{transaction.amount.toFixed(2)}</span>
-                              </div>
-                            </td>
-                            <td className="px-3 py-4 text-right align-middle">
-                              <RowActionMenu
-                                items={[
-                                  { label: 'Details', icon: <FiFileText size={15} />, onClick: () => openDetailsModal(transaction) },
-                                  { label: 'Receipt', icon: <FiDownload size={15} />, onClick: () => generatePDF(transaction) },
-                                ]}
-                              />
-                            </td>
-                          </tr>
-                        ))
-                      )}
-                    </tbody>
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    )}
                   </table>
                 </div>
 
-                {/* Mobile Cards */}
-                <div className="md:hidden divide-y divide-gray-200">
-                  {transformedTransactions.length === 0 ? (
-                    <div className="p-8 text-center text-gray-500">
-                      No transactions found
-                    </div>
-                  ) : (
-                    transformedTransactions.map((transaction) => (
-                      <div key={transaction.id} className="p-4 hover:bg-gray-50 transition-colors">
-                        <div className="flex justify-between items-start mb-3">
-                          <div className="flex-1">
-                            <div className="flex items-center gap-2 mb-1">
-                              <span className="text-xs font-semibold text-gray-500">#{transaction.serialNumber}</span>
-                              <span className="text-sm font-semibold text-gray-900">{transaction.id}</span>
+                {/* Mobile cards */}
+                {loading ? (
+                  <MobileCardsSkeleton />
+                ) : (
+                  <div className="divide-y divide-line-soft md:hidden">
+                    {transformedTransactions.length === 0 ? (
+                      <EmptyState />
+                    ) : transformedTransactions.map((transaction) => {
+                      const detail = detailLines(transaction);
+                      const credit = transaction.type === 'Credit';
+                      const visual = typeVisual(transaction.description, credit);
+                      return (
+                        <article key={transaction.id} className="p-4">
+                          <div className="flex items-start gap-3">
+                            <span className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-[10px] ${visual.tile}`}>
+                              <visual.Icon size={17} />
+                            </span>
+                            <div className="min-w-0 flex-1">
+                              <div className="flex items-start justify-between gap-3">
+                                <p className="min-w-0 truncate text-sm font-semibold text-ink">{detail.title}</p>
+                                <p className={`shrink-0 font-mono text-sm font-bold ${credit ? 'text-emerald-600' : 'text-ink'}`}>
+                                  {credit ? '+' : '−'} {inr(transaction.amount)}
+                                </p>
+                              </div>
+                              {detail.sub ? <p className="mt-0.5 truncate text-xs text-ink-500">{detail.sub}</p> : null}
+                              <div className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-ink-400">
+                                <span className={`oc-badge ${visual.badge}`}>{getTransactionTypeDisplay(transaction.description) || transaction.type}</span>
+                                <span>{formatMoment(transaction.date, 'DD MMM YYYY, hh:mm A')}</span>
+                                {transaction.projectLabel ? <span>· {transaction.projectLabel}</span> : null}
+                              </div>
+                              <div className="mt-3 grid grid-cols-2 gap-2">
+                                <button type="button" onClick={() => openDetailsModal(transaction)} className="oc-btn-ghost h-8 text-xs"><FiEye size={13} /> Details</button>
+                                <button type="button" onClick={() => generatePDF(transaction)} className="oc-btn-ghost h-8 text-xs"><FiDownload size={13} /> Receipt</button>
+                              </div>
                             </div>
-                            <p className="text-xs text-gray-500">{transaction.invoiceNumber}</p>
                           </div>
-                          <span className={getTypeColor(transaction.type)}>
-                            {transaction.type === 'Credit' ? '+' : '-'}₹{transaction.amount.toFixed(2)}
-                          </span>
-                        </div>
-                        <p className="text-sm text-gray-700 mb-2">{getTransactionTypeDisplay(transaction.description)}</p>
-
-                        <div className="flex flex-wrap gap-2 text-xs text-gray-500 mb-3">
-                          <span>{formatMoment(transaction.date, 'MMM DD, YYYY hh:mm A')}</span>
-                          <span>•</span>
-                          <span className={getTypeColor(transaction.type)}>{transaction.type}</span>
-                        </div>
-
-                        <div className="flex gap-2">
-                          <button
-                            onClick={() => generatePDF(transaction)}
-                            className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors text-sm font-medium"
-                          >
-                            <FiDownload size={16} />
-                            <span>Receipt</span>
-                          </button>
-                          <button
-                            onClick={() => openDetailsModal(transaction)}
-                            className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors text-sm font-medium"
-                          >
-                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-                            </svg>
-                            Details
-                          </button>
-                        </div>
-                      </div>
-                    ))
-                  )}
-                </div>
+                        </article>
+                      );
+                    })}
+                  </div>
+                )}
               </>
             )}
+
             {!loading && !error && transactions.length > 0 && (
               <Pagination
-                currentPage={currentPage}
-                totalPages={totalPages}
-                totalRecords={totalRecords}
-                pageSize={pageSize}
-                onPageChange={handlePageChange}
-                onPageSizeChange={handlePageSizeChange}
-                pageSizeOptions={[10, 20, 50, 100]}
-                showPageSizeSelector={true}
-                showGoToPage={true}
-              />
+                  currentPage={currentPage}
+                  totalPages={totalPages}
+                  totalRecords={totalRecords}
+                  pageSize={pageSize}
+                  onPageChange={handlePageChange}
+                  onPageSizeChange={handlePageSizeChange}
+                  pageSizeOptions={[10, 20, 50, 100]}
+                  showPageSizeSelector={true}
+                  showGoToPage={true}
+                />
             )}
-          </div>
+          </section>
         </div>
-      </div>
+      </main>
 
       {/* Transaction Details Modal */}
-      {isModalOpen && <TransactionDetailsModal />}
+      <AnimatedModal open={isModalOpen && !!selectedTransaction}>
+        {isModalOpen && selectedTransaction ? TransactionDetailsModal() : null}
+      </AnimatedModal>
     </div>
   );
 };

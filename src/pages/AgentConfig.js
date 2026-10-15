@@ -4,12 +4,10 @@ import { useNavigate } from 'react-router-dom';
 import { useSelector, useDispatch } from 'react-redux';
 import axios from 'axios';
 import { Header, Sidebar } from '../component/Menu';
-import SearchableSelect from '../component/SearchableSelect';
 import { fetchProjectInfo } from '../store/projectSlice';
 import { Encrypt } from './encryption/payload-encryption';
-import { FiArrowLeft, FiShield, FiLock, FiTrash2, FiPlus, FiEye } from 'react-icons/fi';
+import { FiArrowLeft, FiLock, FiEye } from 'react-icons/fi';
 import toast from 'react-hot-toast';
-import RowActionMenu from '../component/table/RowActionMenu';
 import Pagination from '../component/Pagination';
 import RecordDetailsModal from '../component/table/RecordDetailsModal';
 import { TableSkeletonRows } from '../component/table/TableSkeleton';
@@ -283,11 +281,11 @@ function AgentConfig() {
 
     if (!isOwner) {
         return (
-            <div className="min-h-screen bg-[#f4f6fb]">
+            <div className="min-h-screen bg-surface-ground">
                 <Header mobileMenuOpen={mobileMenuOpen} setMobileMenuOpen={setMobileMenuOpen} isMinimized={isMinimized} setIsMinimized={setIsMinimized} />
                 <Sidebar mobileMenuOpen={mobileMenuOpen} setMobileMenuOpen={setMobileMenuOpen} isMinimized={isMinimized} setIsMinimized={setIsMinimized} />
                 <div className={`pt-16 transition-all duration-300 ease-in-out ${isMinimized ? 'md:pl-20' : 'md:pl-[260px]'}`}>
-                    <div className="w-full px-4 py-5">
+                    <div className="w-full max-w-[1320px] px-4 sm:px-7 py-7">
                         <div className="max-w-2xl mx-auto mt-12 rounded-xl border border-slate-200 bg-white p-8 shadow-sm text-center">
                             <FiLock className="w-14 h-14 mx-auto text-slate-300 mb-4" />
                             <h2 className="text-xl font-semibold text-slate-800 mb-2">Access denied</h2>
@@ -295,7 +293,7 @@ function AgentConfig() {
                             <button
                                 type="button"
                                 onClick={() => navigate('/')}
-                                className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors"
+                                className="oc-btn-primary"
                             >
                                 Back to Dashboard
                             </button>
@@ -307,221 +305,200 @@ function AgentConfig() {
     }
 
     const personalEnabledButNoKeys = selectedTab === 'personal' && apiKeys.length === 0 && !agentUsePersonalKey;
+    const providerHints = {
+        claude: 'Anthropic',
+        openai: 'GPT models',
+        gemini: 'Google',
+        groq: 'Fast open models',
+    };
+    const providerOrder = ['claude', 'openai', 'gemini', 'groq'];
+    const orderedProviders = providerOrder
+        .map((value) => availableAgentProviders.find((provider) => provider.value === value))
+        .filter(Boolean);
+    const selectedProvider = orderedProviders.find((provider) => provider.value === agentProvider) || orderedProviders[0];
     const keyPageCount = Math.max(1, Math.ceil(apiKeys.length / keyPageSize) || 1);
     const safeKeyPage = Math.min(keyPage, keyPageCount);
     const pagedKeys = apiKeys.slice((safeKeyPage - 1) * keyPageSize, safeKeyPage * keyPageSize);
 
     return (
-        <div className="min-h-screen bg-[#f4f6fb]">
+        <div className="min-h-screen bg-surface-ground">
             <Header mobileMenuOpen={mobileMenuOpen} setMobileMenuOpen={setMobileMenuOpen} isMinimized={isMinimized} setIsMinimized={setIsMinimized} />
             <Sidebar mobileMenuOpen={mobileMenuOpen} setMobileMenuOpen={setMobileMenuOpen} isMinimized={isMinimized} setIsMinimized={setIsMinimized} />
             <div className={`pt-16 transition-all duration-300 ease-in-out ${isMinimized ? 'md:pl-20' : 'md:pl-[260px]'}`}>
-                <div className="w-full px-4 py-5">
-                    <div className="mb-8 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+                <div className="w-full max-w-[1320px] px-4 sm:px-7 py-7">
+                    <div className="mb-6 flex items-start gap-3">
+                        <button
+                            type="button"
+                            onClick={() => navigate('/project-config')}
+                            className="mt-1.5 flex h-8 w-8 items-center justify-center rounded-[9px] text-ink-500 hover:bg-[#F3F2FA] hover:text-ink"
+                            aria-label="Back to configuration"
+                        >
+                            <FiArrowLeft className="w-4 h-4" />
+                        </button>
                         <div>
-                            <button
-                                type="button"
-                                onClick={() => navigate('/project-config')}
-                                className="inline-flex items-center gap-2 text-sm font-medium text-slate-700 hover:text-slate-900"
-                            >
-                                <FiArrowLeft className="w-4 h-4" />
-                                Back to Project Config
-                            </button>
-                            <h1 className="text-2xl font-bold text-slate-800 mt-4">Agent Configuration</h1>
-                            <p className="mt-1 text-slate-600">Configure the auto-reply agent provider and personal key settings.</p>
+                            <h1 className="oc-page-title">AI agent</h1>
+                            <p className="oc-page-sub">Choose the provider that writes AI auto-replies, and whether to use your own API key.</p>
                         </div>
                     </div>
 
-                    <div className="rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden">
-                        <div className="p-6">
-                            <div className="flex items-center justify-between gap-3">
-                                <div className="flex items-center gap-3">
-                                    <div className="rounded-xl bg-violet-100 p-3 text-violet-600">
-                                        <FiShield className="w-6 h-6" />
+                    <div className="oc-card p-5 sm:p-6">
+                        <div className="flex items-center justify-between gap-3">
+                            <h2 className="text-[15px] font-bold text-ink">Provider</h2>
+                            {isLoading && (
+                                <span className="inline-block h-5 w-5 border-2 border-line border-t-brand-600 rounded-full animate-spin" />
+                            )}
+                        </div>
+                        <div className="mt-3 grid grid-cols-2 lg:grid-cols-4 gap-3">
+                            {orderedProviders.map((provider) => {
+                                const selected = agentProvider === provider.value;
+                                return (
+                                    <button
+                                        key={provider.value}
+                                        type="button"
+                                        onClick={() => setAgentProvider(provider.value)}
+                                        className={`rounded-[12px] border px-3.5 py-3 text-left transition-colors ${selected ? 'border-brand-600 bg-brand-50' : 'border-line bg-white hover:border-[#D5D2E4]'}`}
+                                    >
+                                        <span className="block text-sm font-bold text-ink">{provider.label}</span>
+                                        <span className="mt-0.5 block text-xs text-ink-500">{providerHints[provider.value]}</span>
+                                    </button>
+                                );
+                            })}
+                        </div>
+
+                        <label className="mt-5 flex items-start gap-2.5 cursor-pointer">
+                            <input
+                                type="checkbox"
+                                checked={selectedTab === 'personal'}
+                                onChange={(event) => handleTabChange(event.target.checked ? 'personal' : 'onechat')}
+                                className="mt-0.5 h-4 w-4 rounded accent-[#6C5CE7]"
+                            />
+                            <span>
+                                <span className="block text-sm font-semibold text-ink">Use my own API key</span>
+                                <span className="mt-0.5 block text-xs text-ink-500">
+                                    {selectedTab === 'personal' && selectedProvider
+                                        ? `Usage is billed by ${selectedProvider.label} directly instead of through AI bills. Required for document uploads in Company context.`
+                                        : 'OneChatting uses its managed provider. Turn this on to bill the provider directly with your key.'}
+                                </span>
+                            </span>
+                        </label>
+                        <p className="mt-2 text-xs text-ink-400">
+                            {agentUsePersonalKey
+                                ? 'Currently active: your personal API key.'
+                                : 'Currently active: OneChatting\'s managed provider.'}
+                        </p>
+
+                        {selectedTab === 'personal' ? (
+                            <div className="mt-5 border-t border-line pt-5">
+                                {personalEnabledButNoKeys && (
+                                    <div className="rounded-[12px] border border-amber-200 bg-amber-50 p-3.5 text-sm text-amber-800 mb-4">
+                                        Personal key mode isn&apos;t active yet. Add at least one API key and it will switch on automatically.
                                     </div>
-                                    <div>
-                                        <h2 className="text-lg font-semibold text-slate-800">Agent provider and key settings</h2>
-                                        <p className="text-sm text-slate-500">Choose your provider and whether to use a personal API key.</p>
+                                )}
+                                <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
+                                    <div className="flex-1">
+                                        <label className="oc-label" htmlFor="agent-api-key">{selectedProvider ? `${selectedProvider.label} API key` : 'API key'}</label>
+                                        <input
+                                            id="agent-api-key"
+                                            type="password"
+                                            value={agentApiKey}
+                                            onChange={(e) => setAgentApiKey(e.target.value)}
+                                            placeholder="Enter your provider API key"
+                                            className="oc-input"
+                                        />
                                     </div>
+                                    <button
+                                        type="button"
+                                        onClick={handleSaveApiKey}
+                                        disabled={isSavingKey || !agentApiKey.trim()}
+                                        className="oc-btn-primary"
+                                    >
+                                        {isSavingKey ? 'Saving...' : 'Save key'}
+                                    </button>
                                 </div>
-                                {isLoading && (
-                                    <div className="flex items-center gap-2 text-slate-500">
-                                        <span className="inline-block h-5 w-5 border-2 border-slate-300 border-t-transparent rounded-full animate-spin" />
-                                        <span className="text-sm">Loading...</span>
+
+                                <h3 className="mt-6 text-sm font-bold text-ink">Saved API keys</h3>
+                                {apiKeys.length > 1 && (
+                                    <p className="mt-1 text-xs text-ink-400">
+                                        You have multiple keys saved. Only the one marked <span className="font-semibold text-emerald-700">Active</span> is used for auto-reply.
+                                    </p>
+                                )}
+
+                                {isLoading ? (
+                                    <div className="mt-3 overflow-hidden rounded-[12px] border border-line">
+                                        <table className="min-w-full">
+                                            <thead>
+                                                <tr>
+                                                    {['#', 'Provider', 'API key', 'Status', 'Actions'].map((label) => (
+                                                        <th key={label} className={`oc-th ${label === '#' ? 'w-12 text-center' : ''}`}>{label}</th>
+                                                    ))}
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                <TableSkeletonRows rows={3} cells={['index', 'text', 'text', 'badge', 'action']} />
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                ) : apiKeys.length === 0 ? (
+                                    <p className="mt-3 rounded-[12px] border border-dashed border-line px-4 py-6 text-center text-sm text-ink-500">
+                                        No personal API keys saved yet.
+                                    </p>
+                                ) : (
+                                    <div className="mt-3 overflow-hidden rounded-[12px] border border-line">
+                                        <table className="min-w-full">
+                                            <thead>
+                                                <tr>
+                                                    <th className="oc-th w-12 text-center">#</th>
+                                                    <th className="oc-th">Provider</th>
+                                                    <th className="oc-th">API key</th>
+                                                    <th className="oc-th">Status</th>
+                                                    <th className="oc-th text-right">Actions</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                {pagedKeys.map((keyObj, index) => (
+                                                    <tr key={keyObj.unique_id} className="hover:bg-[#FAFAFD]">
+                                                        <td className="oc-td text-center text-xs font-semibold text-ink-500 oc-num">{(safeKeyPage - 1) * keyPageSize + index + 1}</td>
+                                                        <td className="oc-td text-sm font-semibold text-ink capitalize">{keyObj.api_provider}</td>
+                                                        <td className="oc-td text-sm text-ink-500 font-mono">{keyObj.api_key_masked}</td>
+                                                        <td className="oc-td text-sm">
+                                                            {keyObj.is_active ? (
+                                                                <span className="oc-badge bg-emerald-50 text-emerald-700" title="This key is currently used for auto-reply">Active</span>
+                                                            ) : (
+                                                                <span className="oc-badge bg-[#F3F2FA] text-ink-500">Inactive</span>
+                                                            )}
+                                                        </td>
+                                                        <td className="oc-td text-right whitespace-nowrap">
+                                                            <button type="button" onClick={() => setKeyDetail(keyObj)} className="mr-2 inline-flex items-center gap-1 text-xs font-semibold text-ink-500 hover:text-ink">
+                                                                <FiEye className="w-3.5 h-3.5" /> Details
+                                                            </button>
+                                                            <button type="button" onClick={() => handleDeleteApiKey(keyObj.unique_id)} className="h-8 px-3 rounded-[9px] border border-red-200 text-xs font-semibold text-red-600 hover:bg-red-50">
+                                                                Delete
+                                                            </button>
+                                                        </td>
+                                                    </tr>
+                                                ))}
+                                            </tbody>
+                                        </table>
+                                        <Pagination
+                                            currentPage={safeKeyPage}
+                                            totalPages={keyPageCount}
+                                            totalRecords={apiKeys.length}
+                                            pageSize={keyPageSize}
+                                            onPageChange={setKeyPage}
+                                            onPageSizeChange={(size) => {
+                                                setKeyPageSize(size);
+                                                setKeyPage(1);
+                                            }}
+                                            pageSizeOptions={[10, 20, 50, 100]}
+                                        />
                                     </div>
                                 )}
                             </div>
-
-                            <div className="mt-6">
-                                <div className="flex items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 p-1">
-                                    <button
-                                        type="button"
-                                        onClick={() => handleTabChange('onechat')}
-                                        className={`rounded-xl px-4 py-2 text-sm font-medium transition ${selectedTab === 'onechat' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500'}`}
-                                    >
-                                        OneChat's
-                                    </button>
-                                    <button
-                                        type="button"
-                                        onClick={() => handleTabChange('personal')}
-                                        className={`rounded-xl px-4 py-2 text-sm font-medium transition ${selectedTab === 'personal' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500'}`}
-                                    >
-                                        Personal
-                                    </button>
-                                </div>
-                                {/* Explicit status so it's never ambiguous what the backend is actually doing */}
-                                <p className="mt-2 text-xs text-slate-400">
-                                    {agentUsePersonalKey
-                                        ? 'Currently active: your personal API key.'
-                                        : 'Currently active: OneChat\'s managed provider.'}
-                                </p>
+                        ) : (
+                            <div className="mt-5 rounded-[12px] border border-line bg-[#F7F6FB] p-4 text-sm text-ink-500">
+                                OneChatting will use its managed provider for this agent. No provider key is required.
                             </div>
-
-                            {selectedTab === 'personal' ? (
-                                <div className="mt-6 border-t border-slate-200 pt-6">
-                                    <h3 className="text-md font-semibold text-slate-800 mb-4">Saved API Keys</h3>
-
-                                    {personalEnabledButNoKeys && (
-                                        <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800 mb-6">
-                                            Personal key mode isn't active yet — add at least one API key below and it will switch on automatically.
-                                        </div>
-                                    )}
-
-                                    {apiKeys.length > 1 && (
-                                        <p className="text-xs text-slate-400 mb-3">
-                                            You have multiple keys saved. Only the one marked <span className="font-medium text-emerald-600">Active</span> is used for auto-reply.
-                                        </p>
-                                    )}
-
-                                    {isLoading ? (
-                                        <div className="mb-8 overflow-hidden rounded-xl border border-slate-200">
-                                            <table className="min-w-full">
-                                                <thead className="bg-slate-50">
-                                                    <tr>
-                                                        {['#', 'Provider', 'API Key', 'Status', ''].map((label, index) => (
-                                                            <th key={`${label}-${index}`} className="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase">{label}</th>
-                                                        ))}
-                                                    </tr>
-                                                </thead>
-                                                <tbody>
-                                                    <TableSkeletonRows rows={3} cells={['index', 'text', 'text', 'badge', 'action']} />
-                                                </tbody>
-                                            </table>
-                                        </div>
-                                    ) : apiKeys.length === 0 ? (
-                                        <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-600 mb-6 text-center">
-                                            No personal API keys saved. Add one below to get started.
-                                        </div>
-                                    ) : (
-                                        <div className="mb-8 overflow-hidden rounded-xl border border-slate-200 shadow-sm">
-                                            <table className="min-w-full divide-y divide-slate-200">
-                                                <thead className="bg-slate-50">
-                                                    <tr>
-                                                        <th className="px-4 py-3 text-center text-xs font-medium text-slate-500 uppercase tracking-wider w-14">#</th>
-                                                        <th className="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Provider</th>
-                                                        <th className="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">API Key</th>
-                                                        <th className="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Status</th>
-                                                        <th className="w-16 px-4 py-3 text-right text-xs font-medium text-slate-500 uppercase tracking-wider">Actions</th>
-                                                    </tr>
-                                                </thead>
-                                                <tbody className="bg-white divide-y divide-slate-200">
-                                                    {pagedKeys.map((keyObj, index) => (
-                                                        <tr key={keyObj.unique_id} className={keyObj.is_active ? 'bg-emerald-50/60 hover:bg-emerald-50' : 'hover:bg-slate-50'}>
-                                                            <td className="px-4 py-3 whitespace-nowrap text-center text-sm text-slate-500">{(safeKeyPage - 1) * keyPageSize + index + 1}</td>
-                                                            <td className="px-4 py-3 whitespace-nowrap text-sm font-medium text-slate-800 capitalize">
-                                                                {keyObj.api_provider}
-                                                            </td>
-                                                            <td className="px-4 py-3 whitespace-nowrap text-sm text-slate-500 font-mono">
-                                                                {keyObj.api_key_masked}
-                                                            </td>
-                                                            <td className="px-4 py-3 whitespace-nowrap text-sm">
-                                                                {keyObj.is_active ? (
-                                                                    <span
-                                                                        className="inline-flex items-center gap-1.5 rounded-full bg-emerald-100 px-2.5 py-1 text-xs font-medium text-emerald-700"
-                                                                        title="This key is currently used for auto-reply"
-                                                                    >
-                                                                        <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
-                                                                        Active
-                                                                    </span>
-                                                                ) : (
-                                                                    <span className="inline-flex items-center gap-1.5 rounded-full bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-500">
-                                                                        <span className="h-1.5 w-1.5 rounded-full bg-slate-300" />
-                                                                        Inactive
-                                                                    </span>
-                                                                )}
-                                                            </td>
-                                                            <td className="px-4 py-3 whitespace-nowrap text-right text-sm font-medium">
-                                                                <RowActionMenu
-                                                                    items={[
-                                                                        { label: 'Details', icon: <FiEye className="w-4 h-4" />, onClick: () => setKeyDetail(keyObj) },
-                                                                        { label: 'Delete', icon: <FiTrash2 className="w-4 h-4" />, danger: true, onClick: () => handleDeleteApiKey(keyObj.unique_id) },
-                                                                    ]}
-                                                                />
-                                                            </td>
-                                                        </tr>
-                                                    ))}
-                                                </tbody>
-                                            </table>
-                                            {apiKeys.length > 0 ? (
-                                                <Pagination
-                                                    currentPage={safeKeyPage}
-                                                    totalPages={keyPageCount}
-                                                    totalRecords={apiKeys.length}
-                                                    pageSize={keyPageSize}
-                                                    onPageChange={setKeyPage}
-                                                    onPageSizeChange={(size) => {
-                                                        setKeyPageSize(size);
-                                                        setKeyPage(1);
-                                                    }}
-                                                    pageSizeOptions={[10, 20, 50, 100]}
-                                                />
-                                            ) : null}
-                                        </div>
-                                    )}
-
-                                    <h3 className="text-md font-semibold text-slate-800 mb-4 flex items-center gap-2">
-                                        <FiPlus className="w-4 h-4" /> Add New Key
-                                    </h3>
-                                    <div className="grid gap-6 md:grid-cols-2">
-                                        <div>
-                                            <label className="block text-sm font-medium text-slate-700">Provider</label>
-                                            <SearchableSelect
-                                                value={agentProvider}
-                                                onChange={(e) => setAgentProvider(e.target.value)}
-                                                options={availableAgentProviders.map((p) => ({ value: p.value, label: p.label }))}
-                                                className="mt-2 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-800 focus:border-violet-400 focus:outline-none focus:ring-2 focus:ring-violet-100"
-                                            />
-                                        </div>
-
-                                        <div>
-                                            <label className="block text-sm font-medium text-slate-700">API Key</label>
-                                            <input
-                                                type="password"
-                                                value={agentApiKey}
-                                                onChange={(e) => setAgentApiKey(e.target.value)}
-                                                placeholder="Enter your provider API key"
-                                                className="mt-2 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-800 focus:border-violet-400 focus:outline-none focus:ring-2 focus:ring-violet-100"
-                                            />
-                                        </div>
-                                    </div>
-                                    <div className="mt-4 flex justify-end">
-                                        <button
-                                            type="button"
-                                            onClick={handleSaveApiKey}
-                                            disabled={isSavingKey || !agentApiKey.trim()}
-                                            className="inline-flex items-center justify-center rounded-xl bg-violet-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-violet-700 disabled:cursor-not-allowed disabled:bg-slate-300"
-                                        >
-                                            {isSavingKey ? 'Saving...' : 'Add API Key'}
-                                        </button>
-                                    </div>
-                                </div>
-                            ) : (
-                                <div className="mt-6 rounded-xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-600">
-                                    OneChat will use its managed provider and default model for this agent. No model or provider key selection is required.
-                                </div>
-                            )}
-
-                        </div>
+                        )}
                     </div>
                 </div>
             </div>

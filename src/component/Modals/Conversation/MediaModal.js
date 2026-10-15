@@ -39,8 +39,6 @@ const MediaModal = ({ isOpen, onClose, mediaItem, type }) => {
         if (isOpen && type === 'image') setImageZoom(1);
     }, [isOpen, type]);
 
-    if (!isOpen || !mediaItem) return null;
-
     const getFileIcon = (fileName) => {
         const extension = fileName?.split('.').pop()?.toLowerCase();
         switch (extension) {
@@ -155,7 +153,7 @@ const MediaModal = ({ isOpen, onClose, mediaItem, type }) => {
 
     return (
         <AnimatePresence>
-            {isOpen && (
+            {isOpen && mediaItem && (
                 <motion.div
                     initial={{ opacity: 0 }}
                     animate={{ opacity: 1 }}

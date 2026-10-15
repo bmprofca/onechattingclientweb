@@ -227,10 +227,10 @@ const AudioPreview = ({ fileInfo, isOwnMessage, isVoiceMessage = false, onTimeCh
         const progressPercent = duration > 0 ? (currentTime / duration) * 100 : 0;
         const displayTime = currentTime > 0 ? formatTime(currentTime) : formatTime(duration);
         const bubbleClasses = isOwnMessage
-            ? 'bg-[#d9fdd3] text-gray-900'
+            ? 'bg-[#ECE9FD] text-gray-900'
             : 'bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100';
         const speedButtonClasses = isOwnMessage
-            ? 'bg-[#c2edbc] text-[#0c4430]'
+            ? 'bg-[#DCD6FB] text-brand-900'
             : 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-200';
         const playButtonClasses = isOwnMessage
             ? 'bg-white/80 text-[#128c7e]'

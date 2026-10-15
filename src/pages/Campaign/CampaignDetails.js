@@ -1,32 +1,22 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { API_BASE_URL } from '../../config/api';
 import { Header, Sidebar } from '../../component/Menu';
 import Pagination from '../../component/Pagination';
-import SearchableSelect from '../../component/SearchableSelect';
 import { useNavigate, useParams } from 'react-router-dom';
 import {
   FiArrowLeft,
-  FiCalendar,
-  FiCheckCircle,
-  FiClock,
   FiCopy,
   FiDownload,
-  FiEye,
   FiLoader,
-  FiPhone,
   FiSearch,
-  FiSend,
   FiTrash2,
   FiUsers,
-  FiX,
-  FiXCircle,
-  FiZap
+  FiX
 } from 'react-icons/fi';
 import moment from 'moment';
 import { parseServerDate } from '../../utils/dateTime';
 import axios from 'axios';
 import toast from 'react-hot-toast';
-import RowActionMenu from '../../component/table/RowActionMenu';
 import RecordDetailsModal from '../../component/table/RecordDetailsModal';
 import { TableSkeletonRows } from '../../component/table/TableSkeleton';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -34,6 +24,7 @@ import { Encrypt } from '../encryption/payload-encryption';
 import DateTimePicker from './components/DateTimePicker';
 
 
+import AnimatedModal from '../../component/Modals/AnimatedModal';
 const loadTokensFromStorage = () => {
   if (typeof window === 'undefined') return null;
 
@@ -83,6 +74,8 @@ const mapMessageToRecipientRow = (message) => {
     sendDate: message.send_date
   };
 };
+
+const percentOf = (num, den) => (den > 0 ? Number(((num / den) * 100).toFixed(1)) : 0);
 
 const CampaignDetails = () => {
   const navigate = useNavigate();
@@ -247,43 +240,17 @@ const CampaignDetails = () => {
 
   const getRecipientStatusBadge = (status) => {
     const statusConfig = {
-      pending: {
-        bg: 'bg-yellow-100 dark:bg-yellow-900',
-        text: 'text-yellow-800 dark:text-yellow-200',
-        icon: <FiClock className="w-3 h-3" />,
-        label: 'Pending'
-      },
-      sent: {
-        bg: 'bg-blue-100 dark:bg-blue-900',
-        text: 'text-blue-800 dark:text-blue-200',
-        icon: <FiSend className="w-3 h-3" />,
-        label: 'Sent'
-      },
-      delivered: {
-        bg: 'bg-green-100 dark:bg-green-900',
-        text: 'text-green-800 dark:text-green-200',
-        icon: <FiCheckCircle className="w-3 h-3" />,
-        label: 'Delivered'
-      },
-      read: {
-        bg: 'bg-purple-100 dark:bg-purple-900',
-        text: 'text-purple-800 dark:text-purple-200',
-        icon: <FiEye className="w-3 h-3" />,
-        label: 'Read'
-      },
-      failed: {
-        bg: 'bg-red-100 dark:bg-red-900',
-        text: 'text-red-800 dark:text-red-200',
-        icon: <FiXCircle className="w-3 h-3" />,
-        label: 'Failed'
-      }
+      pending: { bg: 'bg-amber-50', text: 'text-amber-800', label: 'Pending' },
+      sent: { bg: 'bg-sky-50', text: 'text-sky-800', label: 'Sent' },
+      delivered: { bg: 'bg-brand-50', text: 'text-brand-800', label: 'Delivered' },
+      read: { bg: 'bg-[#EBE8FC]', text: 'text-brand-800', label: 'Read' },
+      failed: { bg: 'bg-rose-50', text: 'text-rose-700', label: 'Failed' }
     };
 
     const config = statusConfig[status] || statusConfig.sent;
     return (
-      <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${config.bg} ${config.text}`}>
-        {config.icon}
-        <span className="ml-1">{config.label}</span>
+      <span className={`inline-flex items-center rounded-md px-2 py-0.5 text-[11px] font-bold ${config.bg} ${config.text}`}>
+        {config.label}
       </span>
     );
   };
@@ -314,74 +281,78 @@ const CampaignDetails = () => {
     };
   }, [campaignDetails]);
 
-  const percent = (num, den) => (den > 0 ? Number(((num / den) * 100).toFixed(1)) : 0);
-  const deliveryRate = percent(campaignStats.delivered, campaignStats.sent);
-  const readRate = percent(campaignStats.read, campaignStats.delivered);
-  const sentRate = percent(campaignStats.sent, campaignStats.total);
-  const pendingRate = percent(campaignStats.pending, campaignStats.total);
-  const failedRate = percent(campaignStats.failed, campaignStats.total);
-
   const stats = useMemo(
     () => [
-      {
-        title: 'All',
-        value: campaignStats.total.toLocaleString(),
-        total: campaignStats.total.toLocaleString(),
-        percentage: 100,
-        color: 'text-gray-600',
-        bgColor: 'bg-gray-50',
-        icon: <FiUsers className="w-5 h-5" />
-      },
-      {
-        title: 'Pending',
-        value: campaignStats.pending.toLocaleString(),
-        total: campaignStats.total.toLocaleString(),
-        percentage: pendingRate,
-        color: 'text-yellow-600',
-        bgColor: 'bg-yellow-50',
-        icon: <FiClock className="w-5 h-5" />
-      },
-      {
-        title: 'Sent',
-        value: campaignStats.sent.toLocaleString(),
-        total: campaignStats.total.toLocaleString(),
-        percentage: sentRate,
-        color: 'text-blue-600',
-        bgColor: 'bg-blue-50',
-        icon: <FiSend className="w-5 h-5" />
-      },
-      {
-        title: 'Delivered',
-        value: campaignStats.delivered.toLocaleString(),
-        total: campaignStats.sent.toLocaleString(),
-        percentage: deliveryRate,
-        color: 'text-green-600',
-        bgColor: 'bg-green-50',
-        icon: <FiCheckCircle className="w-5 h-5" />
-      },
-      {
-        title: 'Read',
-        value: campaignStats.read.toLocaleString(),
-        total: campaignStats.delivered.toLocaleString(),
-        percentage: readRate,
-        color: 'text-purple-600',
-        bgColor: 'bg-purple-50',
-        icon: <FiEye className="w-5 h-5" />
-      },
-      {
-        title: 'Failed',
-        value: campaignStats.failed.toLocaleString(),
-        total: campaignStats.total.toLocaleString(),
-        percentage: failedRate,
-        color: 'text-red-600',
-        bgColor: 'bg-red-50',
-        icon: <FiXCircle className="w-5 h-5" />
-      }
+      { title: 'Total', filter: 'all', value: campaignStats.total.toLocaleString(), percentage: campaignStats.total > 0 ? 100 : 0, dot: 'bg-ink' },
+      { title: 'Read', filter: 'read', value: campaignStats.read.toLocaleString(), percentage: percentOf(campaignStats.read, campaignStats.total), dot: 'bg-brand-600' },
+      { title: 'Delivered', filter: 'delivered', value: campaignStats.delivered.toLocaleString(), percentage: percentOf(campaignStats.delivered, campaignStats.total), dot: 'bg-[#A78BFA]' },
+      { title: 'Sent', filter: 'sent', value: campaignStats.sent.toLocaleString(), percentage: percentOf(campaignStats.sent, campaignStats.total), dot: 'bg-sky-400' },
+      { title: 'Pending', filter: 'pending', value: campaignStats.pending.toLocaleString(), percentage: percentOf(campaignStats.pending, campaignStats.total), dot: 'bg-amber-400' },
+      { title: 'Failed', filter: 'failed', value: campaignStats.failed.toLocaleString(), percentage: percentOf(campaignStats.failed, campaignStats.total), dot: 'bg-rose-500' }
     ],
-    [campaignStats, deliveryRate, failedRate, pendingRate, readRate, sentRate]
+    [campaignStats]
   );
 
-  const showFailedReasonColumn = recipients.some((r) => r.failedReason);
+  const sourceLabel = (source) => {
+    const key = String(source || '').toLowerCase();
+    if (key === 'excel') return { label: 'Excel upload', phrase: 'an Excel upload' };
+    if (key === 'contact') return { label: 'Contacts', phrase: 'contacts' };
+    if (key === 'group') return { label: 'Contact group', phrase: 'a contact group' };
+    if (key === 'sheet' || key === 'sheets') return { label: 'Google Sheet', phrase: 'a Google Sheet' };
+    return source ? { label: String(source), phrase: String(source) } : null;
+  };
+
+  const campaignStatusPill = (status) => {
+    const key = String(status || '').toLowerCase();
+    const map = {
+      complete: { label: 'Completed', cls: 'bg-emerald-50 text-emerald-700' },
+      completed: { label: 'Completed', cls: 'bg-emerald-50 text-emerald-700' },
+      pending: { label: 'Pending', cls: 'bg-amber-50 text-amber-800' },
+      scheduled: { label: 'Scheduled', cls: 'bg-amber-50 text-amber-800' },
+      stopped: { label: 'Stopped', cls: 'bg-rose-50 text-rose-700' },
+      failed: { label: 'Failed', cls: 'bg-rose-50 text-rose-700' }
+    };
+    const item = map[key] || (status ? { label: status, cls: 'bg-brand-50 text-brand-800' } : null);
+    if (!item) return null;
+    return (
+      <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-[11px] font-bold capitalize ${item.cls}`}>
+        {item.label}
+      </span>
+    );
+  };
+
+  const formatInr = (value) => `₹${Number(value).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+
+  const sentWhen = campaignDetails?.create_date
+    ? moment(parseServerDate(campaignDetails.create_date)).format('D MMM YYYY, HH:mm')
+    : '';
+  const audienceSource = sourceLabel(campaignDetails?.source);
+  const subtitle = [
+    sentWhen ? `Sent ${sentWhen}` : '',
+    campaignDetails ? `to ${campaignStats.total.toLocaleString()} recipients` : '',
+    audienceSource?.phrase ? `from ${audienceSource.phrase}` : ''
+  ].filter(Boolean).join(' ');
+
+  const category = campaignDetails?.template?.category;
+  const metaRows = [
+    { label: 'Template', value: campaignDetails?.template?.template_name },
+    { label: 'Category', value: category ? category.charAt(0) + category.slice(1).toLowerCase() : '' },
+    { label: 'Source', value: audienceSource?.label },
+    { label: 'Created by', value: campaignDetails?.create_by?.name },
+    {
+      label: 'Created',
+      value: campaignDetails?.create_date
+        ? moment(parseServerDate(campaignDetails.create_date)).format('DD MMM YYYY, HH:mm')
+        : ''
+    }
+  ].filter((row) => row.value);
+
+  const cost = campaignDetails?.cost;
+  const costRows = [
+    cost?.per_message != null && { label: 'Per message cost', value: formatInr(cost.per_message) },
+    cost?.used != null && { label: 'Cost used', value: formatInr(cost.used) },
+    cost?.total != null && { label: 'Total cost', value: formatInr(cost.total) }
+  ].filter(Boolean);
 
   const handleBack = () => navigate('/campaigns');
 
@@ -511,7 +482,7 @@ const CampaignDetails = () => {
   };
 
   return (
-    <div className="min-h-screen bg-[#f4f6fb] dark:bg-gray-900">
+    <div className="min-h-screen bg-surface-ground dark:bg-gray-900">
       <Header
         mobileMenuOpen={mobileMenuOpen}
         setMobileMenuOpen={setMobileMenuOpen}
@@ -526,413 +497,305 @@ const CampaignDetails = () => {
       />
 
       <div className={`pt-16 transition-all duration-300 ease-in-out ${isMinimized ? 'md:pl-20' : 'md:pl-[260px]'}`}>
-        <div className="w-full px-4 py-5">
-          <div className="mb-6">
-            <button
-              onClick={handleBack}
-              className="flex items-center text-gray-600 dark:text-gray-400 hover:text-indigo-600 dark:hover:text-indigo-400 mb-4 transition-colors"
-            >
-              <FiArrowLeft className="mr-2" size={20} />
-              Back to Campaigns
-            </button>
-
-            <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between">
-              <div className="flex-1">
-                <div className="flex items-center space-x-3 mb-2">
-                  <div className="flex-shrink-0 h-12 w-12 flex items-center justify-center rounded-lg bg-indigo-100 dark:bg-indigo-900 text-indigo-600 dark:text-indigo-300">
-                    <FiZap size={24} />
+        <div className="w-full max-w-[1320px] px-4 sm:px-7 py-7">
+          <div className="flex flex-col xl:flex-row xl:items-start gap-5">
+            <div className="min-w-0 flex-1">
+              <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between mb-5">
+                <div className="min-w-0">
+                  <div className="flex items-center gap-2.5 min-w-0">
+                    <button
+                      type="button"
+                      onClick={handleBack}
+                      className="flex h-8 w-8 flex-none items-center justify-center rounded-[9px] text-ink-500 hover:bg-white hover:text-ink"
+                      aria-label="Back to campaigns"
+                    >
+                      <FiArrowLeft size={18} />
+                    </button>
+                    <h1 className="text-[26px] leading-tight font-extrabold tracking-tight text-ink truncate">
+                      {campaignDetails?.name || 'Campaign'}
+                    </h1>
+                    {campaignStatusPill(campaignDetails?.status)}
                   </div>
-                  <div>
-                    <h1 className="text-2xl font-semibold tracking-tight text-slate-900 dark:text-white">{campaignDetails?.name || 'Campaign Details'}</h1>
+                  {subtitle ? <p className="mt-1.5 pl-10 text-sm text-ink-500">{subtitle.endsWith('.') ? subtitle : `${subtitle}.`}</p> : null}
+                  {detailsError && (
+                    <div className="mt-3 ml-10 p-3 bg-rose-50 border border-rose-200 rounded-[14px]">
+                      <p className="text-sm text-rose-700">{detailsError}</p>
+                    </div>
+                  )}
+                </div>
+                <div className="flex flex-wrap items-center gap-2 lg:justify-end">
+                  <button type="button" onClick={openDuplicateModal} className="oc-btn-ghost">
+                    <FiCopy size={15} />
+                    Duplicate
+                  </button>
+                  <button type="button" onClick={handleExport} disabled={!campaignDetails?.url} className="oc-btn-ghost">
+                    <FiDownload size={15} />
+                    Export report
+                  </button>
+                  <button type="button" onClick={openDeleteModal} className="oc-btn-ghost text-red-600 hover:bg-rose-50">
+                    <FiTrash2 size={15} />
+                    Delete
+                  </button>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-5 gap-3 mb-5">
+                {stats.map((stat) => {
+                  const selected = statusFilter === stat.filter;
+                  return (
+                    <button
+                      key={stat.title}
+                      type="button"
+                      onClick={() => setStatusFilter(stat.filter)}
+                      className={`text-left rounded-[14px] border px-4 py-3.5 transition-colors ${selected ? 'bg-[#F4F2FE] border-brand-600' : 'bg-white border-line hover:border-brand-300'}`}
+                    >
+                      <div className="flex items-center gap-2 text-[13px] font-semibold text-ink-500">
+                        <span className={`h-2 w-2 rounded-full ${stat.dot}`} />
+                        {stat.title}
+                      </div>
+                      <div className="mt-2 font-mono text-[26px] font-semibold leading-none tracking-tight text-ink">{stat.value}</div>
+                      <div className="mt-1.5 text-xs font-semibold text-ink-500">{stat.percentage}%</div>
+                    </button>
+                  );
+                })}
+              </div>
+
+              <div className="bg-white border border-line rounded-[14px] flex flex-col min-h-[420px]">
+                <div className="px-4 py-3.5 border-b border-[#ECEAF3] flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                  <h2 className="text-[15px] font-bold text-ink">
+                    Recipients
+                    <span className="ml-2 text-sm font-semibold text-ink-500">· {statusFilter === 'all' ? 'All' : statusFilter}</span>
+                  </h2>
+                  <div className="relative">
+                    <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-ink-400" />
+                    <input
+                      type="text"
+                      placeholder="Search name or phone"
+                      value={searchTerm}
+                      onChange={(e) => setSearchTerm(e.target.value)}
+                      className="h-[38px] w-full sm:w-64 pl-9 pr-3 rounded-[9px] border border-line bg-surface-soft text-sm text-ink placeholder:text-ink-400 outline-none focus:border-brand-600"
+                    />
                   </div>
                 </div>
-                {detailsError && (
-                  <div className="mt-3 p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
-                    <p className="text-sm text-red-800 dark:text-red-200">{detailsError}</p>
+
+                {messagesError && (
+                  <div className="mx-4 mt-4 p-3 bg-rose-50 border border-rose-200 rounded-[14px]">
+                    <p className="text-sm text-rose-700">{messagesError}</p>
                   </div>
                 )}
-              </div>
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={openDuplicateModal}
-                  className="inline-flex items-center px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
-                >
-                  <FiCopy className="mr-2" size={16} />
-                  Duplicate
-                </button>
-                <button
-                  onClick={handleExport}
-                  disabled={!campaignDetails?.url}
-                  className="inline-flex items-center px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
-                >
-                  <FiDownload className="mr-2" size={16} />
-                  Export
-                </button>
-                <button
-                  onClick={openDeleteModal}
-                  className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
-                >
-                  <FiTrash2 className="mr-2" size={16} />
-                  Delete
-                </button>
+
+                <div className="overflow-x-auto">
+                  {loadingMessages ? (
+                    <table className="min-w-full">
+                      <thead>
+                        <tr>
+                          {['#', 'Name', 'Phone', 'Status', 'Updated', 'Error details'].map((label) => (
+                            <th key={label} className={`oc-th ${label === '#' ? 'w-12 text-center' : ''}`}>{label}</th>
+                          ))}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        <TableSkeletonRows rows={8} cells={['index', 'text', 'text', 'badge', 'text', 'text']} />
+                      </tbody>
+                    </table>
+                  ) : (
+                    <table className="min-w-full">
+                      <thead>
+                        <tr>
+                          <th className="oc-th w-12 text-center">#</th>
+                          <th className="oc-th">Name</th>
+                          <th className="oc-th">Phone</th>
+                          <th className="oc-th">Status</th>
+                          <th className="oc-th">Updated</th>
+                          <th className="oc-th">Error details</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {paginatedRecipients.length === 0 ? (
+                          <tr>
+                            <td colSpan={6} className="px-6 py-12 text-center text-ink-500">
+                              <div className="flex flex-col items-center justify-center">
+                                <FiUsers className="w-10 h-10 text-ink-400 mb-3" />
+                                <p className="text-sm font-semibold text-ink">No recipients found</p>
+                                <p className="text-sm mt-1">Try another name, phone, or status.</p>
+                              </div>
+                            </td>
+                          </tr>
+                        ) : (
+                          paginatedRecipients.map((recipient, index) => (
+                            <tr
+                              key={recipient.id}
+                              onClick={() => setDetailRecipient(recipient)}
+                              className="cursor-pointer hover:bg-surface-soft"
+                            >
+                              <td className="oc-td text-center text-xs font-semibold text-ink-500 oc-num">{(currentPage - 1) * itemsPerPage + index + 1}</td>
+                              <td className="oc-td">
+                                <span className="text-sm font-semibold text-ink">{recipient.name}</span>
+                              </td>
+                              <td className="oc-td">
+                                <span className="font-mono text-[13px] text-ink">{recipient.phone}</span>
+                              </td>
+                              <td className="oc-td">{getRecipientStatusBadge(recipient.status)}</td>
+                              <td className="oc-td text-sm text-ink-500 whitespace-nowrap">
+                                {recipient.date ? moment(parseServerDate(recipient.date)).format('D MMM, HH:mm') : '—'}
+                              </td>
+                              <td className="oc-td text-sm max-w-[240px]">
+                                {recipient.failedReason ? (
+                                  <span className="text-rose-600" title={recipient.failedReason}>{recipient.failedReason}</span>
+                                ) : (
+                                  <span className="text-ink-400">—</span>
+                                )}
+                              </td>
+                            </tr>
+                          ))
+                        )}
+                      </tbody>
+                    </table>
+                  )}
+                </div>
+
+                {totalRecords > 0 ? (
+                  <Pagination
+                    currentPage={currentPage}
+                    totalPages={totalPages}
+                    totalRecords={totalRecords}
+                    pageSize={itemsPerPage}
+                    onPageChange={setCurrentPage}
+                    onPageSizeChange={setItemsPerPage}
+                    pageSizeOptions={[10, 20, 50, 100]}
+                  />
+                ) : null}
               </div>
             </div>
-          </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
-            {stats.map((stat) => (
-              <div key={stat.title} className={`${stat.bgColor} rounded-lg p-4`}>
-                <div className="flex items-center justify-between mb-2">
-                  <div className="flex items-center space-x-2">
-                    <div className={stat.color}>{stat.icon}</div>
-                    <span className="text-sm font-medium text-gray-700 dark:text-gray-300">{stat.title}</span>
+            <aside className="w-full xl:w-[320px] xl:shrink-0">
+              <div className="bg-white border border-line rounded-[14px] p-5">
+                <h2 className="text-base font-bold text-ink">Campaign</h2>
+                {loadingDetails ? (
+                  <div className="flex items-center py-6 text-sm text-ink-500">
+                    <FiLoader className="animate-spin mr-2" size={16} />
+                    Loading details...
                   </div>
-                  <span className={`text-lg font-bold ${stat.color}`}>{stat.percentage}%</span>
-                </div>
-                <div className="flex items-baseline space-x-2">
-                  <span className={`text-2xl font-bold ${stat.color}`}>{stat.value}</span>
-                  <span className="text-sm text-gray-500 dark:text-gray-400">/ {stat.total}</span>
-                </div>
-                <div className="mt-2 w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
-                  <div
-                    className={`${stat.color.replace('text-', 'bg-')} h-2 rounded-full transition-all duration-300`}
-                    style={{ width: `${Math.min(100, Math.max(0, stat.percentage))}%` }}
-                  />
-                </div>
-              </div>
-            ))}
-          </div>
-
-          {/* Campaign Information Section */}
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6 mb-6">
-            <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-4 flex items-center">
-              <FiZap className="mr-2 text-indigo-500" />
-              Campaign Information
-            </h3>
-            {loadingDetails ? (
-              <div className="flex items-center py-4 text-sm text-gray-600 dark:text-gray-400">
-                <FiLoader className="animate-spin mr-2" size={18} />
-                Loading details...
-              </div>
-            ) : (
-              <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-4 gap-6">
-                <div>
-                  <p className="text-xs font-medium uppercase tracking-wider text-gray-500 dark:text-gray-400">Template</p>
-                  <div className="mt-1 flex flex-wrap items-center gap-1">
-                    <p className="text-sm font-semibold text-gray-900 dark:text-white truncate" title={campaignDetails?.template?.template_name}>
-                      {campaignDetails?.template?.template_name || 'N/A'}
-                    </p>
-                    {campaignDetails?.template?.category && (
-                      <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-indigo-100 text-indigo-800 dark:bg-indigo-900/30 dark:text-indigo-200">
-                        {campaignDetails.template.category}
-                      </span>
-                    )}
-                  </div>
-                </div>
-                <div>
-                  <p className="text-xs font-medium uppercase tracking-wider text-gray-500 dark:text-gray-400">Created By</p>
-                  <p className="mt-1 text-sm font-semibold text-gray-900 dark:text-white truncate" title={campaignDetails?.create_by?.name}>
-                    {campaignDetails?.create_by?.name || 'N/A'}
-                  </p>
-                </div>
-                <div>
-                  <p className="text-xs font-medium uppercase tracking-wider text-gray-500 dark:text-gray-400">Created Date</p>
-                  <p className="mt-1 text-sm font-semibold text-gray-900 dark:text-white">
-                    {campaignDetails?.create_date ? moment(parseServerDate(campaignDetails.create_date)).format('MMM DD, YYYY') : 'N/A'}
-                    <span className="block text-xs text-gray-500 font-normal">
-                      {campaignDetails?.create_date ? moment(parseServerDate(campaignDetails.create_date)).format('hh:mm A') : ''}
-                    </span>
-                  </p>
-                </div>
-                <div>
-                  <p className="text-xs font-medium uppercase tracking-wider text-gray-500 dark:text-gray-400">Status</p>
-                  <div className="mt-1">
-                    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium capitalize
-                      ${campaignDetails?.status === 'complete' ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200' :
-                        campaignDetails?.status === 'failed' ? 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200' :
-                          'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200'}`}>
-                      {campaignDetails?.status || 'N/A'}
-                    </span>
-                  </div>
-                </div>
-                <div>
-                  <p className="text-xs font-medium uppercase tracking-wider text-gray-500 dark:text-gray-400">Source</p>
-                  <p className="mt-1 text-sm font-semibold text-gray-900 dark:text-white capitalize">
-                    {campaignDetails?.source || 'N/A'}
-                  </p>
-                </div>
-                {campaignDetails?.cost && (
+                ) : (
                   <>
-                    <div>
-                      <p className="text-xs font-medium uppercase tracking-wider text-gray-500 dark:text-gray-400">Total Cost</p>
-                      <p className="mt-1 text-sm font-semibold text-gray-900 dark:text-white flex items-center gap-1">
-                        <span className="text-gray-600 dark:text-gray-400">₹</span>
-                        {Number(campaignDetails.cost.total ?? 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                      </p>
-                      <p className="text-xs text-gray-500 dark:text-gray-400">per message × total recipients</p>
-                    </div>
-                    <div>
-                      <p className="text-xs font-medium uppercase tracking-wider text-gray-500 dark:text-gray-400">Per Message Cost</p>
-                      <p className="mt-1 text-sm font-semibold text-gray-900 dark:text-white flex items-center gap-1">
-                        <span className="text-gray-600 dark:text-gray-400">₹</span>
-                        {Number(campaignDetails.cost.per_message ?? 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                      </p>
-                      <p className="text-xs text-gray-500 dark:text-gray-400">when delivered</p>
-                    </div>
-                    <div>
-                      <p className="text-xs font-medium uppercase tracking-wider text-gray-500 dark:text-gray-400">Cost Used</p>
-                      <p className="mt-1 text-sm font-semibold text-gray-900 dark:text-white flex items-center gap-1">
-                        <span className="text-gray-600 dark:text-gray-400">₹</span>
-                        {Number(campaignDetails.cost.used ?? 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                      </p>
-                      <p className="text-xs text-gray-500 dark:text-gray-400">delivered messages</p>
-                    </div>
+                    {metaRows.length > 0 && (
+                      <dl className="mt-4 grid grid-cols-[auto_1fr] gap-x-4 gap-y-2.5 text-[13px]">
+                        {metaRows.map((row) => (
+                          <React.Fragment key={row.label}>
+                            <dt className="text-ink-500">{row.label}</dt>
+                            <dd className="m-0 text-right font-semibold text-ink truncate" title={String(row.value)}>{row.value}</dd>
+                          </React.Fragment>
+                        ))}
+                      </dl>
+                    )}
+                    {costRows.length > 0 && (
+                      <dl className="mt-4 pt-4 border-t border-line grid grid-cols-[auto_1fr] gap-x-4 gap-y-2.5 text-[13px]">
+                        {costRows.map((row) => (
+                          <React.Fragment key={row.label}>
+                            <dt className="text-ink-500">{row.label}</dt>
+                            <dd className="m-0 text-right font-mono font-semibold text-ink">{row.value}</dd>
+                          </React.Fragment>
+                        ))}
+                      </dl>
+                    )}
                   </>
                 )}
               </div>
-            )}
-          </div>
-
-          {/* Recipients Table Section */}
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 flex flex-col h-[600px]">
-            <div className="p-4 border-b border-gray-200 dark:border-gray-700 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-              <h3 className="text-lg font-medium text-gray-900 dark:text-white flex items-center">
-                <FiUsers className="mr-2 text-indigo-500" />
-                Recipients List
-                <span className="ml-2 px-2.5 py-0.5 rounded-full bg-gray-100 dark:bg-gray-700 text-xs font-medium text-gray-600 dark:text-gray-300">
-                  {totalRecords}
-                </span>
-              </h3>
-
-              <div className="flex flex-col sm:flex-row gap-3">
-                <div className="relative">
-                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                    <FiSearch className="h-4 w-4 text-gray-400" />
-                  </div>
-                  <input
-                    type="text"
-                    placeholder="Search..."
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                    className="block w-full sm:w-64 pl-9 pr-3 py-1.5 border border-gray-300 dark:border-gray-600 rounded-md text-sm bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-white focus:ring-indigo-500 focus:border-indigo-500"
-                  />
-                </div>
-                <SearchableSelect
-                  value={statusFilter}
-                  onChange={(e) => setStatusFilter(e.target.value)}
-                  options={[
-                    { value: 'all', label: 'All Status' },
-                    { value: 'pending', label: 'Pending' },
-                    { value: 'sent', label: 'Sent' },
-                    { value: 'delivered', label: 'Delivered' },
-                    { value: 'read', label: 'Read' },
-                    { value: 'failed', label: 'Failed' },
-                  ]}
-                  className="block w-full sm:w-44 px-3 py-1.5 border border-gray-300 dark:border-gray-600 rounded-md text-sm bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-white focus:ring-indigo-500 focus:border-indigo-500"
-                />
-              </div>
-            </div>
-
-            {messagesError && (
-              <div className="mx-4 mt-4 p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
-                <p className="text-sm text-red-800 dark:text-red-200">{messagesError}</p>
-              </div>
-            )}
-
-            <div className="flex-1 overflow-hidden relative">
-              <div className="absolute inset-0 overflow-y-auto">
-                {loadingMessages ? (
-                  <table className="min-w-full">
-                    <thead className="bg-gray-50 dark:bg-gray-700">
-                      <tr>
-                        {['#', 'Phone', 'Status', 'Date', ''].map((label) => (
-                          <th key={label || 'actions'} className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase">{label}</th>
-                        ))}
-                      </tr>
-                    </thead>
-                    <tbody>
-                      <TableSkeletonRows rows={8} cells={['index', 'text', 'badge', 'text', 'action']} />
-                    </tbody>
-                  </table>
-                ) : (
-                  <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
-                    <thead className="bg-gray-50 dark:bg-gray-700 sticky top-0 z-10 shadow-sm">
-                      <tr>
-                        {/* <th scope="col" className="px-6 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-300 uppercase tracking-wider bg-gray-50 dark:bg-gray-700">
-                          Name / Template
-                        </th> */}
-                        <th scope="col" className="w-14 px-4 py-3 text-center text-xs font-semibold text-gray-500 dark:text-gray-300 uppercase tracking-wider bg-gray-50 dark:bg-gray-700">
-                          #
-                        </th>
-                        <th scope="col" className="px-6 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-300 uppercase tracking-wider bg-gray-50 dark:bg-gray-700">
-                          Phone
-                        </th>
-                        <th scope="col" className="px-6 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-300 uppercase tracking-wider bg-gray-50 dark:bg-gray-700">
-                          Status
-                        </th>
-                        <th scope="col" className="px-6 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-300 uppercase tracking-wider bg-gray-50 dark:bg-gray-700">
-                          Date
-                        </th>
-                        <th scope="col" className="w-16 px-3 py-3 text-right text-xs font-semibold text-gray-500 dark:text-gray-300 uppercase tracking-wider bg-gray-50 dark:bg-gray-700">
-                          Actions
-                        </th>
-                      </tr>
-                    </thead>
-                    <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
-                      {paginatedRecipients.length === 0 ? (
-                        <tr>
-                          <td colSpan={5} className="px-6 py-12 text-center text-gray-500 dark:text-gray-400">
-                            <div className="flex flex-col items-center justify-center">
-                              <FiUsers className="w-12 h-12 text-gray-300 dark:text-gray-600 mb-3" />
-                              <p className="text-base font-medium">No recipients found</p>
-                              <p className="text-sm mt-1">Try adjusting your search or filters</p>
-                            </div>
-                          </td>
-                        </tr>
-                      ) : (
-                        paginatedRecipients.map((recipient, index) => (
-                          <tr key={recipient.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors duration-150">
-                            {/* <td className="px-6 py-4 whitespace-nowrap">
-                              <div className="flex flex-col">
-                                <span className="text-sm font-medium text-gray-900 dark:text-white">{recipient.name}</span>
-                                {recipient.templateName && (
-                                  <span className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">{recipient.templateName}</span>
-                                )}
-                              </div>
-                            </td> */}
-                            <td className="px-4 py-4 text-center text-sm text-gray-500">{(currentPage - 1) * itemsPerPage + index + 1}</td>
-                            <td className="px-6 py-4 whitespace-nowrap">
-                              <div className="flex items-center text-sm text-gray-500 dark:text-gray-300">
-                                <FiPhone className="mr-2 text-gray-400" size={14} />
-                                <span className="font-mono">{recipient.phone}</span>
-                              </div>
-                            </td>
-                            <td className="px-6 py-4 whitespace-nowrap">
-                              {getRecipientStatusBadge(recipient.status)}
-                            </td>
-                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
-                              <div className="flex flex-col">
-                                <span>{moment(parseServerDate(recipient.date)).format('MMM DD, YYYY')}</span>
-                                <span className="text-xs text-gray-400">{moment(parseServerDate(recipient.date)).format('hh:mm A')}</span>
-                              </div>
-                            </td>
-                            <td className="px-3 py-4 text-right">
-                              <RowActionMenu
-                                items={[{ label: 'Details', icon: <FiEye size={15} />, onClick: () => setDetailRecipient(recipient) }]}
-                              />
-                            </td>
-                          </tr>
-                        ))
-                      )}
-                    </tbody>
-                  </table>
-                )}
-              </div>
-            </div>
-
-            {totalRecords > 0 ? (
-              <Pagination
-                currentPage={currentPage}
-                totalPages={totalPages}
-                totalRecords={totalRecords}
-                pageSize={itemsPerPage}
-                onPageChange={setCurrentPage}
-                onPageSizeChange={setItemsPerPage}
-                pageSizeOptions={[10, 20, 50, 100]}
-              />
-            ) : null}
+            </aside>
           </div>
         </div>
       </div>
 
       {/* Duplicate Campaign Modal */}
-      {showDuplicateModal && (
-        <div className="fixed inset-0 z-50 overflow-y-auto">
-          <div className="flex min-h-screen items-center justify-center p-4">
-            <div
-              className="fixed inset-0 bg-black/50 transition-opacity"
-              onClick={closeDuplicateModal}
-              aria-hidden="true"
-            />
-            <div className="relative w-full max-w-md rounded-lg bg-white dark:bg-gray-800 shadow-xl">
-              <div className="flex items-center justify-between border-b border-gray-200 dark:border-gray-700 px-6 py-4">
-                <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Duplicate Campaign</h3>
-                <button
-                  onClick={closeDuplicateModal}
-                  className="rounded p-1 text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 hover:text-gray-600 dark:hover:text-gray-300"
-                >
-                  <FiX size={20} />
-                </button>
-              </div>
-              <form onSubmit={handleDuplicateSubmit} className="p-6 space-y-4">
-                {duplicateError && (
-                  <div className="p-3 rounded-lg bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800">
-                    <p className="text-sm text-red-800 dark:text-red-200">{duplicateError}</p>
-                  </div>
-                )}
-                <div>
-                  <label htmlFor="duplicate-name" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                    Campaign Name
-                  </label>
-                  <input
-                    id="duplicate-name"
-                    type="text"
-                    value={duplicateName}
-                    onChange={(e) => setDuplicateName(e.target.value)}
-                    placeholder="Enter campaign name"
-                    className="block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-900 text-gray-900 dark:text-white focus:ring-indigo-500 focus:border-indigo-500"
-                    required
-                  />
-                </div>
-                <div>
-                  <label className="flex items-center gap-2 cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={duplicateIsScheduled}
-                      onChange={(e) => setDuplicateIsScheduled(e.target.checked)}
-                      className="rounded border-gray-300 dark:border-gray-600 text-indigo-600 focus:ring-indigo-500"
-                    />
-                    <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Schedule for later</span>
-                  </label>
-                </div>
-                {duplicateIsScheduled && (
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                      Schedule Date & Time
-                    </label>
-                    <DateTimePicker
-                      selectedDate={duplicateScheduleDate}
-                      onChange={setDuplicateScheduleDate}
-                      minDate={getMinDateTime()}
-                      placeholder="Select date and time"
-                    />
-                  </div>
-                )}
-                <div className="flex gap-3 pt-2">
+      <AnimatedModal open={showDuplicateModal}>
+        {showDuplicateModal && (
+          <div className="fixed inset-0 z-50 overflow-y-auto">
+            <div className="flex min-h-screen items-center justify-center p-4">
+              <div
+                className="fixed inset-0 bg-black/50 transition-opacity"
+                onClick={closeDuplicateModal}
+                aria-hidden="true"
+              />
+              <div className="relative w-full max-w-md rounded-lg bg-white dark:bg-gray-800 shadow-xl">
+                <div className="flex items-center justify-between border-b border-gray-200 dark:border-gray-700 px-6 py-4">
+                  <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Duplicate Campaign</h3>
                   <button
-                    type="button"
                     onClick={closeDuplicateModal}
-                    className="flex-1 px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700"
+                    className="rounded p-1 text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 hover:text-gray-600 dark:hover:text-gray-300"
                   >
-                    Cancel
-                  </button>
-                  <button
-                    type="submit"
-                    disabled={duplicateLoading}
-                    className="flex-1 px-4 py-2 border border-transparent rounded-md text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
-                  >
-                    {duplicateLoading ? (
-                      <FiLoader className="animate-spin" size={18} />
-                    ) : (
-                      'Duplicate'
-                    )}
+                    <FiX size={20} />
                   </button>
                 </div>
-              </form>
+                <form onSubmit={handleDuplicateSubmit} className="p-6 space-y-4">
+                  {duplicateError && (
+                    <div className="p-3 rounded-lg bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800">
+                      <p className="text-sm text-red-800 dark:text-red-200">{duplicateError}</p>
+                    </div>
+                  )}
+                  <div>
+                    <label htmlFor="duplicate-name" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                      Campaign Name
+                    </label>
+                    <input
+                      id="duplicate-name"
+                      type="text"
+                      value={duplicateName}
+                      onChange={(e) => setDuplicateName(e.target.value)}
+                      placeholder="Enter campaign name"
+                      className="block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-900 text-gray-900 dark:text-white focus:ring-indigo-500 focus:border-indigo-500"
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label className="flex items-center gap-2 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={duplicateIsScheduled}
+                        onChange={(e) => setDuplicateIsScheduled(e.target.checked)}
+                        className="rounded border-gray-300 dark:border-gray-600 text-indigo-600 focus:ring-indigo-500"
+                      />
+                      <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Schedule for later</span>
+                    </label>
+                  </div>
+                  {duplicateIsScheduled && (
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                        Schedule Date & Time
+                      </label>
+                      <DateTimePicker
+                        selectedDate={duplicateScheduleDate}
+                        onChange={setDuplicateScheduleDate}
+                        minDate={getMinDateTime()}
+                        placeholder="Select date and time"
+                      />
+                    </div>
+                  )}
+                  <div className="flex gap-3 pt-2">
+                    <button
+                      type="button"
+                      onClick={closeDuplicateModal}
+                      className="flex-1 px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="submit"
+                      disabled={duplicateLoading}
+                      className="flex-1 px-4 py-2 border border-transparent rounded-md text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
+                    >
+                      {duplicateLoading ? (
+                        <FiLoader className="animate-spin" size={18} />
+                      ) : (
+                        'Duplicate'
+                      )}
+                    </button>
+                  </div>
+                </form>
+              </div>
             </div>
           </div>
-        </div>
-      )}
+        )}
+      </AnimatedModal>
 
       {/* Delete Campaign Confirmation Modal */}
       <AnimatePresence>

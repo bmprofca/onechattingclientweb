@@ -1,3 +1,4 @@
+import { installDefaultTransport } from './api/http/transport';
 import ReactDOM from 'react-dom/client';
 import './index.css';
 import Error_404 from './pages/error/Error_404';
@@ -42,11 +43,17 @@ import ContextConfig from './pages/ContextConfig';
 import DeveloperAccess from './pages/DeveloperAccess';
 import Support from './pages/Support';
 import ProtectedRoute from './component/ProtectedRoute';
+import { ShellProvider } from './component/Menu';
+import { ThemeProvider } from './theme/ThemeContext';
 
+
+// API transport for every axios request to the OneChatting API (must run before any request)
+installDefaultTransport();
 
 const root = ReactDOM.createRoot(document.getElementById('root'));
 root.render(
   <Provider store={store}>
+    <ThemeProvider>
       <BrowserRouter>
         <Toaster
           position="top-center"
@@ -72,6 +79,7 @@ root.render(
             },
           }}
         />
+        <ShellProvider>
         <Routes>
           <Route path="/" element={
             <ProtectedRoute>
@@ -223,6 +231,8 @@ root.render(
           {/* Add more routes as needed */}
           <Route path="*" element={<Error_404 />} />
         </Routes>
+        </ShellProvider>
       </BrowserRouter>
+    </ThemeProvider>
   </Provider>
 );

@@ -35,6 +35,19 @@ import Pagination from '../component/Pagination';
 import RecordDetailsModal from '../component/table/RecordDetailsModal';
 import { TableSkeletonRows } from '../component/table/TableSkeleton';
 
+import AnimatedModal from '../component/Modals/AnimatedModal';
+const PERMISSION_MATRIX = [
+    { area: 'Contacts', view: 'view contact', create: 'create contact', edit: 'edit contact', delete: 'delete contact' },
+    { area: 'Templates', create: 'create template', edit: 'edit template', delete: 'delete template' },
+    { area: 'Live chat', view: 'view all chat' },
+];
+
+const EXTRA_FLAGS = [
+    { permission: 'chat assign access', label: 'Can assign and reassign live chats' },
+    { permission: 'broadcast access', label: 'Broadcast access' },
+    { permission: 'setting access', label: 'Settings access' },
+];
+
 function PermissionsList() {
     const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
     const [permissions, setPermissions] = useState([]);
@@ -60,6 +73,9 @@ function PermissionsList() {
     const [formLoading, setFormLoading] = useState(false);
     const [permissionSettings, setPermissionSettings] = useState([]);
     const [tokens, setTokens] = useState(null);
+    const [editorMode, setEditorMode] = useState('edit');
+    const [activeRoleId, setActiveRoleId] = useState(null);
+    const [roleModalOpen, setRoleModalOpen] = useState(false);
 
     const [isMinimized, setIsMinimized] = useState(() => {
         const saved = localStorage.getItem('sidebarMinimized');
@@ -91,7 +107,7 @@ function PermissionsList() {
 
     // Prevent background scrolling when mobile menu or any modal is open
     useEffect(() => {
-        if (mobileMenuOpen || isCreateModalOpen || isEditModalOpen || isSettingsModalOpen || isDeleteModalOpen) {
+        if (mobileMenuOpen || isCreateModalOpen || isEditModalOpen || isSettingsModalOpen || isDeleteModalOpen || roleModalOpen) {
             document.body.style.overflow = 'hidden';
         } else {
             document.body.style.overflow = 'auto';
@@ -99,7 +115,7 @@ function PermissionsList() {
         return () => {
             document.body.style.overflow = 'auto';
         };
-    }, [mobileMenuOpen, isCreateModalOpen, isEditModalOpen, isSettingsModalOpen, isDeleteModalOpen]);
+    }, [mobileMenuOpen, isCreateModalOpen, isEditModalOpen, isSettingsModalOpen, isDeleteModalOpen, roleModalOpen]);
 
     // Get user tokens from localStorage
     useEffect(() => {
@@ -111,7 +127,6 @@ function PermissionsList() {
     }, []);
 
     const fetchPermissions = async () => {
-        setPermissions([]);
         setLoading(true);
         try {
             const payload = {
@@ -139,16 +154,20 @@ function PermissionsList() {
                 toast.error(res_data.error);
             }
 
+            let list = [];
             if (res_data.msg) {
                 if (res_data.count > 0) {
-                    setPermissions(res_data.data);
+                    list = res_data.data || [];
+                    setPermissions(list);
                 } else {
                     setPermissions([]);
                 }
             }
+            return list;
 
         } catch (error) {
             toast.error('Failed to load permission list');
+            return [];
         } finally {
             setLoading(false);
         }
@@ -163,8 +182,16 @@ function PermissionsList() {
 
     // Create Permission Functions
     const handleCreate = () => {
+        setEditorMode('create');
         setCreateFormData({ name: '', remark: '' });
-        setIsCreateModalOpen(true);
+        setPermissionSettings(availablePermissions.map((item) => ({ ...item, status: false })));
+        setRoleModalOpen(true);
+    };
+
+    const openRoleModal = (permission) => {
+        setEditorMode('edit');
+        setActiveRoleId(permission.permission_id);
+        setRoleModalOpen(true);
     };
 
     const handleCreateInputChange = (e) => {
@@ -456,6 +483,158 @@ function PermissionsList() {
         }
     };
 
+    useEffect(() => {
+        if (editorMode === 'create') return;
+        if (!permissions.length) {
+            setActiveRoleId(null);
+            return;
+        }
+        setActiveRoleId((current) => (
+            current && permissions.some((item) => item.permission_id === current)
+                ? current
+                : permissions[0].permission_id
+        ));
+    }, [permissions, editorMode]);
+
+    useEffect(() => {
+        if (editorMode === 'create') return;
+        const role = permissions.find((item) => item.permission_id === activeRoleId);
+        if (!role) return;
+        setSelectedPermission(role);
+        setEditFormData({ name: role.name || '', remark: role.remark || '' });
+        setPermissionSettings(availablePermissions.map((item) => ({
+            ...item,
+            status: Boolean(role.permissions?.[item.apiKey]),
+        })));
+    }, [activeRoleId, permissions, editorMode]);
+
+    const handleCancelEditor = () => {
+        setRoleModalOpen(false);
+        if (editorMode === 'create') {
+            setEditorMode('edit');
+            return;
+        }
+        const role = permissions.find((item) => item.permission_id === activeRoleId);
+        if (!role) return;
+        setEditFormData({ name: role.name || '', remark: role.remark || '' });
+        setPermissionSettings(availablePermissions.map((item) => ({
+            ...item,
+            status: Boolean(role.permissions?.[item.apiKey]),
+        })));
+    };
+
+    const handleSaveRole = async (e) => {
+        e.preventDefault();
+        const projectId = tokens.selected_project_id || tokens.projects?.[0]?.project_id;
+        const headers = {
+            token: tokens.token,
+            username: tokens.username,
+            'Content-Type': 'application/json',
+        };
+        setFormLoading(true);
+        try {
+            if (editorMode === 'create') {
+                if (!createFormData.name.trim()) {
+                    toast.error('Role name is required');
+                    return;
+                }
+                const previousIds = new Set(permissions.map((item) => item.permission_id));
+                const payload = {
+                    project_id: projectId,
+                    name: createFormData.name,
+                    remark: createFormData.remark,
+                };
+                const { data, key } = Encrypt(payload);
+                const response = await axios.post(
+                    `${API_BASE_URL}/permission/create`,
+                    JSON.stringify({ data, key }),
+                    { headers }
+                );
+                if (response.data?.error) {
+                    toast.error(response.data.error);
+                    return;
+                }
+                const list = await fetchPermissions();
+                const created = (list || []).find((item) => item.name === createFormData.name && !previousIds.has(item.permission_id))
+                    || (list || []).find((item) => item.name === createFormData.name);
+                if (created && permissionSettings.some((item) => item.status)) {
+                    const accessPayload = {
+                        project_id: projectId,
+                        permission_id: created.permission_id,
+                    };
+                    permissionSettings.forEach((setting) => {
+                        accessPayload[setting.apiKey] = setting.status;
+                    });
+                    const encrypted = Encrypt(accessPayload);
+                    const accessResponse = await axios.post(
+                        `${API_BASE_URL}/permission/set-access`,
+                        JSON.stringify({ data: encrypted.data, key: encrypted.key }),
+                        { headers }
+                    );
+                    if (accessResponse.data?.error) {
+                        toast.error(accessResponse.data.error);
+                        return;
+                    }
+                    await fetchPermissions();
+                }
+                setEditorMode('edit');
+                setRoleModalOpen(false);
+                if (created?.permission_id) setActiveRoleId(created.permission_id);
+                toast.success('Permission created successfully!');
+                return;
+            }
+
+            const role = permissions.find((item) => item.permission_id === activeRoleId);
+            if (!role) return;
+            if (!editFormData.name.trim()) {
+                toast.error('Role name is required');
+                return;
+            }
+            const editPayload = {
+                project_id: projectId,
+                permission_id: role.permission_id,
+                name: editFormData.name,
+                remark: editFormData.remark,
+            };
+            const encryptedEdit = Encrypt(editPayload);
+            const editResponse = await axios.post(
+                `${API_BASE_URL}/permission/edit`,
+                JSON.stringify({ data: encryptedEdit.data, key: encryptedEdit.key }),
+                { headers }
+            );
+            if (editResponse.data?.error) {
+                toast.error(editResponse.data.error);
+                return;
+            }
+            const accessPayload = {
+                project_id: projectId,
+                permission_id: role.permission_id,
+            };
+            permissionSettings.forEach((setting) => {
+                accessPayload[setting.apiKey] = setting.status;
+            });
+            const encryptedAccess = Encrypt(accessPayload);
+            const accessResponse = await axios.post(
+                `${API_BASE_URL}/permission/set-access`,
+                JSON.stringify({ data: encryptedAccess.data, key: encryptedAccess.key }),
+                { headers }
+            );
+            if (accessResponse.data?.error) {
+                toast.error(accessResponse.data.error);
+                return;
+            }
+            await fetchPermissions();
+            setRoleModalOpen(false);
+            toast.success(accessResponse.data?.msg || 'Permission updated successfully!');
+        } catch (error) {
+            toast.error('Error saving role. Please try again.');
+        } finally {
+            setFormLoading(false);
+        }
+    };
+
+    const settingByName = (permissionName) => permissionSettings.find((item) => item.permission === permissionName);
+
     // Close modal functions
     const closeCreateModal = () => setIsCreateModalOpen(false);
     const closeEditModal = () => setIsEditModalOpen(false);
@@ -584,6 +763,7 @@ function PermissionsList() {
         );
     });
 
+    const activeRole = permissions.find((item) => item.permission_id === activeRoleId) || null;
     const permissionPageCount = Math.max(1, Math.ceil(permissions.length / permissionPageSize) || 1);
     const safePermissionPage = Math.min(permissionPage, permissionPageCount);
     const pagedPermissions = permissions.slice(
@@ -592,7 +772,7 @@ function PermissionsList() {
     );
 
     return (
-        <div className="min-h-screen bg-[#f4f6fb]">
+        <div className="min-h-screen bg-surface-ground">
             <Header
                 mobileMenuOpen={mobileMenuOpen}
                 setMobileMenuOpen={setMobileMenuOpen}
@@ -609,101 +789,76 @@ function PermissionsList() {
             {/* Main content */}
             <div className={`pt-16 transition-all duration-300 ease-in-out ${isMinimized ? 'md:pl-20' : 'md:pl-[260px]'
                 }`}>
-                <div className="w-full px-4 py-5">
-                    {/* Header with title and create button - Professional styling */}
-                    <div className="mb-5 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-                        <div className="flex-1 min-w-0">
-                            <div className="flex items-center space-x-3">
-                                <div className="p-2 bg-gradient-to-br from-indigo-500 to-indigo-600 rounded-xl shadow-lg shadow-indigo-200">
-                                    <FiKey className="w-6 h-6 text-white" />
-                                </div>
-                                <div>
-                                    <h2 className="text-2xl font-semibold tracking-tight text-slate-900">
-                                        Permissions
-                                    </h2>
-                                    <p className="mt-1 text-sm text-gray-500">
-                                        Three system roles are included with every project. Those cannot be deleted. You can still create your own.
-                                    </p>
-                                </div>
-                            </div>
+                <div className="w-full max-w-[1320px] px-4 sm:px-7 py-7">
+                    <div className="mb-5 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+                        <div>
+                            <h1 className="text-[26px] leading-tight font-extrabold tracking-tight text-ink">Permissions</h1>
+                            <p className="mt-1.5 text-sm text-ink-500">Roles decide what each agent can see and change in this project. System roles cannot be deleted.</p>
                         </div>
-                        <div className="mt-4 flex md:mt-0 md:ml-4">
-                            <button
-                                type="button"
-                                onClick={handleCreate}
-                                className="relative inline-flex items-center px-6 py-2.5 border border-transparent rounded-xl shadow-lg text-sm font-medium text-white bg-gradient-to-r from-indigo-600 to-indigo-700 hover:from-indigo-700 hover:to-indigo-800 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-all duration-200 transform hover:scale-105"
-                            >
-                                <FiPlus className="w-4 h-4 mr-2" />
-                                Create Permission
-                            </button>
-                        </div>
+                        <button
+                            type="button"
+                            onClick={handleCreate}
+                            className="inline-flex items-center justify-center gap-2 h-[38px] px-3.5 rounded-[9px] text-[13px] font-semibold bg-brand-600 text-white hover:bg-brand-700"
+                        >
+                            <FiPlus size={15} /> New role
+                        </button>
                     </div>
 
-                    {/* Permissions Table - Professional card design */}
-                    <div className="bg-white rounded-xl shadow-lg border border-gray-100 overflow-hidden">
+                    <div className="overflow-hidden rounded-[14px] border border-line bg-white">
                         <div className="overflow-x-auto">
-                            <table className="min-w-full divide-y divide-gray-200">
+                            <table className="min-w-full">
                                 <thead>
-                                    <tr className="bg-gradient-to-r from-gray-50 to-gray-100/80">
-                                        <th className="w-14 px-4 py-4 text-center text-xs font-semibold text-gray-600 uppercase tracking-wider">
-                                            #
-                                        </th>
-                                        <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
-                                            Name
-                                        </th>
-                                        <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
-                                            Agents
-                                        </th>
-                                        <th className="w-16 px-3 py-4 text-right text-xs font-semibold text-gray-600 uppercase tracking-wider">
-                                            Actions
-                                        </th>
+                                    <tr>
+                                        {['#', 'Role', 'Description', 'Agents', 'Actions'].map((label, index) => (
+                                            <th
+                                                key={label}
+                                                className={`${index === 4 ? 'text-right' : 'text-left'} text-xs font-bold text-ink-500 px-3.5 py-3 bg-surface-soft border-b border-[#ECEAF3]`}
+                                            >
+                                                {label}
+                                            </th>
+                                        ))}
                                     </tr>
                                 </thead>
-                                <tbody className="bg-white divide-y divide-gray-200">
+                                <tbody>
                                     {loading ? (
-                                        <TableSkeletonRows rows={6} cells={['index', 'text', 'badge', 'action']} />
+                                        <TableSkeletonRows rows={6} cells={['index', 'text', 'text', 'short', 'action']} />
+                                    ) : permissions.length === 0 ? (
+                                        <tr>
+                                            <td colSpan={5} className="px-4 py-10 text-center text-sm text-ink-500">No roles yet.</td>
+                                        </tr>
                                     ) : (
                                         pagedPermissions.map((permission, index) => (
-                                            <tr
-                                                key={permission.permission_id}
-                                                className="hover:bg-gradient-to-r hover:from-indigo-50/30 hover:to-transparent transition-all duration-200 group"
-                                            >
-                                                <td className="px-6 py-4 whitespace-nowrap">
-                                                    <div className="text-sm font-semibold text-gray-900 bg-gray-50 w-8 h-8 flex items-center justify-center rounded-lg border border-gray-100 group-hover:border-indigo-200 group-hover:bg-indigo-50 transition-all duration-200">
-                                                        {(safePermissionPage - 1) * permissionPageSize + index + 1}
-                                                    </div>
+                                            <tr key={permission.permission_id} className="hover:bg-surface-soft/60">
+                                                <td className="px-3.5 py-3 border-b border-[#F3F2F8] text-xs font-semibold text-ink-500 oc-num">
+                                                    {(safePermissionPage - 1) * permissionPageSize + index + 1}
                                                 </td>
-                                                <td className="px-6 py-4 whitespace-nowrap">
-                                                    <div className="flex items-center">
-                                                        <FiTag className="w-4 h-4 text-indigo-500 mr-2" />
-                                                        <span className="text-sm font-semibold text-gray-900">
-                                                            {permission.name}
-                                                        </span>
-                                                        {permission.is_system && (
-                                                            <span className="ml-2 inline-flex items-center gap-1 rounded-md border border-slate-200 bg-slate-100 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-slate-600">
-                                                                <FiLock className="h-3 w-3" />
-                                                                System
-                                                            </span>
-                                                        )}
-                                                    </div>
+                                                <td className="px-3.5 py-3 border-b border-[#F3F2F8]">
+                                                    <div className="text-sm font-semibold text-ink">{permission.name}</div>
+                                                    {permission.is_system ? (
+                                                        <span className="mt-1 inline-block text-[10px] font-bold uppercase tracking-wide text-ink-400">System</span>
+                                                    ) : null}
                                                 </td>
-                                                <td className="px-6 py-4 whitespace-nowrap">
-                                                    <div className="flex items-center space-x-1">
-                                                        <FiUsers className="w-4 h-4 text-indigo-400" />
-                                                        <span className="text-sm font-medium text-gray-700 bg-indigo-50 px-2.5 py-1 rounded-lg border border-indigo-100">
-                                                            {permission.agent_count || 0}
-                                                        </span>
-                                                    </div>
+                                                <td className="px-3.5 py-3 border-b border-[#F3F2F8] text-sm text-ink-500 max-w-md">
+                                                    <span className="line-clamp-2">{permission.remark || '—'}</span>
                                                 </td>
-                                                <td className="px-3 py-4 text-right">
-                                                    <RowActionMenu
-                                                        items={[
-                                                            { label: 'Details', icon: <FiList className="h-4 w-4" />, onClick: () => setDetailsPermission(permission) },
-                                                            { label: 'Edit', icon: <FiEdit className="h-4 w-4" />, onClick: () => handleEdit(permission) },
-                                                            { label: 'Set access', icon: <FiSettings className="h-4 w-4" />, onClick: () => handleSettings(permission) },
-                                                            { label: 'Delete', icon: <FiTrash2 className="h-4 w-4" />, onClick: () => handleDelete(permission), danger: true, disabled: permission.is_system },
-                                                        ]}
-                                                    />
+                                                <td className="px-3.5 py-3 border-b border-[#F3F2F8] text-sm text-ink">{permission.agent_count || 0}</td>
+                                                <td className="px-3.5 py-3 border-b border-[#F3F2F8]">
+                                                    <div className="flex items-center justify-end gap-2">
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => openRoleModal(permission)}
+                                                            className="text-[13px] font-semibold text-brand-700 hover:text-brand-800"
+                                                        >
+                                                            Manage
+                                                        </button>
+                                                        <RowActionMenu
+                                                            items={[
+                                                                { label: 'Manage', icon: <FiEdit size={15} />, onClick: () => openRoleModal(permission) },
+                                                                { label: 'Details', icon: <FiList size={15} />, onClick: () => setDetailsPermission(permission) },
+                                                                { label: 'Delete', icon: <FiTrash2 size={15} />, onClick: () => handleDelete(permission), danger: true, hidden: permission.is_system },
+                                                            ]}
+                                                        />
+                                                    </div>
                                                 </td>
                                             </tr>
                                         ))
@@ -726,29 +881,146 @@ function PermissionsList() {
                             />
                         ) : null}
                     </div>
-
-                    {/* Empty state - Professional design */}
-                    {!loading && permissions.length === 0 && (
-                        <div className="text-center py-16 bg-white rounded-xl shadow-lg border border-gray-100 mt-6">
-                            <div className="p-4 bg-gradient-to-br from-indigo-50 to-indigo-100/50 rounded-full inline-flex mx-auto">
-                                <FiAlertCircle className="h-12 w-12 text-indigo-500" />
-                            </div>
-                            <h3 className="mt-4 text-lg font-semibold text-gray-900">No permissions found</h3>
-                            <p className="mt-1 text-sm text-gray-500">Get started by creating your first permission.</p>
-                            <div className="mt-6">
-                                <button
-                                    type="button"
-                                    onClick={handleCreate}
-                                    className="inline-flex items-center px-6 py-2.5 border border-transparent shadow-lg text-sm font-medium rounded-xl text-white bg-gradient-to-r from-indigo-600 to-indigo-700 hover:from-indigo-700 hover:to-indigo-800 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-all duration-200 transform hover:scale-105"
-                                >
-                                    <FiPlus className="w-4 h-4 mr-2" />
-                                    Create Permission
-                                </button>
-                            </div>
-                        </div>
-                    )}
                 </div>
             </div>
+
+            <AnimatedModal open={roleModalOpen}>
+                {roleModalOpen && (
+                    <div className="fixed z-50 inset-0 overflow-y-auto">
+                        <div className="flex items-center justify-center min-h-screen px-4 py-8">
+                            <div className="fixed inset-0 bg-gray-900/60" onClick={() => !formLoading && handleCancelEditor()} />
+                            <form onSubmit={handleSaveRole} className="relative bg-white rounded-2xl shadow-2xl w-full max-w-3xl p-5 sm:p-6">
+                            <div className="flex items-start justify-between gap-3 mb-5">
+                                <div>
+                                    <h2 className="text-[15px] font-bold text-ink">{editorMode === 'create' ? 'New role' : 'Edit role'}</h2>
+                                    {editorMode !== 'create' && activeRole ? (
+                                        <button type="button" onClick={() => setDetailsPermission(activeRole)} className="mt-1 text-[13px] font-semibold text-brand-700">
+                                            View details
+                                        </button>
+                                    ) : null}
+                                </div>
+                                <div className="flex gap-2">
+                                    <button type="button" onClick={handleSelectAll} disabled={formLoading} className="text-[12px] font-semibold text-brand-700 disabled:opacity-50">Select all</button>
+                                    <button type="button" onClick={handleDeselectAll} disabled={formLoading} className="text-[12px] font-semibold text-ink-500 disabled:opacity-50">Clear</button>
+                                </div>
+                            </div>
+
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                                <div>
+                                    <label className="block text-[13px] font-semibold text-ink mb-1.5">Role name</label>
+                                    <input
+                                        type="text"
+                                        name="name"
+                                        required
+                                        disabled={formLoading}
+                                        value={editorMode === 'create' ? createFormData.name : editFormData.name}
+                                        onChange={editorMode === 'create' ? handleCreateInputChange : handleEditInputChange}
+                                        className="w-full h-[42px] px-3 rounded-[9px] border border-line-strong bg-white text-sm text-ink placeholder:text-ink-400 outline-none focus:border-brand-600 focus:ring-[3px] focus:ring-brand-600/20"
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-[13px] font-semibold text-ink mb-1.5">Description</label>
+                                    <textarea
+                                        name="remark"
+                                        rows={2}
+                                        disabled={formLoading}
+                                        value={editorMode === 'create' ? createFormData.remark : editFormData.remark}
+                                        onChange={editorMode === 'create' ? handleCreateInputChange : handleEditInputChange}
+                                        className="w-full px-3 py-2.5 rounded-[9px] border border-line-strong bg-white text-sm text-ink placeholder:text-ink-400 outline-none focus:border-brand-600 focus:ring-[3px] focus:ring-brand-600/20"
+                                    />
+                                </div>
+                            </div>
+
+                            <div className="mt-6 overflow-x-auto">
+                                <table className="min-w-full">
+                                    <thead>
+                                        <tr>
+                                            {['Area', 'View', 'Create', 'Edit', 'Delete'].map((label) => (
+                                                <th key={label} className="text-left text-xs font-bold text-ink-500 px-3 py-2.5 bg-surface-soft border-b border-[#ECEAF3]">{label}</th>
+                                            ))}
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {PERMISSION_MATRIX.map((row) => (
+                                            <tr key={row.area}>
+                                                <td className="px-3 py-3 border-b border-[#F3F2F8] text-sm font-semibold text-ink">{row.area}</td>
+                                                {['view', 'create', 'edit', 'delete'].map((column) => {
+                                                    const permissionName = row[column];
+                                                    const setting = permissionName ? settingByName(permissionName) : null;
+                                                    return (
+                                                        <td key={column} className="px-3 py-3 border-b border-[#F3F2F8]">
+                                                            {setting ? (
+                                                                <input
+                                                                    type="checkbox"
+                                                                    checked={Boolean(setting.status)}
+                                                                    disabled={formLoading}
+                                                                    onChange={() => handleSettingToggle(permissionName)}
+                                                                    className="h-4 w-4 rounded border-line-strong accent-brand-600"
+                                                                    aria-label={`${row.area} ${column}`}
+                                                                />
+                                                            ) : null}
+                                                        </td>
+                                                    );
+                                                })}
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
+
+                            <div className="mt-4 space-y-2">
+                                {EXTRA_FLAGS.map((flag) => {
+                                    const setting = settingByName(flag.permission);
+                                    if (!setting) return null;
+                                    return (
+                                        <label key={flag.permission} className="flex items-center gap-2.5 text-sm text-ink">
+                                            <input
+                                                type="checkbox"
+                                                checked={Boolean(setting.status)}
+                                                disabled={formLoading}
+                                                onChange={() => handleSettingToggle(flag.permission)}
+                                                className="h-4 w-4 rounded border-line-strong accent-brand-600"
+                                            />
+                                            {flag.label}
+                                        </label>
+                                    );
+                                })}
+                            </div>
+
+                            <div className="mt-6 pt-4 border-t border-[#F3F2F8] flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                                {editorMode !== 'create' && activeRole ? (
+                                    <button
+                                        type="button"
+                                        onClick={() => handleDelete(activeRole)}
+                                        disabled={formLoading || activeRole.is_system}
+                                        className="inline-flex items-center justify-center h-[38px] px-3.5 rounded-[9px] text-[13px] font-semibold text-rose-600 border border-rose-200 bg-white hover:bg-rose-50 disabled:opacity-40"
+                                    >
+                                        Delete role
+                                    </button>
+                                ) : <span />}
+                                <div className="flex items-center justify-end gap-2">
+                                    <button
+                                        type="button"
+                                        onClick={handleCancelEditor}
+                                        disabled={formLoading}
+                                        className="inline-flex items-center justify-center h-[38px] px-3.5 rounded-[9px] text-[13px] font-semibold bg-white text-ink border border-[#E1DFEC] hover:bg-surface-soft disabled:opacity-50"
+                                    >
+                                        Cancel
+                                    </button>
+                                    <button
+                                        type="submit"
+                                        disabled={formLoading || (editorMode !== 'create' && !activeRole)}
+                                        className="inline-flex items-center justify-center h-[38px] px-3.5 rounded-[9px] text-[13px] font-semibold bg-brand-600 text-white hover:bg-brand-700 disabled:opacity-50"
+                                    >
+                                        {formLoading ? 'Saving...' : 'Save role'}
+                                    </button>
+                                </div>
+                            </div>
+                        </form>
+                        </div>
+                    </div>
+                )}
+            </AnimatedModal>
 
             <RecordDetailsModal
                 isOpen={Boolean(detailsPermission)}
@@ -769,411 +1041,40 @@ function PermissionsList() {
                 ] : []}
             />
 
-            {isDeleteModalOpen && deletingPermission && (
-                <div className="fixed z-50 inset-0 overflow-y-auto">
-                    <div className="flex items-center justify-center min-h-screen px-4">
-                        <div className="fixed inset-0 bg-gray-900/60" onClick={() => !formLoading && setIsDeleteModalOpen(false)} />
-                        <div className="relative bg-white rounded-2xl shadow-2xl max-w-md w-full p-6">
-                            <h3 className="text-lg font-bold text-gray-900">Delete permission</h3>
-                            <p className="mt-2 text-sm text-gray-600">
-                                Delete <strong>{deletingPermission.name}</strong>? Agents already using it must be moved first.
-                            </p>
-                            <div className="mt-6 flex justify-end gap-2">
-                                <button
-                                    type="button"
-                                    disabled={formLoading}
-                                    onClick={() => setIsDeleteModalOpen(false)}
-                                    className="px-4 py-2 rounded-lg bg-gray-100 text-gray-800 text-sm font-medium"
-                                >
-                                    Cancel
-                                </button>
-                                <button
-                                    type="button"
-                                    disabled={formLoading}
-                                    onClick={handleDeleteSubmit}
-                                    className="px-4 py-2 rounded-lg bg-red-600 text-white text-sm font-medium disabled:opacity-60"
-                                >
-                                    {formLoading ? 'Deleting…' : 'Delete'}
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            )}
+            <AnimatedModal open={(isDeleteModalOpen && deletingPermission)}>
+              {isDeleteModalOpen && deletingPermission && (
+                  <div className="fixed z-50 inset-0 overflow-y-auto">
+                      <div className="flex items-center justify-center min-h-screen px-4">
+                          <div className="fixed inset-0 bg-gray-900/60" onClick={() => !formLoading && setIsDeleteModalOpen(false)} />
+                          <div className="relative bg-white rounded-2xl shadow-2xl max-w-md w-full p-6">
+                              <h3 className="text-lg font-bold text-gray-900">Delete permission</h3>
+                              <p className="mt-2 text-sm text-gray-600">
+                                  Delete <strong>{deletingPermission.name}</strong>? Agents already using it must be moved first.
+                              </p>
+                              <div className="mt-6 flex justify-end gap-2">
+                                  <button
+                                      type="button"
+                                      disabled={formLoading}
+                                      onClick={() => setIsDeleteModalOpen(false)}
+                                      className="px-4 py-2 rounded-lg bg-gray-100 text-gray-800 text-sm font-medium"
+                                  >
+                                      Cancel
+                                  </button>
+                                  <button
+                                      type="button"
+                                      disabled={formLoading}
+                                      onClick={handleDeleteSubmit}
+                                      className="px-4 py-2 rounded-lg bg-red-600 text-white text-sm font-medium disabled:opacity-60"
+                                  >
+                                      {formLoading ? 'Deleting…' : 'Delete'}
+                                  </button>
+                              </div>
+                          </div>
+                      </div>
+                  </div>
+              )}
+            </AnimatedModal>
 
-            {/* Create Permission Modal - Professional design */}
-            {isCreateModalOpen && (
-                <div className="fixed z-50 inset-0 overflow-y-auto">
-                    <div className="flex items-center justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
-                        <div className="fixed inset-0 transition-opacity" aria-hidden="true">
-                            <div className="absolute inset-0 bg-gray-900/60 backdrop-blur-sm"></div>
-                        </div>
-
-                        <span className="hidden sm:inline-block sm:align-middle sm:h-screen" aria-hidden="true">&#8203;</span>
-
-                        <div className="inline-block align-bottom bg-white rounded-2xl px-6 pt-6 pb-6 text-left overflow-hidden shadow-2xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full sm:p-8 relative">
-                            {/* Gradient header bar */}
-                            <div className="absolute top-0 left-0 right-0 h-1.5 bg-gradient-to-r from-indigo-500 via-purple-500 to-indigo-500"></div>
-
-                            <div className="absolute top-0 right-0 pt-5 pr-5">
-                                <button
-                                    type="button"
-                                    disabled={formLoading}
-                                    onClick={closeCreateModal}
-                                    className="bg-gray-50 hover:bg-gray-100 rounded-xl p-2 text-gray-400 hover:text-gray-500 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50 transition-all duration-200"
-                                >
-                                    <span className="sr-only">Close</span>
-                                    <FiX className="h-5 w-5" />
-                                </button>
-                            </div>
-
-                            <form onSubmit={handleCreateSubmit}>
-                                <div className="sm:flex sm:items-start">
-                                    <div className="mt-0 text-center sm:mt-0 sm:text-left w-full">
-                                        <div className="flex items-center space-x-3 mb-6">
-                                            <div className="p-2.5 bg-gradient-to-br from-indigo-500 to-indigo-600 rounded-xl shadow-lg">
-                                                <FiPlus className="w-5 h-5 text-white" />
-                                            </div>
-                                            <div>
-                                                <h3 className="text-xl font-bold text-gray-900">
-                                                    Create Permission
-                                                </h3>
-                                                <p className="mt-1 text-sm text-gray-500">
-                                                    Add a new permission role to the system
-                                                </p>
-                                            </div>
-                                        </div>
-
-                                        <div className="space-y-5">
-                                            <div>
-                                                <label htmlFor="create-name" className="block text-sm font-semibold text-gray-700 mb-1.5">
-                                                    Permission Name <span className="text-red-500">*</span>
-                                                </label>
-                                                <div className="relative">
-                                                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                                                        <FiKey className="h-4 w-4 text-gray-400" />
-                                                    </div>
-                                                    <input
-                                                        type="text"
-                                                        name="name"
-                                                        id="create-name"
-                                                        required
-                                                        disabled={formLoading}
-                                                        value={createFormData.name}
-                                                        onChange={handleCreateInputChange}
-                                                        className="block w-full pl-10 pr-3 py-2.5 border border-gray-200 rounded-xl text-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 bg-gray-50 focus:bg-white"
-                                                        placeholder="e.g., Manager, Editor, Viewer"
-                                                    />
-                                                </div>
-                                            </div>
-
-                                            <div>
-                                                <label htmlFor="create-remark" className="block text-sm font-semibold text-gray-700 mb-1.5">
-                                                    Remark
-                                                </label>
-                                                <div className="relative">
-                                                    <div className="absolute top-3 left-3 pointer-events-none">
-                                                        <FiList className="h-4 w-4 text-gray-400" />
-                                                    </div>
-                                                    <textarea
-                                                        name="remark"
-                                                        id="create-remark"
-                                                        rows="3"
-                                                        disabled={formLoading}
-                                                        value={createFormData.remark}
-                                                        onChange={handleCreateInputChange}
-                                                        className="block w-full pl-10 pr-3 py-2.5 border border-gray-200 rounded-xl text-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 bg-gray-50 focus:bg-white"
-                                                        placeholder="Enter a description or remark for this permission"
-                                                    ></textarea>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-
-                                <div className="mt-8 sm:mt-8 sm:grid sm:grid-cols-2 sm:gap-3 sm:grid-flow-row-dense">
-                                    <button
-                                        type="submit"
-                                        disabled={formLoading}
-                                        className="w-full inline-flex justify-center items-center px-4 py-2.5 border border-transparent shadow-lg text-sm font-medium rounded-xl text-white bg-gradient-to-r from-indigo-600 to-indigo-700 hover:from-indigo-700 hover:to-indigo-800 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 sm:col-start-2 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 transform hover:scale-[1.02]"
-                                    >
-                                        {formLoading ? (
-                                            <>
-                                                <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent mr-2"></div>
-                                                Creating...
-                                            </>
-                                        ) : (
-                                            <>
-                                                <FiSave className="w-4 h-4 mr-2" />
-                                                Create Permission
-                                            </>
-                                        )}
-                                    </button>
-                                    <button
-                                        type="button"
-                                        disabled={formLoading}
-                                        onClick={closeCreateModal}
-                                        className="mt-3 sm:mt-0 w-full inline-flex justify-center items-center px-4 py-2.5 border border-gray-200 shadow-sm text-sm font-medium rounded-xl text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 sm:col-start-1 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200"
-                                    >
-                                        Cancel
-                                    </button>
-                                </div>
-                            </form>
-                        </div>
-                    </div>
-                </div>
-            )}
-
-            {/* Edit Permission Modal - Updated color scheme to match Create modal */}
-            {isEditModalOpen && (
-                <div className="fixed z-50 inset-0 overflow-y-auto">
-                    <div className="flex items-center justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
-                        <div className="fixed inset-0 transition-opacity" aria-hidden="true">
-                            <div className="absolute inset-0 bg-gray-900/60 backdrop-blur-sm"></div>
-                        </div>
-
-                        <span className="hidden sm:inline-block sm:align-middle sm:h-screen" aria-hidden="true">&#8203;</span>
-
-                        <div className="inline-block align-bottom bg-white rounded-2xl px-6 pt-6 pb-6 text-left overflow-hidden shadow-2xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full sm:p-8 relative">
-                            {/* Gradient header bar - now indigo/purple */}
-                            <div className="absolute top-0 left-0 right-0 h-1.5 bg-gradient-to-r from-indigo-500 via-purple-500 to-indigo-500"></div>
-
-                            <div className="absolute top-0 right-0 pt-5 pr-5">
-                                <button
-                                    type="button"
-                                    disabled={formLoading}
-                                    onClick={closeEditModal}
-                                    className="bg-gray-50 hover:bg-gray-100 rounded-xl p-2 text-gray-400 hover:text-gray-500 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50 transition-all duration-200"
-                                >
-                                    <span className="sr-only">Close</span>
-                                    <FiX className="h-5 w-5" />
-                                </button>
-                            </div>
-
-                            <form onSubmit={handleEditSubmit}>
-                                <div className="sm:flex sm:items-start">
-                                    <div className="mt-0 text-center sm:mt-0 sm:text-left w-full">
-                                        <div className="flex items-center space-x-3 mb-6">
-                                            <div className="p-2.5 bg-gradient-to-br from-indigo-500 to-indigo-600 rounded-xl shadow-lg">
-                                                <FiEdit className="w-5 h-5 text-white" />
-                                            </div>
-                                            <div>
-                                                <h3 className="text-xl font-bold text-gray-900">
-                                                    Edit Permission
-                                                </h3>
-                                                <p className="mt-1 text-sm text-gray-500">
-                                                    Update the permission role details
-                                                </p>
-                                            </div>
-                                        </div>
-
-                                        <div className="space-y-5">
-                                            <div>
-                                                <label htmlFor="edit-name" className="block text-sm font-semibold text-gray-700 mb-1.5">
-                                                    Permission Name <span className="text-red-500">*</span>
-                                                </label>
-                                                <div className="relative">
-                                                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                                                        <FiKey className="h-4 w-4 text-gray-400" />
-                                                    </div>
-                                                    <input
-                                                        type="text"
-                                                        name="name"
-                                                        id="edit-name"
-                                                        required
-                                                        disabled={formLoading}
-                                                        value={editFormData.name}
-                                                        onChange={handleEditInputChange}
-                                                        className="block w-full pl-10 pr-3 py-2.5 border border-gray-200 rounded-xl text-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 bg-gray-50 focus:bg-white"
-                                                        placeholder="Enter permission name"
-                                                    />
-                                                </div>
-                                            </div>
-
-                                            <div>
-                                                <label htmlFor="edit-remark" className="block text-sm font-semibold text-gray-700 mb-1.5">
-                                                    Remark
-                                                </label>
-                                                <div className="relative">
-                                                    <div className="absolute top-3 left-3 pointer-events-none">
-                                                        <FiList className="h-4 w-4 text-gray-400" />
-                                                    </div>
-                                                    <textarea
-                                                        name="remark"
-                                                        id="edit-remark"
-                                                        rows="3"
-                                                        disabled={formLoading}
-                                                        value={editFormData.remark}
-                                                        onChange={handleEditInputChange}
-                                                        className="block w-full pl-10 pr-3 py-2.5 border border-gray-200 rounded-xl text-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 bg-gray-50 focus:bg-white"
-                                                        placeholder="Enter remark"
-                                                    ></textarea>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-
-                                <div className="mt-8 sm:mt-8 sm:grid sm:grid-cols-2 sm:gap-3 sm:grid-flow-row-dense">
-                                    <button
-                                        type="submit"
-                                        disabled={formLoading}
-                                        className="w-full inline-flex justify-center items-center px-4 py-2.5 border border-transparent shadow-lg text-sm font-medium rounded-xl text-white bg-gradient-to-r from-indigo-600 to-indigo-700 hover:from-indigo-700 hover:to-indigo-800 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 sm:col-start-2 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 transform hover:scale-[1.02]"
-                                    >
-                                        {formLoading ? (
-                                            <>
-                                                <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent mr-2"></div>
-                                                Updating...
-                                            </>
-                                        ) : (
-                                            <>
-                                                <FiSave className="w-4 h-4 mr-2" />
-                                                Update Permission
-                                            </>
-                                        )}
-                                    </button>
-                                    <button
-                                        type="button"
-                                        disabled={formLoading}
-                                        onClick={closeEditModal}
-                                        className="mt-3 sm:mt-0 w-full inline-flex justify-center items-center px-4 py-2.5 border border-gray-200 shadow-sm text-sm font-medium rounded-xl text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 sm:col-start-1 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200"
-                                    >
-                                        Cancel
-                                    </button>
-                                </div>
-                            </form>
-                        </div>
-                    </div>
-                </div>
-            )}
-
-            {/* Settings Modal - Scrollable body, sticky bulk actions, fixed footer */}
-            {isSettingsModalOpen && (
-                <div className="fixed z-50 inset-0 overflow-y-auto">
-                    <div className="flex items-center justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
-                        <div className="fixed inset-0 transition-opacity" aria-hidden="true">
-                            <div className="absolute inset-0 bg-gray-900/60 backdrop-blur-sm"></div>
-                        </div>
-
-                        <span className="hidden sm:inline-block sm:align-middle sm:h-screen" aria-hidden="true">&#8203;</span>
-
-                        {/* Modal container - flex column layout */}
-                        <div className="inline-flex flex-col align-bottom bg-white rounded-2xl text-left overflow-hidden shadow-2xl transform transition-all sm:my-8 sm:align-middle sm:max-w-4xl sm:w-full relative"
-                            style={{ maxHeight: '80vh' }}>
-
-                            {/* Gradient header bar */}
-                            <div className="absolute top-0 left-0 right-0 h-1.5 bg-gradient-to-r from-indigo-500 via-purple-500 to-indigo-500 z-10"></div>
-
-                            {/* Fixed Header Section */}
-                            <div className="flex-shrink-0 px-6 pt-6 pb-4 sm:px-8 sm:pt-8 sm:pb-4">
-                                <div className="flex items-center justify-between">
-                                    <div className="flex items-center space-x-3">
-                                        <div className="p-2.5 bg-gradient-to-br from-indigo-500 to-indigo-600 rounded-xl shadow-lg">
-                                            <FiSettings className="w-5 h-5 text-white" />
-                                        </div>
-                                        <div>
-                                            <h3 className="text-xl font-bold text-gray-900">
-                                                Permission Settings
-                                            </h3>
-                                            <p className="text-sm text-gray-500">
-                                                Configure permissions for <span className="font-semibold text-indigo-600">{selectedPermission?.name}</span>
-                                            </p>
-                                        </div>
-                                    </div>
-                                    <button
-                                        type="button"
-                                        disabled={formLoading}
-                                        onClick={closeSettingsModal}
-                                        className="bg-gray-50 hover:bg-gray-100 rounded-xl p-2 text-gray-400 hover:text-gray-500 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50 transition-all duration-200"
-                                    >
-                                        <span className="sr-only">Close</span>
-                                        <FiX className="h-5 w-5" />
-                                    </button>
-                                </div>
-                            </div>
-
-                            {/* Sticky Bulk Actions Bar (outside scrollable area) */}
-                            <div className="flex-shrink-0 px-6 sm:px-8 pb-2">
-                                <div className="flex flex-wrap items-center justify-between gap-3 py-3 border-y border-gray-100 bg-white">
-                                    <div className="flex items-center space-x-2">
-                                        <FiShield className="w-5 h-5 text-indigo-500" />
-                                        <span className="text-sm font-semibold text-gray-800">Manage Permissions</span>
-                                        <span className="ml-2 px-2 py-0.5 bg-indigo-50 text-indigo-700 rounded-full text-xs font-medium border border-indigo-100">
-                                            {permissionSettings.filter(p => p.status).length} active
-                                        </span>
-                                    </div>
-                                    <div className="flex space-x-2">
-                                        <button
-                                            type="button"
-                                            onClick={handleSelectAll}
-                                            disabled={formLoading}
-                                            className="inline-flex items-center px-3 py-1.5 border border-indigo-200 text-xs font-medium rounded-lg text-indigo-700 bg-indigo-50 hover:bg-indigo-100 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 shadow-sm"
-                                        >
-                                            <FiCheckSquare className="w-3.5 h-3.5 mr-1.5" />
-                                            Select All
-                                        </button>
-                                        <button
-                                            type="button"
-                                            onClick={handleDeselectAll}
-                                            disabled={formLoading}
-                                            className="inline-flex items-center px-3 py-1.5 border border-gray-200 text-xs font-medium rounded-lg text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 shadow-sm"
-                                        >
-                                            <FiSquareIcon className="w-3.5 h-3.5 mr-1.5" />
-                                            Deselect All
-                                        </button>
-                                    </div>
-                                </div>
-                            </div>
-
-                            {/* Scrollable Body Section - only the permission list */}
-                            <div className="flex-grow overflow-y-auto px-6 sm:px-8 py-2">
-                                <PermissionList
-                                    permissions={permissionSettings}
-                                    onToggle={handleSettingToggle}
-                                    disabled={formLoading}
-                                    onSelectAll={handleSelectAll}      // still passed, but not used internally
-                                    onDeselectAll={handleDeselectAll}  // still passed, but not used internally
-                                    cardless={true}
-                                    showBulkActions={false}           // HIDE internal bulk actions
-                                    scrollRef={scrollContainerRef}    // PASS the ref for scroll position
-                                />
-                            </div>
-
-                            {/* Fixed Footer Section */}
-                            <div className="flex-shrink-0 px-6 py-5 sm:px-8 sm:py-6 bg-gray-50 border-t border-gray-100">
-                                <div className="sm:flex sm:flex-row-reverse sm:gap-3">
-                                    <button
-                                        type="button"
-                                        disabled={formLoading}
-                                        onClick={handleSaveSettings}
-                                        className="w-full inline-flex justify-center items-center px-4 py-2.5 border border-transparent shadow-lg text-sm font-medium rounded-xl text-white bg-gradient-to-r from-indigo-600 to-indigo-700 hover:from-indigo-700 hover:to-indigo-800 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 transform hover:scale-[1.02] sm:w-auto sm:ml-3"
-                                    >
-                                        {formLoading ? (
-                                            <>
-                                                <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent mr-2"></div>
-                                                Saving...
-                                            </>
-                                        ) : (
-                                            <>
-                                                <FiSave className="w-4 h-4 mr-2" />
-                                                Save Permission Settings
-                                            </>
-                                        )}
-                                    </button>
-                                    <button
-                                        type="button"
-                                        disabled={formLoading}
-                                        onClick={closeSettingsModal}
-                                        className="mt-3 sm:mt-0 w-full inline-flex justify-center items-center px-4 py-2.5 border border-gray-200 shadow-sm text-sm font-medium rounded-xl text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 sm:w-auto"
-                                    >
-                                        Cancel
-                                    </button>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            )}
         </div>
     );
 }

@@ -158,7 +158,11 @@ export const respondAgentInvitation = ({ invitation_id, action }) =>
   postEncrypted('/agent/invitation/respond', { invitation_id, action });
 
 // Update user profile
-export const updateUserProfile = async ({ name, country_code, mobile, gender, firm_name, business_name, business_type }) => {
+export const sendEmailRemoveOtp = () => postEncrypted('/account/email/remove-otp', {});
+
+export const removeEmailWithOtp = ({ otp }) => postEncrypted('/account/email/remove', { otp });
+
+export const updateUserProfile = async ({ name, country_code, mobile, email, gender, firm_name, business_name, business_type }) => {
   const getUserData = () => {
     try {
       const userData = localStorage.getItem('userData');
@@ -181,6 +185,7 @@ export const updateUserProfile = async ({ name, country_code, mobile, gender, fi
     name,
     country_code,
     mobile,
+    email,
     gender,
     firm_name,
     business_name,

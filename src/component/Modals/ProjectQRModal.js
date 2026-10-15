@@ -53,8 +53,6 @@ const ProjectQRModal = ({ isOpen, onClose, projectId, projectName }) => {
         }
     }, [isOpen, projectId]);
 
-    if (!isOpen) return null;
-
     const currentQr = qrList[selectedQrIndex] || null;
     const portalUrl = (
         process.env.REACT_APP_WEB_PUBLIC_URL ||
@@ -257,7 +255,15 @@ const ProjectQRModal = ({ isOpen, onClose, projectId, projectName }) => {
 
     return (
         <AnimatePresence>
-            <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+            {isOpen && (
+            <motion.div
+                key="project-qr-modal"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.2 }}
+                className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"
+            >
                 <motion.div
                     initial={{ opacity: 0, scale: 0.95, y: 20 }}
                     animate={{ opacity: 1, scale: 1, y: 0 }}
@@ -391,7 +397,8 @@ const ProjectQRModal = ({ isOpen, onClose, projectId, projectName }) => {
                         )}
                     </div>
                 </motion.div>
-            </div>
+            </motion.div>
+            )}
         </AnimatePresence>
     );
 };

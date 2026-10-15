@@ -39,6 +39,7 @@ import { parseServerDate } from '../utils/dateTime';
 import { LuRefreshCcwDot } from 'react-icons/lu';
 import { MdEdit } from 'react-icons/md';
 
+import AnimatedModal from '../component/Modals/AnimatedModal';
 const PERMISSION_OPTION_LABELS = [
     ['contact_view', 'View contacts'],
     ['contact_create', 'Create contacts'],
@@ -62,8 +63,6 @@ const formatMobile = (person) => {
 
 // Modal component outside to prevent rerenders
 const Modal = ({ isOpen, onClose, title, children, actions, size = 'md' }) => {
-    if (!isOpen) return null;
-
     const sizeClasses = {
         sm: 'max-w-md',
         md: 'max-w-2xl',
@@ -72,30 +71,42 @@ const Modal = ({ isOpen, onClose, title, children, actions, size = 'md' }) => {
     };
 
     return (
-        <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50 flex items-center justify-center p-4">
-            <div className={`relative mx-auto p-5 border w-full ${sizeClasses[size]} shadow-lg rounded-md bg-white transform transition-all duration-300 scale-95 opacity-0 animate-modal-in`}>
-                <div className="mt-3">
-                    <div className="flex items-center justify-between pb-3 border-b">
-                        <h3 className="text-lg leading-6 font-medium text-gray-900">
-                            {title}
-                        </h3>
+        <AnimatedModal open={isOpen}>
+        {isOpen && (
+        <div className="fixed inset-0 z-50 overflow-y-auto">
+            <div className="flex min-h-full items-center justify-center p-4">
+                <div className="fixed inset-0 bg-gray-900/60" onClick={onClose} />
+                <div className={`relative w-full ${sizeClasses[size]} rounded-2xl bg-white shadow-2xl`}>
+                    <div className="flex items-center justify-between border-b border-[#F3F2F8] px-5 py-4">
+                        <h3 className="text-[15px] font-bold text-ink">{title}</h3>
                         <button
+                            type="button"
                             onClick={onClose}
-                            className="text-gray-400 hover:text-gray-500 focus:outline-none"
+                            className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-ink-400 hover:bg-surface-soft hover:text-ink"
                         >
                             <FiX className="h-5 w-5" />
                         </button>
                     </div>
-                    <div className="mt-4 max-h-96 overflow-y-auto">
+                    <div className="max-h-[70vh] overflow-y-auto px-5 py-4">
                         {children}
                     </div>
-                    <div className="items-center px-4 py-3 mt-4 flex justify-end space-x-4 border-t">
-                        {actions}
-                    </div>
+                    {actions ? (
+                        <div className="flex justify-end gap-2 border-t border-[#F3F2F8] px-5 py-4">
+                            {actions}
+                        </div>
+                    ) : null}
                 </div>
             </div>
         </div>
+        )}
+        </AnimatedModal>
     );
+};
+
+const initialsOf = (name) => {
+    const parts = String(name || '').trim().split(/\s+/).filter(Boolean);
+    if (!parts.length) return '?';
+    return parts.slice(0, 2).map((part) => part[0]).join('').toUpperCase();
 };
 
 const AddAgentForm = React.memo(({
@@ -105,15 +116,16 @@ const AddAgentForm = React.memo(({
     fetchingAgent,
     fetchedAgent,
     onInputChange,
+    onFind,
     permissionOptions,
 }) => {
     const selectedPermission = permissionOptions.find((option) => option.value && option.value === newAgent.permission_id);
 
     return (
-        <div className="space-y-5">
+        <div className="space-y-4">
             <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1.5">Mobile number</label>
-                <div className="relative">
+                <label className="block text-[13px] font-semibold text-ink mb-1.5">Mobile number</label>
+                <div className="flex gap-2">
                     <input
                         type="tel"
                         name="mobile"
@@ -121,19 +133,24 @@ const AddAgentForm = React.memo(({
                         onChange={onInputChange}
                         maxLength={10}
                         inputMode="numeric"
-                        className={`w-full rounded-xl border bg-white px-3 py-2.5 pr-10 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500 ${formErrors.mobile ? 'border-red-400' : 'border-slate-200'}`}
-                        placeholder="10-digit mobile number"
+                        className={`w-full h-[42px] px-3 rounded-[9px] border bg-white text-sm text-ink placeholder:text-ink-400 outline-none focus:border-brand-600 focus:ring-[3px] focus:ring-brand-600/20 ${formErrors.mobile ? 'border-rose-400' : 'border-line-strong'}`}
+                        placeholder="10-digit mobile"
                         disabled={addingAgent}
                     />
-                    {fetchingAgent && (
-                        <span className="absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 animate-spin rounded-full border-2 border-indigo-500 border-t-transparent" />
-                    )}
+                    <button
+                        type="button"
+                        onClick={onFind}
+                        disabled={addingAgent || fetchingAgent}
+                        className="inline-flex items-center justify-center h-[42px] px-3.5 rounded-[9px] text-[13px] font-semibold bg-white text-ink border border-[#E1DFEC] hover:bg-surface-soft disabled:opacity-50"
+                    >
+                        {fetchingAgent ? '...' : 'Find'}
+                    </button>
                 </div>
                 {formErrors.mobile ? (
-                    <p className="mt-1.5 text-sm text-red-600">{formErrors.mobile}</p>
+                    <p className="mt-1.5 text-sm text-rose-600">{formErrors.mobile}</p>
                 ) : (
-                    <p className="mt-1.5 text-xs text-slate-500">
-                        The account is looked up automatically after 10 digits. Email is not used to find the user.
+                    <p className="mt-1.5 text-xs text-ink-400">
+                        Looked up after 10 digits. Email is not used to find the user.
                     </p>
                 )}
             </div>
@@ -146,49 +163,35 @@ const AddAgentForm = React.memo(({
                         exit={{ opacity: 0, height: 0 }}
                         className="overflow-hidden"
                     >
-                        <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
-                            <h4 className="text-sm font-semibold text-slate-800">Account found</h4>
-                            <dl className="mt-3 grid grid-cols-1 gap-2 text-sm sm:grid-cols-2">
-                                <div>
-                                    <dt className="text-xs text-slate-500">Name</dt>
-                                    <dd className="font-medium text-slate-900">{fetchedAgent.name}</dd>
-                                </div>
-                                <div>
-                                    <dt className="text-xs text-slate-500">Mobile</dt>
-                                    <dd className="font-medium text-slate-900">{formatMobile(fetchedAgent)}</dd>
-                                </div>
-                                <div>
-                                    <dt className="text-xs text-slate-500">Status</dt>
-                                    <dd>
-                                        <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${fetchedAgent.status ? 'bg-emerald-100 text-emerald-800' : 'bg-red-100 text-red-800'}`}>
-                                            {fetchedAgent.status ? 'Active' : 'Inactive'}
-                                        </span>
-                                    </dd>
-                                </div>
-                                <div>
-                                    <dt className="text-xs text-slate-500">Email</dt>
-                                    <dd className="font-medium text-slate-900">{fetchedAgent.email || 'Not provided'}</dd>
-                                </div>
-                            </dl>
+                        <div className="rounded-[12px] border border-emerald-200 bg-emerald-50 p-3 flex items-start gap-3">
+                            <div className="h-9 w-9 flex-none rounded-full bg-emerald-700 text-white text-xs font-bold flex items-center justify-center">
+                                {initialsOf(fetchedAgent.name)}
+                            </div>
+                            <div className="min-w-0">
+                                <div className="text-[11px] font-bold uppercase tracking-wide text-emerald-800">Account found</div>
+                                <div className="text-sm font-bold text-ink truncate">{fetchedAgent.name}</div>
+                                <div className="text-xs text-ink-500 truncate">{fetchedAgent.email || 'Email not provided'}</div>
+                                <div className="mt-1 text-xs text-ink-500">{formatMobile(fetchedAgent)} · {fetchedAgent.status ? 'Active' : 'Inactive'}</div>
+                            </div>
                         </div>
                     </motion.div>
                 )}
             </AnimatePresence>
 
             <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1.5">Permission</label>
+                <label className="block text-[13px] font-semibold text-ink mb-1.5">Permission</label>
                 <SearchableSelect
                     name="permission_id"
                     value={newAgent.permission_id}
                     onChange={onInputChange}
                     options={permissionOptions}
                     placeholder="Select permission"
-                    className={`w-full rounded-xl border bg-white px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 ${formErrors.permission ? 'border-red-400' : 'border-slate-200'}`}
+                    className={`w-full h-[42px] px-3 rounded-[9px] border bg-white text-sm text-ink outline-none ${formErrors.permission ? 'border-rose-400' : 'border-line-strong'}`}
                     disabled={addingAgent || !fetchedAgent}
                 />
-                {formErrors.permission && <p className="mt-1.5 text-sm text-red-600">{formErrors.permission}</p>}
+                {formErrors.permission && <p className="mt-1.5 text-sm text-rose-600">{formErrors.permission}</p>}
                 {!fetchedAgent && (
-                    <p className="mt-1.5 text-xs text-amber-600">Enter a mobile number to choose a permission.</p>
+                    <p className="mt-1.5 text-xs text-amber-700">Enter a mobile number to choose a permission.</p>
                 )}
 
                 <AnimatePresence initial={false}>
@@ -199,16 +202,16 @@ const AddAgentForm = React.memo(({
                             exit={{ opacity: 0, height: 0 }}
                             className="overflow-hidden"
                         >
-                            <div className="mt-3 rounded-xl border border-indigo-100 bg-indigo-50/60 p-3">
-                                <p className="text-xs font-semibold uppercase tracking-wide text-indigo-700">
+                            <div className="mt-3 rounded-[12px] border border-brand-100 bg-brand-50/70 p-3">
+                                <p className="text-xs font-semibold uppercase tracking-wide text-brand-800">
                                     {selectedPermission.label} access
                                 </p>
-                                <ul className="mt-2 grid grid-cols-1 gap-1.5 sm:grid-cols-2">
+                                <ul className="mt-2 grid grid-cols-1 gap-1.5">
                                     {PERMISSION_OPTION_LABELS.map(([key, label]) => {
                                         const enabled = Boolean(selectedPermission.permissions?.[key]);
                                         return (
-                                            <li key={key} className={`flex items-center gap-2 text-sm ${enabled ? 'text-slate-800' : 'text-slate-400'}`}>
-                                                <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${enabled ? 'bg-emerald-500' : 'bg-slate-300'}`} />
+                                            <li key={key} className={`flex items-center gap-2 text-[13px] ${enabled ? 'text-ink' : 'text-ink-400'}`}>
+                                                <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${enabled ? 'bg-emerald-500' : 'bg-line'}`} />
                                                 {label}
                                             </li>
                                         );
@@ -219,8 +222,8 @@ const AddAgentForm = React.memo(({
                     )}
                 </AnimatePresence>
 
-                <p className="mt-3 text-xs text-slate-500">
-                    They join this project only after they accept the invitation. An email is sent when their account has an email address.
+                <p className="mt-3 text-xs text-ink-500">
+                    They can accept or decline the invitation from Switch project. An email is sent when their account has an email address.
                 </p>
             </div>
         </div>
@@ -260,6 +263,7 @@ function AgentManagement() {
 
     const [selectedPermission, setSelectedPermission] = useState('');
     const [formErrors, setFormErrors] = useState({});
+    const [lookupNonce, setLookupNonce] = useState(0);
 
     const [isMinimized, setIsMinimized] = useState(() => {
         const saved = localStorage.getItem('sidebarMinimized');
@@ -563,7 +567,6 @@ function AgentManagement() {
     const lookupRequestRef = useRef(0);
 
     useEffect(() => {
-        if (!showAddModal) return undefined;
         const mobile = newAgent.mobile.trim();
         if (!/^\d{10}$/.test(mobile)) return undefined;
 
@@ -598,7 +601,16 @@ function AgentManagement() {
         }, 250);
 
         return () => clearTimeout(timer);
-    }, [showAddModal, newAgent.mobile]);
+    }, [newAgent.mobile, lookupNonce]);
+
+    const handleFindAgent = () => {
+        const mobile = newAgent.mobile.trim();
+        if (!/^\d{10}$/.test(mobile)) {
+            setFormErrors((prev) => ({ ...prev, mobile: 'Enter a valid 10-digit mobile number' }));
+            return;
+        }
+        setLookupNonce((value) => value + 1);
+    };
 
     // Handle view agent - UPDATED to filter by mapping_id
     const handleViewAgent = async (agent) => {
@@ -616,10 +628,10 @@ function AgentManagement() {
     };
 
     // Handle permission change
-    const handlePermissionChange = (agent) => {
+    const handleManageAgent = (agent) => {
         setCurrentAgent(agent);
-        setSelectedPermission(agent?.permission?.permission_id);
-        setShowPermissionModal(true);
+        setSelectedPermission(agent?.permission?.permission_id || '');
+        setShowViewModal(true);
     };
 
     // Save permission change
@@ -668,6 +680,7 @@ function AgentManagement() {
             throw error;
         } finally {
             setShowPermissionModal(false);
+            setShowViewModal(false);
             setCurrentAgent(null);
         }
 
@@ -812,14 +825,14 @@ function AgentManagement() {
     const addModalActions = (
         <>
             <button
-                className="px-4 py-2 bg-gray-200 text-gray-800 text-base font-medium rounded-md shadow-sm hover:bg-gray-300 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                className="inline-flex items-center justify-center h-[38px] px-3.5 rounded-[9px] text-[13px] font-semibold bg-white text-ink border border-[#E1DFEC] hover:bg-surface-soft disabled:opacity-50"
                 onClick={() => setShowAddModal(false)}
                 disabled={addingAgent}
             >
                 Cancel
             </button>
             <button
-                className="px-4 py-2 bg-indigo-600 text-white text-base font-medium rounded-md shadow-sm hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                className="inline-flex items-center justify-center h-[38px] px-3.5 rounded-[9px] text-[13px] font-semibold bg-brand-600 text-white hover:bg-brand-700 disabled:opacity-50"
                 onClick={saveNewAgent}
                 disabled={addingAgent || !fetchedAgent}
             >
@@ -838,13 +851,13 @@ function AgentManagement() {
     const permissionModalActions = (
         <>
             <button
-                className="px-4 py-2 bg-gray-200 text-gray-800 text-base font-medium rounded-md shadow-sm hover:bg-gray-300 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+                className="inline-flex items-center justify-center h-[38px] px-3.5 rounded-[9px] text-[13px] font-semibold bg-white text-ink border border-[#E1DFEC] hover:bg-surface-soft"
                 onClick={() => setShowPermissionModal(false)}
             >
                 Cancel
             </button>
             <button
-                className="px-4 py-2 bg-indigo-600 text-white text-base font-medium rounded-md shadow-sm hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                className="inline-flex items-center justify-center h-[38px] px-3.5 rounded-[9px] text-[13px] font-semibold bg-brand-600 text-white hover:bg-brand-700 disabled:opacity-50"
                 onClick={savePermissionChange}
                 disabled={selectedPermission == '' ? true : false}
             >
@@ -856,7 +869,7 @@ function AgentManagement() {
     const deleteModalActions = (
         <>
             <button
-                className="px-4 py-2 bg-gray-200 text-gray-800 text-base font-medium rounded-md shadow-sm hover:bg-gray-300 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+                className="inline-flex items-center justify-center h-[38px] px-3.5 rounded-[9px] text-[13px] font-semibold bg-white text-ink border border-[#E1DFEC] hover:bg-surface-soft"
                 onClick={() => setShowDeleteModal(false)}
             >
                 Cancel
@@ -876,7 +889,7 @@ function AgentManagement() {
 
     const viewModalActions = (
         <button
-            className="px-4 py-2 bg-indigo-600 text-white text-base font-medium rounded-md shadow-sm hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+            className="inline-flex items-center justify-center h-[38px] px-3.5 rounded-[9px] text-[13px] font-semibold bg-brand-600 text-white hover:bg-brand-700"
             onClick={() => setShowViewModal(false)}
         >
             Close
@@ -884,7 +897,7 @@ function AgentManagement() {
     );
 
     return (
-        <div className="min-h-screen bg-[#f4f6fb]">
+        <div className="min-h-screen bg-surface-ground">
             <Header
                 mobileMenuOpen={mobileMenuOpen}
                 setMobileMenuOpen={setMobileMenuOpen}
@@ -933,63 +946,6 @@ function AgentManagement() {
                 </div>
             </Modal>
 
-            <AnimatePresence>
-                {showAddModal && (
-                    <motion.div
-                        className="fixed inset-0 z-50 flex items-center justify-center overflow-hidden p-4"
-                        initial={{ opacity: 0 }}
-                        animate={{ opacity: 1 }}
-                        exit={{ opacity: 0 }}
-                        transition={{ duration: 0.2 }}
-                    >
-                        <motion.button
-                            type="button"
-                            aria-label="Close invite agent"
-                            className="absolute inset-0 bg-slate-900/50"
-                            onClick={() => !addingAgent && setShowAddModal(false)}
-                        />
-                        <motion.div
-                            role="dialog"
-                            aria-modal="true"
-                            initial={{ opacity: 0, scale: 0.96, y: 16 }}
-                            animate={{ opacity: 1, scale: 1, y: 0 }}
-                            exit={{ opacity: 0, scale: 0.96, y: 12 }}
-                            transition={{ duration: 0.22, ease: 'easeOut' }}
-                            className="relative flex max-h-[min(640px,calc(100vh-2rem))] w-full max-w-lg flex-col overflow-hidden rounded-2xl bg-white shadow-2xl"
-                        >
-                            <div className="flex items-center justify-between border-b border-slate-100 px-5 py-4">
-                                <div>
-                                    <h3 className="text-lg font-semibold text-slate-900">Invite agent</h3>
-                                    <p className="mt-0.5 text-sm text-slate-500">They can accept or reject from Switch Project.</p>
-                                </div>
-                                <button
-                                    type="button"
-                                    onClick={() => !addingAgent && setShowAddModal(false)}
-                                    disabled={addingAgent}
-                                    className="rounded-lg p-2 text-slate-400 hover:bg-slate-100 hover:text-slate-600 disabled:opacity-50"
-                                >
-                                    <FiX className="h-5 w-5" />
-                                </button>
-                            </div>
-                            <div className="scrollbar-hide overflow-y-auto px-5 py-5">
-                                <AddAgentForm
-                                    newAgent={newAgent}
-                                    formErrors={formErrors}
-                                    addingAgent={addingAgent}
-                                    fetchingAgent={fetchingAgent}
-                                    fetchedAgent={fetchedAgent}
-                                    onInputChange={handleInputChange}
-                                    permissionOptions={permissionOptions}
-                                />
-                            </div>
-                            <div className="flex justify-end gap-3 border-t border-slate-100 px-5 py-4">
-                                {addModalActions}
-                            </div>
-                        </motion.div>
-                    </motion.div>
-                )}
-            </AnimatePresence>
-
             {/* Permission Change Modal */}
             <Modal
                 isOpen={showPermissionModal}
@@ -1020,251 +976,217 @@ function AgentManagement() {
             <Modal
                 isOpen={showViewModal}
                 onClose={() => setShowViewModal(false)}
-                title="Agent Details"
+                title="Manage agent"
                 size="md"
                 actions={viewModalActions}
             >
                 {currentAgent && (
-                    <div className="px-4 py-3 space-y-6">
-                        {/* Basic Information */}
-                        <div>
-                            <h3 className="text-lg font-medium text-gray-900 mb-4">Basic Information</h3>
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">Name</label>
-                                    <p className="text-sm text-gray-900">{currentAgent.name}</p>
-                                </div>
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">Status</label>
-                                    <p className="text-sm text-gray-900">
-                                        {currentAgent.status ? (
-                                            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
-                                                Active
-                                            </span>
-                                        ) : (
-                                            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">
-                                                Inactive
-                                            </span>
-                                        )}
-                                    </p>
-                                </div>
+                    <div className="space-y-5">
+                        <div className="flex items-center gap-3">
+                            <div className="h-10 w-10 flex-none rounded-full bg-brand-100 text-brand-800 text-xs font-bold flex items-center justify-center">
+                                {initialsOf(currentAgent.name)}
+                            </div>
+                            <div className="min-w-0">
+                                <div className="text-sm font-bold text-ink truncate">{currentAgent.name}</div>
+                                <div className="text-xs text-ink-500 truncate">{currentAgent.email || 'Email not provided'}</div>
+                            </div>
+                            {currentAgent.invitation_status === 'pending' ? (
+                                <span className="ml-auto inline-flex items-center rounded-md bg-amber-50 px-2 py-0.5 text-[11px] font-bold text-amber-800">Invited</span>
+                            ) : currentAgent.status ? (
+                                <span className="ml-auto inline-flex items-center rounded-md bg-emerald-50 px-2 py-0.5 text-[11px] font-bold text-emerald-800">Active</span>
+                            ) : (
+                                <span className="ml-auto inline-flex items-center rounded-md bg-rose-50 px-2 py-0.5 text-[11px] font-bold text-rose-700">Inactive</span>
+                            )}
+                        </div>
+
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            <div>
+                                <div className="text-[12px] font-semibold text-ink-400">Mobile</div>
+                                <div className="mt-1 text-sm text-ink">{formatMobile(currentAgent)}</div>
+                            </div>
+                            <div>
+                                <div className="text-[12px] font-semibold text-ink-400">Added</div>
+                                <div className="mt-1 text-sm text-ink">{formatDate(currentAgent.create_date)}</div>
                             </div>
                         </div>
 
-                        {/* Contact Information */}
-                        <div>
-                            <h3 className="text-lg font-medium text-gray-900 mb-4">Contact Information</h3>
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">Mobile Number</label>
-                                    <p className="text-sm text-gray-900">{formatMobile(currentAgent)}</p>
-                                </div>
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
-                                    <p className="text-sm text-gray-900">{currentAgent.email || 'Not provided'}</p>
-                                </div>
+                        {currentAgent.invitation_status !== 'pending' ? (
+                            <div>
+                                <label className="block text-[13px] font-semibold text-ink mb-1.5">Permission</label>
+                                <SearchableSelect
+                                    value={selectedPermission}
+                                    onChange={handlePermissionSelectChange}
+                                    options={permissionOptions}
+                                    placeholder="Select permission"
+                                    className="w-full h-[42px] px-3 rounded-[9px] border border-line-strong bg-white text-sm text-ink outline-none"
+                                />
+                                <button
+                                    type="button"
+                                    onClick={savePermissionChange}
+                                    disabled={!selectedPermission}
+                                    className="mt-3 inline-flex items-center justify-center h-[38px] px-3.5 rounded-[9px] text-[13px] font-semibold bg-brand-600 text-white hover:bg-brand-700 disabled:opacity-50"
+                                >
+                                    Save permission
+                                </button>
                             </div>
+                        ) : null}
+
+                        <div className="pt-2 border-t border-[#F3F2F8]">
+                            <button
+                                type="button"
+                                onClick={() => handleDeleteAgent(currentAgent)}
+                                className="inline-flex items-center justify-center h-[38px] px-3.5 rounded-[9px] text-[13px] font-semibold text-rose-600 border border-rose-200 bg-white hover:bg-rose-50"
+                            >
+                                {currentAgent.invitation_status === 'pending' ? 'Cancel invitation' : 'Remove agent'}
+                            </button>
                         </div>
-
-                        {/* Permission Information */}
-                        <div>
-                            <h3 className="text-lg font-medium text-gray-900 mb-4">Permission Level</h3>
-                            <div className="grid grid-cols-1 gap-4">
-                                <div>
-                                    <p className="text-sm text-gray-900">{getPermissionLabel(currentAgent.permission)} <button class="bg-blue-600 hover:bg-blue-700 text-white text-sm px-3 py-1 rounded" onClick={() => {
-                                        handlePermissionChange(currentAgent);
-                                        setShowViewModal(false);
-                                    }}>
-                                        <MdEdit />
-                                    </button></p>
-                                </div>
-                            </div>
-                        </div>
-
-                        {/* Timeline Information */}
-                        <div>
-                            <h3 className="text-lg font-medium text-gray-900 mb-4">Timeline</h3>
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">Created On</label>
-                                    <p className="text-sm text-gray-900">{formatDate(currentAgent.create_date)}</p>
-                                </div>
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">Last Modified</label>
-                                    <p className="text-sm text-gray-900">{formatDate(currentAgent.modify_date)}</p>
-                                </div>
-                            </div>
-                        </div>
-
-                        {/* Created By Section */}
-                        {currentAgent.create_by && (
-                            <div className="pt-4 border-t">
-                                <h3 className="text-lg font-medium text-gray-900 mb-4">Created By</h3>
-                                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                                    <div>
-                                        <label className="block text-sm font-medium text-gray-700 mb-1">Name</label>
-                                        <p className="text-sm text-gray-900">{currentAgent.create_by.name}</p>
-                                    </div>
-                                    <div>
-                                        <label className="block text-sm font-medium text-gray-700 mb-1">Mobile</label>
-                                        <p className="text-sm text-gray-900">{currentAgent.create_by.mobile}</p>
-                                    </div>
-                                </div>
-                            </div>
-                        )}
-
-                        {/* Modified By Section */}
-                        {currentAgent.modify_by && (
-                            <div className="pt-4 border-t">
-                                <h3 className="text-lg font-medium text-gray-900 mb-4">Modified By</h3>
-                                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                                    <div>
-                                        <label className="block text-sm font-medium text-gray-700 mb-1">Name</label>
-                                        <p className="text-sm text-gray-900">{currentAgent.modify_by.name}</p>
-                                    </div>
-                                    <div>
-                                        <label className="block text-sm font-medium text-gray-700 mb-1">Mobile</label>
-                                        <p className="text-sm text-gray-900">{currentAgent.modify_by.mobile}</p>
-                                    </div>
-                                </div>
-                            </div>
-                        )}
                     </div>
                 )}
             </Modal>
 
+            <Modal
+                isOpen={showAddModal}
+                onClose={() => setShowAddModal(false)}
+                title="Invite agent"
+                actions={addModalActions}
+            >
+                <AddAgentForm
+                    newAgent={newAgent}
+                    formErrors={formErrors}
+                    addingAgent={addingAgent}
+                    fetchingAgent={fetchingAgent}
+                    fetchedAgent={fetchedAgent}
+                    onInputChange={handleInputChange}
+                    onFind={handleFindAgent}
+                    permissionOptions={permissionOptions}
+                />
+            </Modal>
+
             {/* Main content */}
-            <div className={`pt-16 transition-all duration-300 ease-in-out ${isMinimized ? 'md:pl-20' : 'md:pl-[260px]'
-                }`}>
-                <div className="w-full px-4 py-5">
-                    {/* Page header */}
-                    <div className="mb-5 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+            <div className={`pt-16 transition-all duration-300 ease-in-out ${isMinimized ? 'md:pl-20' : 'md:pl-[260px]'}`}>
+                <div className="w-full max-w-[1320px] px-4 sm:px-7 py-7">
+                    <div className="mb-5 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
                         <div className="min-w-0">
-                            <h1 className="text-2xl font-semibold tracking-tight text-slate-900">
-                                Agents
-                            </h1>
-                            <p className="mt-1 text-sm text-slate-500">Invite people and manage who can work in this project.</p>
+                            <h1 className="text-[26px] leading-tight font-extrabold tracking-tight text-ink">Agents</h1>
+                            <p className="mt-1.5 text-sm text-ink-500">Invite people and manage who can work in this project.</p>
                         </div>
                         <div className="flex items-center gap-2">
                             <button
-                                onClick={() => {
-                                    fetchAgents();
-                                }}
-                                className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+                                type="button"
+                                onClick={() => fetchAgents()}
+                                className="inline-flex items-center justify-center h-[38px] px-3.5 rounded-[9px] text-[13px] font-semibold bg-white text-ink border border-[#E1DFEC] hover:bg-surface-soft"
                             >
                                 <LuRefreshCcwDot className="mr-2" />
                                 Refresh
                             </button>
-                            <button
-                                onClick={handleAddAgent}
-                                className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+                            <Link
+                                to="/permission-list"
+                                className="inline-flex items-center justify-center h-[38px] px-3.5 rounded-[9px] text-[13px] font-semibold bg-white text-ink border border-[#E1DFEC] hover:bg-surface-soft"
                             >
-                                <FiUserPlus className="mr-2" />
-                                Invite Agent
+                                Manage permissions
+                            </Link>
+                            <button
+                                type="button"
+                                onClick={handleAddAgent}
+                                className="inline-flex items-center justify-center gap-2 h-[38px] px-3.5 rounded-[9px] text-[13px] font-semibold bg-brand-600 text-white hover:bg-brand-700"
+                            >
+                                <FiUserPlus size={15} /> Invite agent
                             </button>
                         </div>
                     </div>
 
-                    {/* Agents table */}
-                    <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
-                        <div className="overflow-x-auto">
-                            <table className="min-w-full divide-y divide-gray-200">
-                                <thead className="bg-gray-50">
-                                    <tr>
-                                        <th scope="col" className="w-14 px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                            #
-                                        </th>
-                                        <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                            Agent
-                                        </th>
-                                        <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                            Contact Info
-                                        </th>
-                                        <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                            Status
-                                        </th>
-                                        <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                            Permission
-                                        </th>
-                                        <th scope="col" className="w-16 px-3 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                            Actions
-                                        </th>
-                                    </tr>
-                                </thead>
-                                <tbody className="bg-white divide-y divide-gray-200">
-                                    {loading ? (
-                                        <TableSkeletonRows rows={itemsPerPage} cells={['index', 'avatar', 'text', 'badge', 'text', 'action']} />
-                                    ) : (
-                                        // Actual data rows
-                                        currentAgents.map((agent, index) => (
-                                            <tr key={agent.mapping_id || agent.mobile || index} className="hover:bg-gray-50">
-                                                <td className="px-4 py-4 text-center text-sm text-gray-500">{indexOfFirstItem + index + 1}</td>
-                                                <td className="px-6 py-4">
-                                                    <div className="flex items-center">
-                                                        <div className="flex-shrink-0 h-10 w-10">
-                                                            <div className="h-10 w-10 rounded-full bg-indigo-100 flex items-center justify-center">
-                                                                <FiUser className="h-6 w-6 text-indigo-600" />
-                                                            </div>
-                                                        </div>
-                                                        <div className="ml-4">
-                                                            <div className="text-sm font-medium text-gray-900">
-                                                                {agent.name}
-                                                            </div>
-                                                        </div>
-                                                    </div>
-                                                </td>
-                                                <td className="px-6 py-4 whitespace-nowrap">
-                                                    <div className="text-sm text-gray-900">{formatMobile(agent)}</div>
-                                                    <div className="text-sm text-gray-500">{agent.email || 'No email'}</div>
-                                                </td>
-                                                <td className="px-6 py-4 whitespace-nowrap">
-                                                    {agent.invitation_status === 'pending' ? (
-                                                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-800">
-                                                            Invitation pending
-                                                        </span>
-                                                    ) : agent.status ? (
-                                                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
-                                                            Active
-                                                        </span>
-                                                    ) : (
-                                                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">
-                                                            Inactive
-                                                        </span>
-                                                    )}
-                                                </td>
-                                                <td className="px-6 py-4 whitespace-nowrap">
-                                                    <div className="text-sm text-gray-900">{getPermissionLabel(agent.permission)}</div>
-                                                </td>
-                                                <td className="px-3 py-4 text-right">
-                                                    <RowActionMenu
-                                                        items={[
-                                                            { label: 'Details', icon: <FiEye size={15} />, onClick: () => handleViewAgent(agent) },
-                                                            { label: 'Change permission', icon: <FiKey size={15} />, onClick: () => handlePermissionChange(agent), hidden: agent.invitation_status === 'pending' },
-                                                            { label: agent.invitation_status === 'pending' ? 'Cancel invitation' : 'Delete', icon: <FiTrash2 size={15} />, onClick: () => handleDeleteAgent(agent), danger: true },
-                                                        ]}
-                                                    />
-                                                </td>
+                    <div className="overflow-hidden rounded-[14px] border border-line bg-white">
+                            <div className="overflow-x-auto">
+                                <table className="min-w-full">
+                                    <thead>
+                                        <tr>
+                                            <th className="w-12 text-center text-xs font-bold text-ink-500 px-3.5 py-3 bg-surface-soft border-b border-[#ECEAF3]">#</th>
+                                            <th className="text-left text-xs font-bold text-ink-500 px-3.5 py-3 bg-surface-soft border-b border-[#ECEAF3]">Agent</th>
+                                            <th className="text-left text-xs font-bold text-ink-500 px-3.5 py-3 bg-surface-soft border-b border-[#ECEAF3]">Mobile</th>
+                                            <th className="text-left text-xs font-bold text-ink-500 px-3.5 py-3 bg-surface-soft border-b border-[#ECEAF3]">Permission</th>
+                                            <th className="text-left text-xs font-bold text-ink-500 px-3.5 py-3 bg-surface-soft border-b border-[#ECEAF3]">Status</th>
+                                            <th className="text-left text-xs font-bold text-ink-500 px-3.5 py-3 bg-surface-soft border-b border-[#ECEAF3]">Added</th>
+                                            <th className="text-right text-xs font-bold text-ink-500 px-3.5 py-3 bg-surface-soft border-b border-[#ECEAF3]">Actions</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {loading ? (
+                                            <TableSkeletonRows rows={6} cells={['index', 'avatar', 'text', 'badge', 'badge', 'short', 'action']} />
+                                        ) : currentAgents.length === 0 ? (
+                                            <tr>
+                                                <td colSpan={7} className="px-4 py-10 text-center text-sm text-ink-500">No agents in this project yet.</td>
                                             </tr>
-                                        ))
-                                    )}
-                                </tbody>
-                            </table>
+                                        ) : (
+                                            currentAgents.map((agent, index) => {
+                                                const added = parseServerDate(agent.create_date);
+                                                const addedLabel = added
+                                                    ? added.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })
+                                                    : '';
+                                                const pending = agent.invitation_status === 'pending';
+                                                return (
+                                                    <tr key={agent.mapping_id || agent.invitation_id || agent.mobile || index} className="hover:bg-surface-soft/60">
+                                                        <td className="px-3.5 py-3 border-b border-[#F3F2F8] text-center text-xs font-semibold text-ink-500 oc-num">{indexOfFirstItem + index + 1}</td>
+                                                        <td className="px-3.5 py-3 border-b border-[#F3F2F8]">
+                                                            <div className="flex items-center gap-3 min-w-0">
+                                                                <div className="h-9 w-9 flex-none rounded-full bg-brand-100 text-brand-800 text-xs font-bold flex items-center justify-center">
+                                                                    {initialsOf(agent.name)}
+                                                                </div>
+                                                                <div className="min-w-0">
+                                                                    <div className="text-sm font-semibold text-ink truncate">{agent.name}</div>
+                                                                    {agent.email ? <div className="text-xs text-ink-500 truncate">{agent.email}</div> : null}
+                                                                </div>
+                                                            </div>
+                                                        </td>
+                                                        <td className="px-3.5 py-3 border-b border-[#F3F2F8] whitespace-nowrap text-sm font-mono text-ink">{formatMobile(agent)}</td>
+                                                        <td className="px-3.5 py-3 border-b border-[#F3F2F8]">
+                                                            <span className="inline-flex items-center rounded-md bg-brand-50 px-2 py-0.5 text-[11px] font-bold text-brand-800">
+                                                                {getPermissionLabel(agent.permission)}
+                                                            </span>
+                                                        </td>
+                                                        <td className="px-3.5 py-3 border-b border-[#F3F2F8]">
+                                                            {pending ? (
+                                                                <span className="inline-flex items-center rounded-md bg-amber-50 px-2 py-0.5 text-[11px] font-bold text-amber-800">Invited</span>
+                                                            ) : agent.status ? (
+                                                                <span className="inline-flex items-center rounded-md bg-emerald-50 px-2 py-0.5 text-[11px] font-bold text-emerald-800">Active</span>
+                                                            ) : (
+                                                                <span className="inline-flex items-center rounded-md bg-rose-50 px-2 py-0.5 text-[11px] font-bold text-rose-700">Inactive</span>
+                                                            )}
+                                                        </td>
+                                                        <td className="px-3.5 py-3 border-b border-[#F3F2F8] whitespace-nowrap text-sm text-ink-500">{addedLabel}</td>
+                                                        <td className="px-3.5 py-3 border-b border-[#F3F2F8]">
+                                                            <div className="flex items-center justify-end gap-2">
+                                                                <button type="button" onClick={() => handleManageAgent(agent)} className="text-[13px] font-semibold text-brand-700 hover:text-brand-800">
+                                                                    Manage
+                                                                </button>
+                                                                <RowActionMenu
+                                                                    items={[
+                                                                        { label: 'Manage', icon: <FiEye size={15} />, onClick: () => handleManageAgent(agent) },
+                                                                        { label: pending ? 'Cancel invitation' : 'Remove', icon: <FiTrash2 size={15} />, onClick: () => handleDeleteAgent(agent), danger: true },
+                                                                    ]}
+                                                                />
+                                                            </div>
+                                                        </td>
+                                                    </tr>
+                                                );
+                                            })
+                                        )}
+                                    </tbody>
+                                </table>
+                            </div>
+                            {!loading && agents.length > 0 ? (
+                                <Pagination
+                                    currentPage={currentPage}
+                                    totalPages={totalPages}
+                                    totalRecords={agents.length}
+                                    pageSize={itemsPerPage}
+                                    onPageChange={setCurrentPage}
+                                    onPageSizeChange={handlePageSizeChange}
+                                    pageSizeOptions={[10, 20, 50, 100]}
+                                />
+                            ) : null}
                         </div>
-
-                        {!loading && agents.length > 0 ? (
-                            <Pagination
-                                currentPage={currentPage}
-                                totalPages={totalPages}
-                                totalRecords={agents.length}
-                                pageSize={itemsPerPage}
-                                onPageChange={setCurrentPage}
-                                onPageSizeChange={handlePageSizeChange}
-                                pageSizeOptions={[10, 20, 50, 100]}
-                            />
-                        ) : null}
                     </div>
                 </div>
-            </div>
 
             {/* CSS for animations */}
             <style jsx>

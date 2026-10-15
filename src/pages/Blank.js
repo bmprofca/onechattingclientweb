@@ -25,7 +25,7 @@ function Blank() {
     }, [mobileMenuOpen]);
 
     return (
-        <div className="min-h-screen bg-[#f4f6fb]">
+        <div className="min-h-screen bg-surface-ground">
             <Header
                 mobileMenuOpen={mobileMenuOpen}
                 setMobileMenuOpen={setMobileMenuOpen}
@@ -42,7 +42,7 @@ function Blank() {
             {/* Main content with dynamic padding based on sidebar state */}
             <div className={`pt-16 transition-all duration-300 ease-in-out ${isMinimized ? 'md:pl-20' : 'md:pl-[260px]'
                 }`}>
-                <div className="w-full px-4 py-5">
+                <div className="w-full max-w-[1320px] px-4 sm:px-7 py-7">
                     <div className="bg-white rounded-lg shadow-sm p-6">
                         <h1 className="text-2xl font-bold text-gray-900 mb-4">Dashboard</h1>
                         <p className="text-gray-600">

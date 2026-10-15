@@ -1,8 +1,5 @@
 import React, { useState } from 'react';
-import {
-  User, Phone, Mail, Building2, ShieldCheck, ArrowRight, ArrowLeft, X, Loader2,
-  Radio, Users, Bot, Link2, Zap, LayoutTemplate, BarChart3,
-} from 'lucide-react';
+import { ArrowLeft, X, Loader2 } from 'lucide-react';
 import { useNavigate, Link } from 'react-router-dom';
 import { API_BASE_URL } from '../config/api';
 import { Encrypt } from './encryption/payload-encryption';
@@ -10,101 +7,23 @@ import axios from 'axios';
 import { sendOtp } from '../api/auth';
 import { websiteUrl } from '../config/website';
 
-// ---- Design tokens (shared system with Login) ----------------------------
-const C = {
-  ink: '#120F26',
-  panelFrom: '#1B1445',
-  panelVia: '#2A1B63',
-  panelTo: '#120F26',
-  brand: '#6C5CE7',
-  brandDark: '#5847D6',
-  mint: '#2FE6B8',
-  amber: '#FFB020',
-  coral: '#FF6B6B',
-  sky: '#5FB3F0',
-  rose: '#F472B6',
-  surfaceSoft: '#F7F6FC',
-  text: '#171426',
-  muted: '#6F6B85',
-  border: '#E7E4F2',
-  danger: '#DC2626',
-  dangerBg: '#FEF2F2',
-  dangerBorder: '#FECACA',
-};
-
-const ORBIT = [
-  { label: 'Broadcast', icon: Radio, color: C.coral, top: 6, left: 50 },
-  { label: 'Team Inbox', icon: Users, color: C.amber, top: 22.5, left: 84.4 },
-  { label: 'Chatbots', icon: Bot, color: C.mint, top: 59.8, left: 92.9 },
-  { label: 'Analytics', icon: BarChart3, color: C.sky, top: 89.6, left: 69.1 },
-  { label: 'Templates', icon: LayoutTemplate, color: C.rose, top: 89.6, left: 30.9 },
-  { label: 'Auto-Replies', icon: Zap, color: C.amber, top: 59.8, left: 7.1 },
-  { label: 'CRM Sync', icon: Link2, color: C.mint, top: 22.5, left: 15.6 },
+const STEPS = [
+  { step: '1', title: 'Create your account', desc: 'Name, business and mobile number' },
+  { step: '2', title: 'Connect your WhatsApp number', desc: "Through Meta's official sign-up" },
+  { step: '3', title: 'Invite your team and start chatting', desc: 'Shared inbox, templates and campaigns' },
 ];
 
-const Logo = () => (
-  <div className="flex items-center gap-2">
-    <div
-      className="w-9 h-9 rounded-xl flex items-center justify-center relative shrink-0 overflow-hidden"
-      style={{ background: `linear-gradient(135deg, ${C.brand}, ${C.mint})` }}
-    >
-      <img src="/logo.png" alt="OneChatting" className="h-full w-full object-cover" />
-    </div>
-    <span className="text-xl font-bold" style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}>
-      <span style={{ color: C.text }}>One</span>
-      <span style={{ color: C.brand }}>Chatting</span>
-    </span>
+const Logo = ({ dark }) => (
+  <div className="flex items-center gap-2.5">
+    <img src="/logo.png" alt="" className="h-9 w-9 rounded-[10px] object-cover shrink-0" />
+    <span className={`text-lg font-extrabold tracking-tight ${dark ? 'text-white' : 'text-ink'}`}>OneChatting</span>
   </div>
 );
-
-const OrbitPanel = () => (
-  <div className="hidden md:flex md:w-[56%] relative flex-col justify-between p-8 overflow-hidden"
-    style={{ background: `linear-gradient(160deg, ${C.panelFrom} 0%, ${C.panelVia} 55%, ${C.panelTo} 100%)` }}>
-    <style>{`
-      @keyframes ringGrow { 0% { transform: scale(1); opacity:.55 } 100% { transform: scale(6.2); opacity:0 } }
-    `}</style>
-
-    <div className="relative flex-1 flex items-center justify-center">
-      <div className="relative w-full max-w-[280px] aspect-square">
-        <div className="absolute inset-[6%] rounded-full border border-white/10" />
-        <div className="absolute inset-[22%] rounded-full border border-white/10 border-dashed" />
-        <div className="absolute inset-0 flex items-center justify-center">
-          <span className="absolute w-16 h-16 rounded-full border" style={{ borderColor: 'rgba(108,92,231,0.45)', animation: 'ringGrow 3.2s ease-out infinite' }} />
-          <span className="absolute w-16 h-16 rounded-full border" style={{ borderColor: 'rgba(47,230,184,0.35)', animation: 'ringGrow 3.2s ease-out infinite 1.1s' }} />
-          <div className="relative w-[76px] h-[76px] rounded-full flex items-center justify-center" style={{ background: '#fff', boxShadow: '0 12px 30px -8px rgba(108,92,231,0.55)' }}>
-            <div className="w-11 h-11 rounded-2xl flex items-center justify-center overflow-hidden" style={{ background: `linear-gradient(135deg, ${C.brand}, ${C.mint})` }}>
-              <img src="/logo.png" alt="" className="h-full w-full object-cover" />
-            </div>
-          </div>
-        </div>
-        {ORBIT.map(({ label, icon: Icon, color, top, left }) => (
-          <div key={label}
-            className="absolute flex items-center gap-1.5 pl-1.5 pr-3 py-1.5 rounded-full text-[11px] font-semibold text-white whitespace-nowrap"
-            style={{ top: `${top}%`, left: `${left}%`, transform: 'translate(-50%, -50%)', background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.12)', fontFamily: "'Inter', sans-serif" }}
-          >
-            <span className="w-5 h-5 rounded-full flex items-center justify-center shrink-0" style={{ background: color }}>
-              <Icon className="w-3 h-3 text-[#120F26]" strokeWidth={2.6} />
-            </span>
-            {label}
-          </div>
-        ))}
-      </div>
-    </div>
-  </div>
-);
-
-const fieldStyle = (hasError, focused) => ({
-  background: C.surfaceSoft,
-  border: `1px solid ${hasError ? '#FCA5A5' : focused ? C.brand : C.border}`,
-  boxShadow: focused ? `0 0 0 3px ${C.brand}22` : 'none',
-  color: C.text,
-});
 
 const Register = () => {
   const navigate = useNavigate();
 
   const [step, setStep] = useState(1);
-  const [focusField, setFocusField] = useState('');
   const [formData, setFormData] = useState({ name: '', mobile: '', email: '', businessName: '', otp: '' });
   const [errors, setErrors] = useState({ name: '', mobile: '', email: '', businessName: '', otp: '', global: '' });
   const [isLoading, setIsLoading] = useState(false);
@@ -216,162 +135,123 @@ const Register = () => {
     setTimeout(() => setErrors((p) => ({ ...p, global: '' })), 250);
   };
 
-  const F = (name) => ({
-    onFocus: () => setFocusField(name),
-    onBlur: () => setFocusField(''),
-  });
+  const fieldClass = (invalid) =>
+    `oc-input h-[46px] ${invalid ? 'border-red-300 focus:border-red-400 focus:ring-red-200' : ''}`;
 
   return (
-    <div className="h-dvh w-screen overflow-hidden flex items-center justify-center p-3" style={{ background: C.surfaceSoft }}>
-      <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@500;600;700;800&family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@500;600&display=swap');
-        @keyframes stepIn { from { opacity:0; transform: translateX(10px) } to { opacity:1; transform: translateX(0) } }
-        .step-in { animation: stepIn .25s ease-out both; }
-      `}</style>
-
-      <div
-        className="w-full max-w-[1200px] h-[min(680px,calc(100dvh-1.5rem))] rounded-2xl overflow-hidden flex flex-col md:flex-row"
-        style={{ background: '#fff', border: `1px solid ${C.border}`, boxShadow: '0 30px 80px -24px rgba(18,15,38,0.18)', fontFamily: "'Inter', sans-serif" }}
-      >
-        <OrbitPanel />
-
-        <div className="w-full md:w-[44%] flex flex-col bg-white px-5 py-4 md:px-6 md:py-5 min-h-0 overflow-hidden">
-          <div className="mb-3"><Logo /></div>
-
-          <div className="flex gap-1.5 mb-3">
-              {[1, 2].map((i) => (
-              <div key={i} className="h-[3px] flex-1 rounded-full overflow-hidden" style={{ background: C.border }}>
-                <div className="h-full transition-all duration-300" style={{ width: step >= i ? '100%' : '0%', background: C.brand }} />
-                </div>
-              ))}
+    <div className="oc-force-light min-h-screen w-full flex bg-white font-sans text-ink">
+      <section aria-label="About OneChatting" className="hidden md:flex md:w-1/2 flex-col gap-10 bg-ink-900 text-white px-10 lg:px-14 py-12">
+        <Logo dark />
+        <div className="flex-1 flex flex-col justify-center gap-7 max-w-[520px]">
+          <h1 className="text-[34px] lg:text-[40px] leading-[1.12] font-extrabold tracking-[-0.03em]">
+            Set up your WhatsApp workspace in a few minutes.
+          </h1>
+          <ol className="flex flex-col gap-5">
+            {STEPS.map(({ step: n, title, desc }) => (
+              <li key={n} className="flex gap-3.5 items-start">
+                <span className="flex h-7 w-7 flex-none items-center justify-center rounded-full bg-[#2A2450] text-[13px] font-bold text-[#C4BAFF]">{n}</span>
+                <span>
+                  <span className="block text-sm font-bold">{title}</span>
+                  <span className="block text-[13px] text-[#A9A4C2] mt-0.5">{desc}</span>
+                </span>
+              </li>
+            ))}
+          </ol>
         </div>
+        <p className="text-xs text-[#8F8AAB]">Built on the official WhatsApp Business Platform (Cloud API)</p>
+      </section>
 
-          <div className="mb-3">
-            <h1 className="text-lg font-bold" style={{ color: C.text, fontFamily: "'Plus Jakarta Sans', sans-serif" }}>
-              Create your workspace
-            </h1>
-            <p className="text-[13px] mt-0.5" style={{ color: C.muted }}>
-              {step === 1 ? 'Tell us a bit about your business' : `Enter the code sent to +91 ${formData.mobile}`}
+      <main className="w-full md:w-1/2 flex items-center justify-center px-6 py-12">
+        <div className="w-full max-w-[400px] flex flex-col gap-6">
+          <div className="md:hidden"><Logo /></div>
+          <div className="flex items-center gap-3">
+            <span className={`flex h-7 w-7 items-center justify-center rounded-full text-[13px] font-bold ${step === 1 ? 'bg-brand-600 text-white' : 'bg-brand-100 text-brand-800'}`}>1</span>
+            <span className={`text-sm font-semibold ${step === 1 ? 'text-ink' : 'text-ink-400'}`}>Details</span>
+            <span className="h-px flex-1 bg-line" />
+            <span className={`flex h-7 w-7 items-center justify-center rounded-full text-[13px] font-bold ${step === 2 ? 'bg-brand-600 text-white' : 'bg-[#F3F2FA] text-ink-400'}`}>2</span>
+            <span className={`text-sm font-semibold ${step === 2 ? 'text-ink' : 'text-ink-400'}`}>Verify</span>
+          </div>
+
+          <div>
+            <h2 className="text-[28px] font-extrabold tracking-tight">Create your account</h2>
+            <p className="mt-2 text-sm leading-relaxed text-ink-500">
+              {step === 1
+                ? 'We will verify your mobile number with a one-time code.'
+                : <>Enter the code sent to <strong className="text-ink font-semibold">+91 {formData.mobile}</strong></>}
             </p>
           </div>
 
-            {showGlobalError && errors.global && (
-            <div className="mb-3 flex items-center justify-between rounded-lg px-3.5 py-2 text-[13px] step-in"
-              style={{ background: C.dangerBg, border: `1px solid ${C.dangerBorder}`, color: C.danger }}>
-                <span>{errors.global}</span>
-              <button onClick={dismissGlobalError}><X className="w-4 h-4" /></button>
-              </div>
+          {showGlobalError && errors.global && (
+            <div role="alert" className="flex items-start justify-between gap-3 rounded-[10px] border border-red-200 bg-red-50 px-3.5 py-3 text-sm text-red-700">
+              <span>{errors.global}</span>
+              <button type="button" onClick={dismissGlobalError} aria-label="Dismiss"><X className="w-4 h-4" /></button>
+            </div>
           )}
 
-          <form onSubmit={step === 2 ? handleSubmit : (e) => e.preventDefault()} className="flex flex-col flex-1 min-h-0 justify-between">
-            <div>
-              {step === 1 ? (
-                <div key="s1" className="space-y-2 step-in">
-                  <div>
-                    <label htmlFor="name" className="block text-xs font-medium mb-1" style={{ color: C.text }}>Full name</label>
-                    <div className="relative">
-                      <User className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4" style={{ color: C.muted }} />
-                      <input type="text" id="name" name="name" autoFocus value={formData.name} onChange={handleChange} {...F('name')}
-                        placeholder="Your full name" className="w-full pl-10 pr-3.5 py-2 rounded-lg text-sm focus:outline-none transition-all"
-                        style={fieldStyle(errors.name, focusField === 'name')} />
-                    </div>
-                    {errors.name && <p className="text-xs mt-1" style={{ color: C.danger }}>{errors.name}</p>}
-                  </div>
-
-                  <div>
-                    <label htmlFor="mobile" className="block text-xs font-medium mb-1" style={{ color: C.text }}>Phone number</label>
-                    <div className="relative">
-                      <Phone className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4" style={{ color: C.muted }} />
-                      <input type="tel" id="mobile" name="mobile" value={formData.mobile} onChange={handleChange} {...F('mobile')}
-                        placeholder="10-digit mobile number" maxLength={10} className="w-full pl-10 pr-3.5 py-2 rounded-lg text-sm focus:outline-none transition-all"
-                        style={fieldStyle(errors.mobile, focusField === 'mobile')} />
-                    </div>
-                    {errors.mobile && <p className="text-xs mt-1" style={{ color: C.danger }}>{errors.mobile}</p>}
-                  </div>
-
-                  <div>
-                    <label htmlFor="email" className="block text-xs font-medium mb-1" style={{ color: C.text }}>Work email <span style={{ color: C.muted }}>(optional)</span></label>
-                    <div className="relative">
-                      <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4" style={{ color: C.muted }} />
-                      <input type="email" id="email" name="email" value={formData.email} onChange={handleChange} {...F('email')}
-                        placeholder="you@company.com" className="w-full pl-10 pr-3.5 py-2 rounded-lg text-sm focus:outline-none transition-all"
-                        style={fieldStyle(errors.email, focusField === 'email')} />
-                    </div>
-                    {errors.email && <p className="text-xs mt-1" style={{ color: C.danger }}>{errors.email}</p>}
-                  </div>
-
-                  <div>
-                    <label htmlFor="businessName" className="block text-xs font-medium mb-1" style={{ color: C.text }}>Business name <span style={{ color: C.muted }}>(optional)</span></label>
-                    <div className="relative">
-                      <Building2 className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4" style={{ color: C.muted }} />
-                      <input type="text" id="businessName" name="businessName" value={formData.businessName} onChange={handleChange} {...F('businessName')}
-                        placeholder="Your business name" className="w-full pl-10 pr-3.5 py-2 rounded-lg text-sm focus:outline-none transition-all"
-                        style={fieldStyle(errors.businessName, focusField === 'businessName')} />
-                    </div>
-                    {errors.businessName && <p className="text-xs mt-1" style={{ color: C.danger }}>{errors.businessName}</p>}
-                  </div>
+          <form onSubmit={step === 2 ? handleSubmit : (e) => e.preventDefault()} className="flex flex-col gap-4" noValidate>
+            {step === 1 ? (
+              <>
+                <div>
+                  <label htmlFor="name" className="oc-label">Full name</label>
+                  <input id="name" name="name" autoFocus value={formData.name} onChange={handleChange} placeholder="Mubarak Ali" className={fieldClass(errors.name)} />
+                  {errors.name && <p className="mt-1.5 text-xs text-red-700">{errors.name}</p>}
                 </div>
-              ) : (
-                <div key="s2" className="space-y-2 step-in">
-                  <div>
-                    <label htmlFor="otp" className="block text-xs font-medium mb-1" style={{ color: C.text }}>One-time code</label>
-                    <div className="relative">
-                      <ShieldCheck className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4" style={{ color: C.muted }} />
-                      <input type="text" id="otp" name="otp" autoFocus inputMode="numeric" value={formData.otp} onChange={handleChange} {...F('otp')}
-                        placeholder="000000" maxLength={6} className="w-full pl-10 pr-3.5 py-2 rounded-lg text-sm tracking-[0.4em] focus:outline-none transition-all"
-                        style={{ ...fieldStyle(errors.otp, focusField === 'otp'), fontFamily: "'IBM Plex Mono', monospace" }} />
-                    </div>
-                    {errors.otp && <p className="text-xs mt-1" style={{ color: C.danger }}>{errors.otp}</p>}
+                <div>
+                  <label htmlFor="businessName" className="oc-label">Business name</label>
+                  <input id="businessName" name="businessName" value={formData.businessName} onChange={handleChange} placeholder="Northeast Traders" className={fieldClass(errors.businessName)} />
+                  {errors.businessName && <p className="mt-1.5 text-xs text-red-700">{errors.businessName}</p>}
+                </div>
+                <div>
+                  <label htmlFor="email" className="oc-label">Work email (optional)</label>
+                  <input id="email" name="email" type="email" value={formData.email} onChange={handleChange} placeholder="you@company.com" className={fieldClass(errors.email)} />
+                  {errors.email && <p className="mt-1.5 text-xs text-red-700">{errors.email}</p>}
+                </div>
+                <div>
+                  <label htmlFor="mobile" className="oc-label">Mobile number</label>
+                  <div className={`flex items-center h-[46px] rounded-[9px] border bg-white overflow-hidden focus-within:border-brand-600 focus-within:ring-[3px] focus-within:ring-brand-600/20 ${errors.mobile ? 'border-red-300' : 'border-line-strong'}`}>
+                    <span className="flex items-center h-full px-3.5 border-r border-[#ECEAF3] bg-surface-soft text-sm font-semibold text-ink-700">+91</span>
+                    <input id="mobile" name="mobile" type="tel" inputMode="numeric" value={formData.mobile} onChange={handleChange} placeholder="98765 43210" maxLength={10} className="flex-1 h-full px-3.5 bg-transparent outline-none font-mono text-[15px] text-ink placeholder:text-ink-400" />
                   </div>
-
-                  <p className="text-[11px] leading-relaxed" style={{ color: C.muted }}>
-                    By creating a workspace, you agree to our{' '}
-                    <a href={websiteUrl('/terms')} target="_blank" rel="noopener noreferrer" className="font-medium" style={{ color: C.brand }}>Terms &amp; Conditions</a>{' '}
-                    and{' '}
-                    <a href={websiteUrl('/privacy-policy')} target="_blank" rel="noopener noreferrer" className="font-medium" style={{ color: C.brand }}>Privacy Policy</a>.
-                  </p>
-                    </div>
-              )}
-            </div>
-
-            <div className="mt-3 flex justify-between items-center gap-3 shrink-0">
-              {step > 1 ? (
-                <button type="button" onClick={prevStep}
-                  className="px-4 py-2.5 rounded-lg text-sm font-medium transition-all flex items-center gap-1.5"
-                  style={{ color: C.muted }}>
-                  <ArrowLeft className="w-3.5 h-3.5" /> Back
+                  {errors.mobile && <p className="mt-1.5 text-xs text-red-700">{errors.mobile}</p>}
+                </div>
+                <button type="button" onClick={nextStep} disabled={isLoading} className="mt-1 h-[50px] w-full rounded-[10px] bg-brand-600 text-white text-[15px] font-bold hover:bg-brand-700 disabled:opacity-80">
+                  {isLoading ? <span className="inline-flex items-center gap-2"><Loader2 className="w-4 h-4 animate-spin" /> Sending…</span> : 'Continue'}
                 </button>
-              ) : <div />}
-
-              {step < 2 ? (
-                <button type="button" onClick={nextStep} disabled={isLoading}
-                  className="flex-1 md:flex-none px-6 py-2.5 rounded-lg text-sm font-medium text-white transition-colors flex items-center justify-center gap-2"
-                  style={{ background: isLoading ? C.brandDark : C.brand, opacity: isLoading ? 0.85 : 1 }}>
-                  {isLoading ? (<><Loader2 className="w-4 h-4 animate-spin" /> Sending…</>) : (<>Continue <ArrowRight className="w-4 h-4" /></>)}
-                </button>
-              ) : (
-                <button type="submit" disabled={isLoading}
-                  className="flex-1 md:flex-none px-6 py-2.5 rounded-lg text-sm font-medium text-white transition-colors flex items-center justify-center gap-2"
-                  style={{ background: isLoading ? C.brandDark : C.brand, opacity: isLoading ? 0.85 : 1 }}>
-                  {isLoading ? (<><Loader2 className="w-4 h-4 animate-spin" /> Creating…</>) : (<>Create workspace <ArrowRight className="w-4 h-4" /></>)}
-                </button>
-              )}
-            </div>
+              </>
+            ) : (
+              <>
+                <div>
+                  <label htmlFor="otp" className="oc-label">One-time code</label>
+                  <input id="otp" name="otp" autoFocus inputMode="numeric" value={formData.otp} onChange={handleChange} placeholder="000000" maxLength={6} className={`${fieldClass(errors.otp)} font-mono tracking-[0.4em]`} />
+                  {errors.otp && <p className="mt-1.5 text-xs text-red-700">{errors.otp}</p>}
+                </div>
+                <p className="text-xs leading-relaxed text-ink-500">
+                  By creating an account, you agree to our{' '}
+                  <a href={websiteUrl('/terms')} target="_blank" rel="noopener noreferrer" className="font-semibold text-brand-800">Terms</a>
+                  {' '}and{' '}
+                  <a href={websiteUrl('/privacy-policy')} target="_blank" rel="noopener noreferrer" className="font-semibold text-brand-800">Privacy Policy</a>.
+                </p>
+                <div className="flex items-center gap-3">
+                  <button type="button" onClick={prevStep} className="oc-btn-ghost h-[50px] px-4">
+                    <ArrowLeft className="w-4 h-4" /> Back
+                  </button>
+                  <button type="submit" disabled={isLoading} className="h-[50px] flex-1 rounded-[10px] bg-brand-600 text-white text-[15px] font-bold hover:bg-brand-700 disabled:opacity-80">
+                    {isLoading ? <span className="inline-flex items-center justify-center gap-2"><Loader2 className="w-4 h-4 animate-spin" /> Creating…</span> : 'Create account'}
+                  </button>
+                </div>
+              </>
+            )}
           </form>
 
-          <div className="mt-2 text-center shrink-0">
-            <p className="text-xs" style={{ color: C.muted }}>
-              Already chatting with us?{' '}
-              <Link to="/login" className="font-medium" style={{ color: C.brand }}>
-                Sign in
-              </Link>
-            </p>
-          </div>
+          <p className="text-center text-sm text-ink-500">
+            Already have an account?{' '}
+            <Link to="/login" className="font-bold text-brand-800">Sign in</Link>
+          </p>
         </div>
-      </div>
+      </main>
 
       {toastMsg && (
-        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 px-4 py-2.5 rounded-xl text-sm text-white shadow-lg step-in" style={{ background: C.ink }}>
+        <div role="status" className="fixed bottom-6 left-1/2 -translate-x-1/2 px-4 py-2.5 rounded-[10px] text-sm font-medium text-white bg-ink shadow-pop">
           {toastMsg}
         </div>
       )}

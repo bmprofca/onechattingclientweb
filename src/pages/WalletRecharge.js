@@ -1,18 +1,12 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useSelector, useDispatch } from 'react-redux';
-import {
-  FiCreditCard,
-  FiShield,
-  FiLock,
-  FiRefreshCw,
-  FiZap
-} from 'react-icons/fi';
 import { Header, Sidebar } from '../component/Menu';
 import toast from 'react-hot-toast';
 import { fetchProjectInfo } from '../store/projectSlice';
 import { createPaymentOrder, checkPaymentStatus } from '../api/auth';
+import axios from 'axios';
+import { API_BASE_URL } from '../config/api';
 
 const RAZORPAY_SCRIPT_URL = 'https://checkout.razorpay.com/v1/checkout.js';
 
@@ -123,9 +117,10 @@ const WalletRecharge = () => {
   const [processing, setProcessing] = useState(false);
   const [promoApplied, setPromoApplied] = useState(false);
   const [discount, setDiscount] = useState(0);
-  const [windowWidth, setWindowWidth] = useState(window.innerWidth);
   const [currentOrderId, setCurrentOrderId] = useState(null);
   const [isPolling, setIsPolling] = useState(false);
+  const [surchargePercent, setSurchargePercent] = useState(0);
+  const [surchargeFlat, setSurchargeFlat] = useState(0);
 
   const navigate = useNavigate();
   const { amount: amountParam } = useParams();
@@ -162,19 +157,22 @@ const WalletRecharge = () => {
     }
   }, [amountParam]);
 
-  // Track window resize
-  useEffect(() => {
-    const handleResize = () => {
-      setWindowWidth(window.innerWidth);
-    };
-
-    window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
-  }, []);
-
   useEffect(() => {
     setIsPolling(false);
   }, [selectedAmount, customAmount]);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const response = await axios.get(`${API_BASE_URL}/payment/wallet-surcharge`);
+        if (cancelled || response.data?.error) return;
+        setSurchargePercent(Number(response.data.percent) || 0);
+        setSurchargeFlat(Number(response.data.flat) || 0);
+      } catch (_) {}
+    })();
+    return () => { cancelled = true; };
+  }, []);
 
   useEffect(() => {
     if (!projectInfo) {
@@ -296,18 +294,29 @@ const WalletRecharge = () => {
 
 
 
+  const roundMoney = (value) => Math.round((Number(value) + Number.EPSILON) * 100) / 100;
+
   const getTotalAmount = () => {
     const amount = getActiveAmount();
     if (!amount) return 0;
     const discountAmount = promoApplied ? (amount * discount / 100) : 0;
-    return amount - discountAmount;
+    return roundMoney(amount - discountAmount);
   };
 
-  const getPayableAmount = () => {
-    const amount = getActiveAmount();
-    if (!amount) return 0;
-    const discountAmount = promoApplied ? (amount * discount / 100) : 0;
-    return amount - discountAmount;
+  const getSurchargeAmount = () => {
+    const credit = getTotalAmount();
+    if (!credit) return 0;
+    const percentFee = roundMoney((credit * surchargePercent) / 100);
+    return roundMoney(percentFee + surchargeFlat);
+  };
+
+  const getPayableAmount = () => roundMoney(getTotalAmount() + getSurchargeAmount());
+
+  const surchargeLabel = () => {
+    const parts = [];
+    if (surchargePercent > 0) parts.push(`${surchargePercent}%`);
+    if (surchargeFlat > 0) parts.push(`₹${surchargeFlat}`);
+    return parts.length ? `Platform fee (${parts.join(' + ')})` : 'Platform fee';
   };
 
   const activeAmount = getActiveAmount();
@@ -498,7 +507,7 @@ const WalletRecharge = () => {
 
     try {
       const response = await createPaymentOrder({
-        amount: getPayableAmount(),
+        amount: getTotalAmount(),
         redirect_url: walletReturnUrl,
         origin: paymentBaseUrl
       });
@@ -567,8 +576,22 @@ const WalletRecharge = () => {
     }
   }, [dispatch, navigate]);
 
+  let accountBalance = null;
+  try {
+    const storedUser = JSON.parse(localStorage.getItem('userData') || 'null');
+    if (storedUser && storedUser.balance != null && storedUser.balance !== '') {
+      const parsedBalance = Number(storedUser.balance);
+      accountBalance = Number.isFinite(parsedBalance) ? parsedBalance : null;
+    }
+  } catch (_) {}
+  const money = (value) => `₹${Number(value || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  const coverageNote = templateStats
+    .filter((item) => item.charge > 0)
+    .map((item) => `${item.count.toLocaleString('en-IN')} ${item.label.toLowerCase()}`)
+    .join(', ');
+
   return (
-    <div className="min-h-screen bg-[#f4f6fb] overflow-x-hidden">
+    <div className="min-h-screen bg-surface-ground overflow-x-hidden">
       <Header
         mobileMenuOpen={mobileMenuOpen}
         setMobileMenuOpen={setMobileMenuOpen}
@@ -582,213 +605,93 @@ const WalletRecharge = () => {
         setIsMinimized={setIsMinimized}
       />
 
-      <div
-        className={`transition-all duration-300 mt-16 w-full ${isMinimized ? 'md:ml-20' : 'md:ml-[260px]'
-          }`}
-        style={{
-          width: windowWidth >= 768 ? (isMinimized ? 'calc(100% - 80px)' : 'calc(100% - 260px)') : '100%'
-        }}
-      >
-        <div className="min-h-[calc(100vh-64px)] bg-gradient-to-br from-indigo-50 via-white to-purple-50 px-4 py-5 w-full">
-          <div className="w-full">
-            {/* Header */}
-            {/* <div className="mb-4 sm:mb-6 lg:mb-8">
-              <button
-                onClick={() => navigate(-1)}
-                className="flex items-center text-gray-600 hover:text-indigo-600 transition-colors mb-3 sm:mb-4 text-sm sm:text-base"
-              >
-                <FiArrowLeft className="mr-2" size={18} />
-                Back
-              </button>
-              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-                <div>
-                  <h1 className="text-2xl font-semibold tracking-tight text-slate-900">Recharge Wallet</h1>
-                  <p className="text-sm sm:text-base text-gray-600 mt-1">Add money to your WICHAT wallet</p>
-                </div>
-
-              </div>
-            </div> */}
-
-            <div className="grid lg:grid-cols-3 gap-4 sm:gap-6 lg:gap-8">
-              {/* Left Column - Amount Selection */}
-              <div className="lg:col-span-2 space-y-4 sm:space-y-6">
-                {/* Amount Options */}
-                <motion.div
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  className="bg-white rounded-xl sm:rounded-2xl shadow-lg p-4 sm:p-6"
-                >
-                  <h2 className="text-lg sm:text-xl font-semibold text-gray-900 mb-3 sm:mb-4 flex items-center">
-                    ₹
-                    Select Amount
-                  </h2>
-                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 sm:gap-4 mb-4 sm:mb-6">
-                    {amountOptions.map((option) => (
-                      <motion.button
-                        key={option.value}
-                        onClick={() => handleAmountSelect(option.value)}
-                        className={`relative p-2 sm:px-3 sm:py-4 rounded-lg sm:rounded-xl border-2 transition-all ${selectedAmount === option.value
-                          ? 'border-indigo-600 bg-indigo-50'
-                          : 'border-gray-200 hover:border-indigo-300 bg-white active:border-indigo-400'
-                          }`}
-                        whileHover={{ scale: 1.02 }}
-                        whileTap={{ scale: 0.98 }}
-                      >
-                        {option.popular && (
-                          <div className="absolute -top-2 -right-2 bg-gradient-to-r from-orange-500 to-pink-500 text-white text-[10px] sm:text-xs px-1.5 sm:px-2 py-0.5 sm:py-1 rounded-full font-semibold flex items-center">
-                            <FiZap size={10} className="mr-0.5 sm:mr-1" />
-                            Popular
-                          </div>
-                        )}
-                        <div className="text-sm sm:text-sm font-bold text-gray-900">{option.label}</div>
-                      </motion.button>
-                    ))}
-                  </div>
-
-                  {/* Custom Amount */}
+      <div className={`pt-16 transition-all duration-300 ${isMinimized ? 'md:pl-20' : 'md:pl-[260px]'}`}>
+        <div className="w-full max-w-[1320px] px-4 sm:px-7 py-7">
+            <div className="mb-6">
+              <h1 className="oc-page-title">Recharge wallet</h1>
+              <p className="oc-page-sub">Template messages, renewals and AI replies are paid from your wallet.</p>
+            </div>
+            <div className="grid grid-cols-1 xl:grid-cols-[minmax(0,1fr)_300px] gap-4 items-start">
+                <section className="oc-card p-5 space-y-4">
+                  {accountBalance != null && (
+                    <div className="rounded-[14px] bg-ink text-white px-5 py-4 flex items-center justify-between">
+                      <span className="text-sm text-white/70">Current balance</span>
+                      <span className="text-[26px] leading-none font-semibold font-mono">{money(accountBalance)}</span>
+                    </div>
+                  )}
                   <div>
-                    <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-2">
-                      Or enter custom amount
-                    </label>
+                    <label className="oc-label" htmlFor="recharge-amount">Recharge amount</label>
                     <div className="relative">
-                      <span className="absolute left-3 sm:left-4 top-1/2 transform -translate-y-1/2 text-gray-500 text-base sm:text-lg">₹</span>
+                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-ink-500 font-semibold">₹</span>
                       <input
+                        id="recharge-amount"
                         type="text"
                         value={customAmount}
                         onChange={handleCustomAmountChange}
-                        placeholder="Enter amount "
-                        className="w-full pl-8 sm:pl-10 pr-3 sm:pr-4 py-2.5 sm:py-3 border-2 border-gray-200 rounded-lg sm:rounded-xl focus:border-indigo-600 focus:ring-0 text-base sm:text-lg"
+                        placeholder="Enter amount"
+                        className="oc-input pl-8 font-mono"
                       />
                     </div>
                   </div>
-
-                  {projectCharges && (
-                    <div className="mt-4 sm:mt-6 border border-indigo-100 bg-indigo-50/40 rounded-xl p-3 sm:p-4">
-                      <div className="flex items-center justify-between mb-3">
-                        <div>
-                          <p className="text-sm font-semibold text-gray-900">Template preview</p>
-                          <p className="text-xs text-gray-500">Based on live project charges</p>
-                        </div>
-                        <span className="text-xs font-medium text-indigo-600">
-                          ₹{activeAmount ? activeAmount.toFixed(2) : '0.00'}
-                        </span>
-                      </div>
-
-                      {activeAmount ? (
-                        templateStats.length ? (
-                          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 sm:gap-3">
-                            {templateStats.map((item) => (
-                              <div key={item.key} className="rounded-lg bg-white border border-indigo-100 px-3 py-2.5">
-                                <p className="text-[11px] uppercase tracking-wide text-gray-500 font-semibold">
-                                  {item.label}
-                                </p>
-                                <p className="text-sm font-bold text-gray-900">{item.count}</p>
-                                <p className="text-[11px] text-gray-500">₹{item.charge}/template</p>
-                              </div>
-                            ))}
-                          </div>
-                        ) : (
-                          <p className="text-xs text-gray-500">
-                            We could not find per-template charges for this project.
-                          </p>
-                        )
-                      ) : (
-                        <p className="text-xs text-gray-500">
-                          Enter an amount to estimate how many templates you can send.
-                        </p>
-                      )}
-                    </div>
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
+                    {amountOptions.map((option) => {
+                      const selected = Number(customAmount) === option.value || selectedAmount === option.value;
+                      return (
+                        <button
+                          key={option.value}
+                          type="button"
+                          onClick={() => handleAmountSelect(option.value)}
+                          className={`h-11 rounded-[10px] border text-sm font-semibold transition-colors ${selected ? 'border-brand-600 bg-brand-50 text-brand-800' : 'border-line bg-white text-ink hover:border-[#D5D2E4]'}`}
+                        >
+                          {option.label}
+                        </button>
+                      );
+                    })}
+                  </div>
+                  {coverageNote && (
+                    <p className="text-xs text-ink-500">At your current rates this covers about {coverageNote} messages.</p>
                   )}
-                </motion.div>
-
-              </div>
-
-              {/* Right Column - Summary */}
-              <div className="lg:col-span-1">
-                <motion.div
-                  initial={{ opacity: 0, x: 20 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  className="bg-white rounded-xl sm:rounded-2xl shadow-lg p-4 sm:p-6 lg:sticky lg:top-24"
-                >
-                  <h2 className="text-lg sm:text-xl font-semibold text-gray-900 mb-4 sm:mb-6">Payment Summary</h2>
-
-                  <div className="space-y-3 sm:space-y-4 mb-4 sm:mb-6">
-                    <div className="flex justify-between text-gray-700 text-sm sm:text-base">
-                      <span>Recharge Amount</span>
-                      <span className="font-semibold">₹{getActiveAmount() || 0}</span>
+                  {isPolling && (
+                    <p className="text-xs font-semibold text-brand-800">Checking payment status…</p>
+                  )}
+                </section>
+                <aside className="oc-card p-5">
+                  <h2 className="text-[15px] font-bold text-ink">Payment summary</h2>
+                  <dl className="mt-4 space-y-3 text-sm">
+                    <div className="flex items-center justify-between gap-3">
+                      <dt className="text-ink-500">Wallet credit</dt>
+                      <dd className="oc-num text-ink">{money(getActiveAmount() || 0)}</dd>
                     </div>
-
                     {promoApplied && (
-                      <div className="flex justify-between text-green-600 text-sm sm:text-base">
-                        <span>Discount ({discount}%)</span>
-                        <span className="font-semibold">-₹{(getActiveAmount() * discount / 100).toFixed(2)}</span>
+                      <div className="flex items-center justify-between gap-3 text-emerald-700">
+                        <dt>Discount ({discount}%)</dt>
+                        <dd className="oc-num">-₹{((getActiveAmount() || 0) * discount / 100).toFixed(2)}</dd>
                       </div>
                     )}
-                    <div className="border-t pt-3 sm:pt-4">
-                      <div className="flex justify-between text-gray-700 mb-2 text-sm sm:text-base">
-                        <span>You Pay</span>
-                        <span className="font-semibold">₹{getPayableAmount().toFixed(2)}</span>
+                    {getSurchargeAmount() > 0 && (
+                      <div className="flex items-center justify-between gap-3">
+                        <dt className="text-ink-500">{surchargeLabel()}</dt>
+                        <dd className="oc-num text-ink">{money(getSurchargeAmount())}</dd>
                       </div>
-                      <div className="flex justify-between text-base sm:text-lg font-bold text-indigo-600">
-                        <span>Total Credit</span>
-                        <span>₹{getTotalAmount().toFixed(2)}</span>
-                      </div>
+                    )}
+                    <div className="flex items-center justify-between gap-3 border-t border-line pt-3">
+                      <dt className="font-semibold text-ink">You pay</dt>
+                      <dd className="oc-num text-ink">{money(getPayableAmount())}</dd>
                     </div>
-                  </div>
-
+                  </dl>
                   <button
+                    type="button"
                     onClick={initializePayment}
                     disabled={!getActiveAmount() || processing}
-                    className="w-full py-3 sm:py-4 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-lg sm:rounded-xl font-bold text-base sm:text-lg hover:from-indigo-700 hover:to-purple-700 disabled:from-gray-300 disabled:to-gray-400 disabled:cursor-not-allowed transition-all shadow-lg hover:shadow-xl active:scale-[0.98] flex items-center justify-center"
+                    className="oc-btn-primary w-full mt-4"
                   >
-                    {processing ? (
-                      <>
-                        <motion.div
-                          animate={{ rotate: 360 }}
-                          transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
-                          className="mr-2"
-                        >
-                          <FiRefreshCw size={18} />
-                        </motion.div>
-                        <span className="text-sm sm:text-base">Processing...</span>
-                      </>
-                    ) : (
-                      <>
-                        <FiLock className="mr-2" size={18} />
-                        <span className="text-sm sm:text-base">Proceed to Pay</span>
-                      </>
-                    )}
+                    {processing ? 'Processing...' : 'Proceed to pay'}
                   </button>
-
-                  {/* Security Badges */}
-                  <div className="mt-4 sm:mt-6 pt-4 sm:pt-6 border-t">
-                    <div className="flex items-center justify-center text-xs sm:text-sm text-gray-500 mb-2 sm:mb-3">
-                      <FiShield className="mr-2 text-green-600" size={16} />
-                      <span>100% Secure Payment</span>
-                    </div>
-                    <div className="grid grid-cols-3 gap-2 opacity-60">
-                      <img src="https://razorpay.com/assets/razorpay-glyph.svg" alt="Razorpay" className="h-5 sm:h-6 mx-auto grayscale" />
-                      <img src="https://www.logo.wine/a/logo/Unified_Payments_Interface/Unified_Payments_Interface-Logo.wine.svg" alt="UPI" className="h-5 sm:h-6 mx-auto grayscale" />
-                      <img src="https://upload.wikimedia.org/wikipedia/commons/5/5e/Visa_Inc._logo.svg" alt="Visa" className="h-5 sm:h-6 mx-auto grayscale" />
-                    </div>
-                  </div>
-
-                  {/* Info Box */}
-                  <div className="mt-4 sm:mt-6 p-3 sm:p-4 bg-blue-50 rounded-lg sm:rounded-xl">
-                    <h3 className="font-semibold text-blue-900 mb-1.5 sm:mb-2 text-xs sm:text-sm">Why recharge?</h3>
-                    <ul className="text-[10px] sm:text-xs text-blue-700 space-y-0.5 sm:space-y-1">
-                      <li>✓ Send unlimited messages</li>
-                      <li>✓ Create campaigns</li>
-                      <li>✓ Access premium features</li>
-                      <li>✓ Get bonus credits</li>
-                    </ul>
-                  </div>
-                </motion.div>
+                  <p className="mt-3 text-center text-[11px] text-ink-400">Secure payment by Razorpay. UPI, cards and netbanking.</p>
+                </aside>
               </div>
-            </div>
           </div>
         </div>
-      </div>
 
     </div>
   );

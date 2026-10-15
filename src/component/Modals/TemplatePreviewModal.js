@@ -102,11 +102,9 @@ const TemplatePreviewModal = ({ isOpen, onClose, template }) => {
         return variables;
     }, [formData]);
 
-    if (!isOpen || !template || !formData) return null;
-
     return (
         <AnimatePresence>
-            {isOpen && (
+            {isOpen && template && formData && (
                 <motion.div
                     initial={{ opacity: 0 }}
                     animate={{ opacity: 1 }}

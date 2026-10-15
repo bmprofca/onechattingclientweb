@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { useTheme } from '../theme/ThemeContext';
 import { useNavigate, useParams, useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import ChatList from './ChatList';
@@ -14,7 +15,8 @@ function LiveChat() {
     const { phone } = useParams();
     const [tokens, setTokens] = useState(null);
     const [activeChat, setActiveChat] = useState(null);
-    const [darkMode, setDarkMode] = useState(false);
+    // Follows the app-wide theme (light / dark / system)
+    const { isDark: darkMode } = useTheme();
     const [isInitialized, setIsInitialized] = useState(false);
     const [dbAvailable, setDbAvailable] = useState(false);
     const [chats, setChats] = useState([]);
@@ -245,14 +247,6 @@ function LiveChat() {
         };
     }, [isInitialized, activeChat, dbAvailable]);
 
-    // Set dark mode class on body
-    useEffect(() => {
-        if (darkMode) {
-            document.documentElement.classList.add('dark');
-        } else {
-            document.documentElement.classList.remove('dark');
-        }
-    }, [darkMode]);
 
     // Handle ESC key to go back to live-chat page
     useEffect(() => {
@@ -389,7 +383,7 @@ function LiveChat() {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             transition={{ duration: 0.3 }}
-            className="fixed inset-0 z-50 flex flex-col bg-white dark:bg-gray-900"
+            className="relative flex h-screen h-[100dvh] flex-col overflow-hidden bg-white dark:bg-gray-900"
         >
 
             <Header

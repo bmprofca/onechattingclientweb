@@ -6,7 +6,7 @@ import axios from 'axios';
 import { Header, Sidebar } from '../component/Menu';
 import { fetchProjectInfo } from '../store/projectSlice';
 import { Encrypt } from './encryption/payload-encryption';
-import { FiSettings, FiLock, FiZap, FiMessageSquare, FiBell, FiShield, FiBarChart2, FiUserCheck, FiGitBranch } from 'react-icons/fi';
+import { FiLock, FiMessageSquare, FiShield, FiGitBranch, FiFileText } from 'react-icons/fi';
 import toast from 'react-hot-toast';
 
 const PROJECT_CONFIG_STORAGE_KEY = (projectId) => `project_config_${projectId}`;
@@ -92,6 +92,7 @@ function ProjectConfig() {
     const dispatch = useDispatch();
     const isOwner = useSelector((state) => state.project?.owned ?? false);
     const projectInfo = useSelector((state) => state.project?.info);
+    const projectName = useSelector((state) => state.project?.projectName || '');
 
     const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
     const [isMinimized, setIsMinimized] = useState(() => {
@@ -401,11 +402,11 @@ function ProjectConfig() {
 
     if (!isOwner) {
         return (
-            <div className="min-h-screen bg-[#f4f6fb]">
+            <div className="min-h-screen bg-surface-ground">
                 <Header mobileMenuOpen={mobileMenuOpen} setMobileMenuOpen={setMobileMenuOpen} isMinimized={isMinimized} setIsMinimized={setIsMinimized} />
                 <Sidebar mobileMenuOpen={mobileMenuOpen} setMobileMenuOpen={setMobileMenuOpen} isMinimized={isMinimized} setIsMinimized={setIsMinimized} />
                 <div className={`pt-16 transition-all duration-300 ease-in-out ${isMinimized ? 'md:pl-20' : 'md:pl-[260px]'}`}>
-                    <div className="w-full px-4 py-5">
+                    <div className="w-full max-w-[1320px] px-4 sm:px-7 py-7">
                         <div className="max-w-2xl mx-auto mt-12 rounded-xl border border-slate-200 bg-white p-8 shadow-sm text-center">
                             <FiLock className="w-14 h-14 mx-auto text-slate-300 mb-4" />
                             <h2 className="text-xl font-semibold text-slate-800 mb-2">Access denied</h2>
@@ -413,7 +414,7 @@ function ProjectConfig() {
                             <button
                                 type="button"
                                 onClick={() => navigate('/')}
-                                className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors"
+                                className="oc-btn-primary"
                             >
                                 Back to Dashboard
                             </button>
@@ -424,197 +425,201 @@ function ProjectConfig() {
         );
     }
 
+    const displayProjectName = projectName || projectInfo?.project?.name || '';
+
+    let companyContextCount = null;
+    if (companyContext && String(companyContext).trim()) {
+        try {
+            const parsed = JSON.parse(companyContext);
+            if (parsed && typeof parsed === 'object') {
+                let count = 0;
+                if (String(parsed.companyOverview || '').trim()) count += 1;
+                if (String(parsed.companyAddress || '').trim()) count += 1;
+                if (Array.isArray(parsed.sections)) {
+                    parsed.sections.forEach((section) => {
+                        count += Array.isArray(section?.items) ? section.items.length : 0;
+                    });
+                }
+                companyContextCount = count > 0 ? count : null;
+            }
+        } catch (_) {
+            companyContextCount = null;
+        }
+    }
+
+    const replyModes = [
+        {
+            id: 'auto-reply-all',
+            value: 'all',
+            title: 'All conversations',
+            detail: 'Every conversation can receive an auto-reply.',
+        },
+        {
+            id: 'auto-reply-new',
+            value: 'new',
+            title: 'New conversations only',
+            detail: 'Only new conversations receive an auto-reply.',
+        },
+    ];
+
     return (
-        <div className="min-h-screen bg-[#f4f6fb]">
+        <div className="min-h-screen bg-surface-ground">
             <Header mobileMenuOpen={mobileMenuOpen} setMobileMenuOpen={setMobileMenuOpen} isMinimized={isMinimized} setIsMinimized={setIsMinimized} />
             <Sidebar mobileMenuOpen={mobileMenuOpen} setMobileMenuOpen={setMobileMenuOpen} isMinimized={isMinimized} setIsMinimized={setIsMinimized} />
             <div className={`pt-16 transition-all duration-300 ease-in-out ${isMinimized ? 'md:pl-20' : 'md:pl-[260px]'}`}>
-                <div className="w-full px-4 py-5">
-                    <div className="mb-5">
-                        <h1 className="text-2xl font-bold text-slate-800 flex items-center gap-2">
-                            <FiSettings className="w-7 h-7 text-indigo-600" />
-                            Project Configuration
-                        </h1>
-                        <p className="mt-1 text-slate-600">Manage settings for the selected project.</p>
+                <div className="w-full max-w-[1320px] px-4 sm:px-7 py-7">
+                    <div className="mb-6">
+                        <h1 className="oc-page-title">Configuration</h1>
+                        <p className="oc-page-sub">
+                            Settings for {displayProjectName || 'this project'}. Only the project owner can change these.
+                        </p>
                     </div>
 
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
-                        {/* Auto Case Create - active card */}
-                        <div className="rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden flex flex-col">
-                            <div className="p-5 flex-1">
-                                <div className="flex items-start justify-between gap-3">
-                                    <div className="p-2.5 rounded-xl bg-indigo-100 text-indigo-600">
-                                        <FiZap className="w-6 h-6" />
-                                    </div>
-                                    {autoCaseCreateStatusLoading ? (
-                                        <div className="flex items-center gap-2 text-slate-500">
-                                            <span className="inline-block h-5 w-5 border-2 border-slate-300 border-t-transparent rounded-full animate-spin" />
-                                            <span className="text-sm font-medium">Loading...</span>
-                                        </div>
-                                    ) : (
-                                        <label className="relative inline-flex items-center cursor-pointer flex-shrink-0">
-                                            <input
-                                                type="checkbox"
-                                                checked={autoCaseCreate}
-                                                disabled={autoCaseCreateLoading}
-                                                onChange={(e) => handleAutoCaseCreateChange(e.target.checked)}
-                                                className="sr-only peer"
-                                            />
-                                            <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-indigo-500 rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-600 peer-disabled:opacity-60" />
-                                            <span className="ms-3 text-sm font-medium text-slate-700">{autoCaseCreateLoading ? '...' : (autoCaseCreate ? 'On' : 'Off')}</span>
-                                        </label>
-                                    )}
+                    <div className="space-y-4">
+                        <section className="oc-card p-5">
+                            <div className="flex items-start justify-between gap-4">
+                                <div>
+                                    <h2 className="text-[15px] font-bold text-ink">Auto case create</h2>
+                                    <p className="mt-1 text-sm text-ink-500 max-w-2xl">Open a case automatically when a customer messages, so nothing is missed in Open cases.</p>
                                 </div>
-                                <h3 className="font-semibold text-slate-800 mt-4">Auto Case Create</h3>
-                                <p className="text-sm text-slate-600 mt-1.5">Create a new case automatically based on your project rules.</p>
+                                {autoCaseCreateStatusLoading ? (
+                                    <span className="inline-block h-5 w-5 border-2 border-line border-t-brand-600 rounded-full animate-spin" />
+                                ) : (
+                                    <label className="relative inline-flex items-center cursor-pointer flex-shrink-0">
+                                        <input
+                                            type="checkbox"
+                                            checked={autoCaseCreate}
+                                            disabled={autoCaseCreateLoading}
+                                            onChange={(e) => handleAutoCaseCreateChange(e.target.checked)}
+                                            className="sr-only peer"
+                                            aria-label="Auto case create"
+                                        />
+                                        <div className="w-11 h-6 bg-[#E4E1EF] rounded-full peer peer-checked:bg-brand-600 peer-disabled:opacity-60 after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:after:translate-x-full" />
+                                    </label>
+                                )}
                             </div>
-                        </div>
+                            <p className="mt-5 text-xs font-semibold uppercase tracking-[0.06em] text-ink-400">Auto-reply scope</p>
+                            <div className="mt-2 grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                {replyModes.map((mode) => {
+                                    const selected = autoReplyMode === mode.value;
+                                    return (
+                                        <label
+                                            key={mode.value}
+                                            htmlFor={mode.id}
+                                            className={`flex items-start gap-3 rounded-[12px] border p-3.5 cursor-pointer transition-colors ${selected ? 'border-brand-600 bg-brand-50' : 'border-line bg-white hover:border-[#D5D2E4]'}`}
+                                        >
+                                            <input
+                                                id={mode.id}
+                                                type="radio"
+                                                name="autoReplyMode"
+                                                value={mode.value}
+                                                checked={selected}
+                                                disabled={autoReplyLoading || autoReplyStatusLoading}
+                                                onChange={() => handleAutoReplyModeChange(mode.value)}
+                                                className="mt-0.5 h-4 w-4 accent-[#6C5CE7]"
+                                            />
+                                            <span>
+                                                <span className="block text-sm font-semibold text-ink">{mode.title}</span>
+                                                <span className="block mt-0.5 text-xs text-ink-500">{mode.detail}</span>
+                                            </span>
+                                        </label>
+                                    );
+                                })}
+                            </div>
+                        </section>
 
-                        {/* Auto Reply - active card */}
-                        <div className="rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden flex flex-col">
-                            <div className="p-5 flex-1">
-                                <div className="flex items-start justify-between gap-3">
-                                    <div className="p-2.5 rounded-xl bg-emerald-100 text-emerald-600">
-                                        <FiMessageSquare className="w-6 h-6" />
-                                    </div>
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                            <button
+                                type="button"
+                                onClick={() => navigate('/agent-config')}
+                                className="oc-card p-4 text-left hover:border-brand-300 transition-colors"
+                            >
+                                <span className="flex h-9 w-9 items-center justify-center rounded-[10px] bg-brand-50 text-brand-700">
+                                    <FiShield className="w-4 h-4" />
+                                </span>
+                                <span className="mt-3 flex items-center justify-between gap-2">
+                                    <span className="text-sm font-bold text-ink">AI agent</span>
+                                </span>
+                                <span className="mt-1 block text-xs text-ink-500">Provider and API key for AI auto-replies</span>
+                            </button>
+
+                            <button
+                                type="button"
+                                onClick={() => navigate('/context-config')}
+                                className="oc-card p-4 text-left hover:border-brand-300 transition-colors"
+                            >
+                                <span className="flex h-9 w-9 items-center justify-center rounded-[10px] bg-brand-50 text-brand-700">
+                                    <FiFileText className="w-4 h-4" />
+                                </span>
+                                <span className="mt-3 flex items-center justify-between gap-2">
+                                    <span className="text-sm font-bold text-ink">Company context</span>
+                                    {companyContextCount != null && (
+                                        <span className="oc-badge bg-[#F3F2FA] text-ink-700">{companyContextCount} {companyContextCount === 1 ? 'item' : 'items'}</span>
+                                    )}
+                                </span>
+                                <span className="mt-1 block text-xs text-ink-500">What the AI knows about your business</span>
+                            </button>
+
+                            <div className="oc-card p-4">
+                                <button
+                                    type="button"
+                                    onClick={() => navigate('/auto-reply')}
+                                    className="w-full text-left"
+                                >
+                                    <span className="flex h-9 w-9 items-center justify-center rounded-[10px] bg-brand-50 text-brand-700">
+                                        <FiMessageSquare className="w-4 h-4" />
+                                    </span>
+                                    <span className="mt-3 block text-sm font-bold text-ink">Auto reply</span>
+                                    <span className="mt-1 block text-xs text-ink-500">Keyword and away-hours replies</span>
+                                </button>
+                                <div className="mt-3 flex items-center justify-between">
                                     {autoReplyStatusLoading ? (
-                                        <div className="flex items-center gap-2 text-slate-500">
-                                            <span className="inline-block h-5 w-5 border-2 border-slate-300 border-t-transparent rounded-full animate-spin" />
-                                            <span className="text-sm font-medium">Loading...</span>
-                                        </div>
+                                        <span className="inline-block h-4 w-4 border-2 border-line border-t-brand-600 rounded-full animate-spin" />
                                     ) : (
-                                        <label className="relative inline-flex items-center cursor-pointer flex-shrink-0">
+                                        <label className="relative inline-flex items-center gap-2 cursor-pointer" onClick={(event) => event.stopPropagation()}>
                                             <input
                                                 type="checkbox"
                                                 checked={autoReplyEnabled}
                                                 disabled={autoReplyLoading}
                                                 onChange={(e) => handleAutoReplyEnabledChange(e.target.checked)}
                                                 className="sr-only peer"
+                                                aria-label="Auto reply"
                                             />
-                                            <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-emerald-500 rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-600 peer-disabled:opacity-60" />
-                                            <span className="ms-3 text-sm font-medium text-slate-700">{autoReplyLoading ? '...' : (autoReplyEnabled ? 'On' : 'Off')}</span>
+                                            <span className="relative w-9 h-5 bg-[#E4E1EF] rounded-full peer-checked:bg-brand-600 after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:after:translate-x-4 peer-disabled:opacity-60" />
+                                            <span className="text-xs font-semibold text-ink-500">{autoReplyLoading ? '...' : (autoReplyEnabled ? 'On' : 'Off')}</span>
                                         </label>
                                     )}
                                 </div>
-                                <h3 className="font-semibold text-slate-800 mt-4">Auto Reply</h3>
-                                <p className="text-sm text-slate-600 mt-1.5">Send automatic replies to all conversations or only new conversation starts.</p>
-                                {autoReplyEnabled && (
-                                    <div className="mt-4 space-y-3">
-                                        <div className="flex items-center gap-2">
-                                            <input
-                                                id="auto-reply-all"
-                                                type="radio"
-                                                name="autoReplyMode"
-                                                value="all"
-                                                checked={autoReplyMode === 'all'}
-                                                onChange={() => handleAutoReplyModeChange('all')}
-                                                className="h-4 w-4 text-emerald-600 border-slate-300"
-                                            />
-                                            <label htmlFor="auto-reply-all" className="text-sm text-slate-700">All conversations</label>
-                                        </div>
-                                        <div className="flex items-center gap-2">
-                                            <input
-                                                id="auto-reply-new"
-                                                type="radio"
-                                                name="autoReplyMode"
-                                                value="new"
-                                                checked={autoReplyMode === 'new'}
-                                                onChange={() => handleAutoReplyModeChange('new')}
-                                                className="h-4 w-4 text-emerald-600 border-slate-300"
-                                            />
-                                            <label htmlFor="auto-reply-new" className="text-sm text-slate-700">New conversations only</label>
-                                        </div>
-                                    </div>
-                                )}
                             </div>
                         </div>
 
-                        {/* Flow Builder - navigable card */}
-                        <div
-                            role="button"
-                            tabIndex={0}
-                            onClick={() => navigate('/flows')}
-                            onKeyDown={(event) => { if (event.key === 'Enter' || event.key === ' ') navigate('/flow'); }}
-                            className="group rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden cursor-pointer transition hover:-translate-y-0.5 hover:border-indigo-300 hover:bg-indigo-50"
-                        >
-                            <div className="p-5 flex-1">
-                                <div className="flex items-start justify-between gap-3">
-                                    <div className="p-2.5 rounded-xl bg-indigo-100 text-indigo-600">
-                                        <FiGitBranch className="w-6 h-6" />
-                                    </div>
-                                    <div className="inline-flex items-center rounded-full bg-slate-100 px-3 py-1 text-xs font-medium text-slate-600 transition group-hover:bg-indigo-100 group-hover:text-indigo-700">
-                                        Open builder
-                                    </div>
-                                </div>
-                                <h3 className="font-semibold text-slate-800 mt-4">Flow Builder</h3>
-                                <p className="text-sm text-slate-600 mt-1.5">Build drag-and-drop conversation flows for your project chats.</p>
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                            <div
+                                role="button"
+                                tabIndex={0}
+                                onClick={() => navigate('/flows')}
+                                onKeyDown={(event) => { if (event.key === 'Enter' || event.key === ' ') navigate('/flow'); }}
+                                className="oc-card p-4 text-left cursor-pointer hover:border-brand-300 transition-colors"
+                            >
+                                <span className="flex h-9 w-9 items-center justify-center rounded-[10px] bg-brand-50 text-brand-700">
+                                    <FiGitBranch className="w-4 h-4" />
+                                </span>
+                                <span className="mt-3 block text-sm font-bold text-ink">Flow builder</span>
+                                <span className="mt-1 block text-xs text-ink-500">Multi-step menus and chatbots</span>
                             </div>
                         </div>
 
-                        {/* Agent Configuration - active card */}
-                        <div
-                            role="button"
-                            tabIndex={0}
-                            onClick={() => navigate('/agent-config')}
-                            className="group rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden cursor-pointer transition hover:-translate-y-0.5 hover:border-violet-300 hover:bg-violet-50"
-                        >
-                            <div className="p-5 flex-1">
-                                <div className="flex items-start justify-between gap-3">
-                                    <div className="p-2.5 rounded-xl bg-violet-100 text-violet-600">
-                                        <FiShield className="w-6 h-6" />
-                                    </div>
-                                    <div className="inline-flex items-center rounded-full bg-slate-100 px-3 py-1 text-xs font-medium text-slate-600 transition group-hover:bg-violet-100 group-hover:text-violet-700">
-                                        Open settings
-                                    </div>
-                                </div>
-                                <h3 className="font-semibold text-slate-800 mt-4">Agent Configuration</h3>
-                                <p className="text-sm text-slate-600 mt-1.5">Manage provider and personal API key settings on a dedicated page.</p>
+                        <section className="oc-card p-5">
+                            <h2 className="text-[15px] font-bold text-ink">Coming next</h2>
+                            <p className="mt-1 text-sm text-ink-500">These settings are planned and will appear here.</p>
+                            <div className="mt-4 flex flex-wrap gap-2">
+                                {['Agent assignment rules', 'Notification preferences', 'Analytics and reports'].map((title) => (
+                                    <span key={title} className="inline-flex items-center h-8 px-3 rounded-full border border-line bg-[#F7F6FB] text-xs font-semibold text-ink-500">
+                                        {title}
+                                    </span>
+                                ))}
                             </div>
-                        </div>
-
-                        {/* Company Context - navigable card */}
-                        <div
-                            role="button"
-                            tabIndex={0}
-                            onClick={() => navigate('/context-config')}
-                            className="group rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden cursor-pointer transition hover:-translate-y-0.5 hover:border-sky-300 hover:bg-sky-50"
-                        >
-                            <div className="p-5 flex-1">
-                                <div className="flex items-start justify-between gap-3">
-                                    <div className="p-2.5 rounded-xl bg-sky-100 text-sky-600">
-                                        <FiShield className="w-6 h-6" />
-                                    </div>
-                                    <div className="inline-flex items-center rounded-full bg-slate-100 px-3 py-1 text-xs font-medium text-slate-600 transition group-hover:bg-sky-100 group-hover:text-sky-700">
-                                        Open settings
-                                    </div>
-                                </div>
-                                <h3 className="font-semibold text-slate-800 mt-4">Company Context</h3>
-                                <p className="text-sm text-slate-600 mt-1.5">Update the company context used by the bot to answer FAQs and support queries.</p>
-                            </div>
-                        </div>
-
-                        {/* Coming soon cards */}
-                        {[
-                            { icon: FiBell, title: 'Notification Preferences', desc: 'Choose how and when you get notified for new messages.' },
-                            { icon: FiBarChart2, title: 'Analytics & Reports', desc: 'Enable dashboards and scheduled reports.' },
-                            { icon: FiUserCheck, title: 'Agent Assignment Rules', desc: 'Auto-assign chats to agents by rules.' },
-                        ].map((item) => {
-                            const Icon = item.icon;
-                            return (
-                                <div key={item.title} className="rounded-xl border border-slate-200 bg-slate-50/50 shadow-sm overflow-hidden flex flex-col opacity-75 pointer-events-none">
-                                    <div className="p-5 flex-1 relative">
-                                        <span className="absolute top-3 right-3 inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-slate-200 text-slate-600">
-                                            Coming soon
-                                        </span>
-                                        <div className="p-2.5 rounded-xl bg-slate-200 text-slate-500">
-                                            <Icon className="w-6 h-6" />
-                                        </div>
-                                        <h3 className="font-semibold text-slate-700 mt-4">{item.title}</h3>
-                                        <p className="text-sm text-slate-500 mt-1.5">{item.desc}</p>
-                                    </div>
-                                </div>
-                            );
-                        })}
+                        </section>
                     </div>
                 </div>
             </div>

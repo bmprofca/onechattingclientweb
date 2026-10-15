@@ -3,11 +3,11 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { FiAlertCircle } from 'react-icons/fi';
 
 const ErrorModal = ({ isOpen, onClose, errorMessage }) => {
-    if (!isOpen) return null;
-
     return (
         <AnimatePresence>
+            {isOpen && (
             <motion.div
+                key="modal"
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 exit={{ opacity: 0 }}
@@ -43,6 +43,7 @@ const ErrorModal = ({ isOpen, onClose, errorMessage }) => {
                     </div>
                 </motion.div>
             </motion.div>
+            )}
         </AnimatePresence>
     );
 };

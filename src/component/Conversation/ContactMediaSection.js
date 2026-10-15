@@ -582,6 +582,7 @@ function ContactMediaSection({ number, tokens }) {
                 <AnimatePresence>
                     {previewItem && previewType === 'location' && (
                         <LocationPreviewModal
+                            key="location-preview"
                             item={previewItem}
                             fileName={previewFileName}
                             onClose={() => setPreviewItem(null)}
@@ -589,6 +590,7 @@ function ContactMediaSection({ number, tokens }) {
                     )}
                     {previewItem && previewType === 'pdf' && (
                         <PdfPreviewModal
+                            key="pdf-preview"
                             item={previewItem}
                             fileName={previewFileName}
                             onClose={() => setPreviewItem(null)}
@@ -598,17 +600,15 @@ function ContactMediaSection({ number, tokens }) {
             )}
 
             {renderInPortal(
-                previewItem && ['image', 'video', 'audio'].includes(previewType) ? (
-                    <MediaModal
-                        isOpen
-                        onClose={() => setPreviewItem(null)}
-                        mediaItem={{
-                            serverUrl: previewItem.media_url,
-                            name: previewFileName,
-                        }}
-                        type={previewType}
-                    />
-                ) : null
+                <MediaModal
+                    isOpen={Boolean(previewItem && ['image', 'video', 'audio'].includes(previewType))}
+                    onClose={() => setPreviewItem(null)}
+                    mediaItem={previewItem ? {
+                        serverUrl: previewItem.media_url,
+                        name: previewFileName,
+                    } : null}
+                    type={previewType}
+                />
             )}
             <RecordDetailsModal
                 isOpen={Boolean(mediaDetail)}

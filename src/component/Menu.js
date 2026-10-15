@@ -1,14 +1,16 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo, useContext, useLayoutEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Outlet, useNavigate, useLocation } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
 import {
   FiMenu, FiBriefcase, FiChevronDown, FiCreditCard,
-  FiPlus, FiBell, FiUser, FiSettings, FiHelpCircle,
-  FiLogOut, FiPieChart, FiMessageSquare, FiUsers,
-  FiMail, FiZap, FiCpu, FiLock, FiChevronRight, FiX,
-  FiMaximize2, FiMinimize2
+  FiPlus, FiUser, FiHelpCircle,
+  FiLogOut, FiList, FiCpu, FiMessageSquare, FiUsers,
+  FiLock, FiX, FiMaximize2, FiMinimize2,
+  FiGrid, FiFolder, FiFileText, FiSend, FiUserCheck, FiSliders, FiCode, FiLayers,
+  FiSun, FiMoon, FiMonitor, FiCheck
 } from 'react-icons/fi';
+import { useTheme } from '../theme/ThemeContext';
 
 // Adjust these import paths if necessary
 import { fetchProjectInfo } from '../store/projectSlice';
@@ -24,13 +26,6 @@ import { socketManager } from '../pages/socket';
 // ==========================================
 // 1. Constants & Styles (Modern Indigo Theme)
 // ==========================================
-const THEME = {
-  active: "bg-indigo-50 text-indigo-700 border-indigo-200 shadow-sm", // Soft Indigo background for active
-  inactive: "text-slate-600 hover:bg-indigo-50/50 hover:text-indigo-600 border-transparent", // Subtle hover
-  locked: "text-slate-300 cursor-not-allowed hover:bg-transparent",
-  iconActive: "text-indigo-600",
-  iconInactive: "text-slate-400 group-hover:text-indigo-500"
-};
 
 // ==========================================
 // 2. Helper Functions
@@ -56,140 +51,67 @@ const isItemActive = (item, currentPath) => {
   return false;
 };
 
-const isSubmenuItemActive = (submenuPath, currentPath) => {
-  if (submenuPath === '/') return currentPath === '/' || currentPath === '';
-  return submenuPath && submenuPath !== '#' && (currentPath === submenuPath || currentPath.startsWith(submenuPath + '/'));
-};
 
 // ==========================================
 // 3. NavItem Component (MOVED OUTSIDE)
 // ==========================================
-const NavItem = React.memo(({ item, isMobile, isMinimized, isHovered, currentPath, openSubmenus, toggleSubmenu, setHoveredMenu, hoveredMenu, setMobileMenuOpen, hasProjects, unreadCount, navigate }) => {
+const NavItem = React.memo(({ item, isMobile, isMinimized, isHovered, currentPath, setHoveredMenu, hoveredMenu, setMobileMenuOpen, hasProjects, unreadCount, navigate }) => {
   const isActive = isItemActive(item, currentPath);
   const isDashboard = item.key === 'dashboard' || item.path === '/';
   const isDisabled = !hasProjects && !isDashboard;
-  const hasSubmenu = item.submenus && item.submenus.length > 0;
-  const isOpen = isMobile ? openSubmenus[`mobile-${item.key}`] : openSubmenus[item.key];
   const isMini = !isMobile && isMinimized && !isHovered;
   const showUnreadBadge = item.key === 'live-chat' && unreadCount > 0;
+  const iconClass = isDisabled
+    ? 'text-slate-300'
+    : isActive ? 'text-brand-700' : 'text-ink-400 group-hover:text-ink-700';
 
-
-  // Render Submenu Item (Parent)
-  if (hasSubmenu) {
-    return (
-      <div className="mb-1">
-        <button
-          onClick={() => !isMini && !isDisabled && toggleSubmenu(isMobile ? `mobile-${item.key}` : item.key)}
-          disabled={isDisabled}
-          className={`w-full flex items-center justify-between px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 group border
-            ${isDisabled ? THEME.locked : isActive ? THEME.active : THEME.inactive}
-            ${isMini ? 'justify-center px-2' : ''}`}
-          onMouseEnter={() => isMini && setHoveredMenu(item.key)}
-          onMouseLeave={() => isMini && setHoveredMenu(null)}
-        >
-          <div className={`flex items-center ${isMini ? 'justify-center w-full' : 'gap-3'}`}>
-            <span className={`${isDisabled ? 'text-slate-300' : isActive ? THEME.iconActive : THEME.iconInactive} transition-colors`}>
-              {item.icon}
-            </span>
-            {!isMini && (
-              <div className="flex-1 flex items-center justify-between">
-                <span>{item.title}</span>
-                {isDisabled && <FiLock size={12} className="text-slate-300 ml-2" />}
-              </div>
-            )}
-          </div>
-          {!isMini && !isDisabled && (
-            <motion.span animate={{ rotate: isOpen ? 90 : 0 }} transition={{ duration: 0.2 }}>
-              <FiChevronRight size={16} className={isActive ? "text-indigo-400" : "text-slate-400"} />
-            </motion.span>
-          )}
-
-          {/* Tooltip for Mini Mode */}
-          {isMini && hoveredMenu === item.key && (
-            <div className="absolute left-16 ml-3 px-3 py-1.5 bg-slate-800 text-white text-xs rounded-md shadow-lg z-50 whitespace-nowrap animate-in fade-in zoom-in-95 duration-200">
-              {item.title} {isDisabled && '(Locked)'}
-            </div>
-          )}
-        </button>
-
-        <AnimatePresence>
-          {(!isMini && isOpen && !isDisabled) && (
-            <motion.div
-              initial={{ height: 0, opacity: 0 }}
-              animate={{ height: "auto", opacity: 1 }}
-              exit={{ height: 0, opacity: 0 }}
-              transition={{ duration: 0.2, ease: "easeInOut" }}
-              className="overflow-hidden"
-            >
-              <div className="ml-5 pl-4 border-l-2 border-indigo-100 my-1 space-y-0.5">
-                {item.submenus.map((sub, idx) => {
-                  const isSubActive = isSubmenuItemActive(sub.path, currentPath);
-                  return (
-                    <div
-                      key={idx}
-                      onClick={() => {
-                        navigate(sub.path);
-                        if (isMobile) setMobileMenuOpen(false);
-                      }}
-                      className={`block px-3 py-2 rounded-md text-sm transition-all duration-200 cursor-pointer ${isSubActive ? 'text-indigo-700 font-semibold bg-indigo-50' : 'text-slate-500 hover:text-indigo-600 hover:bg-slate-50'}`}
-                    >
-                      {sub.title}
-                    </div>
-                  )
-                })}
-              </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
-      </div>
-    );
-  }
-
-  // Render Single Link Item
   return (
-    <div className="mb-1 relative">
-      <div
-        onClick={(e) => {
-          if (isDisabled) {
-            e.preventDefault();
-          } else {
-            navigate(item.path);
-            if (isMobile) setMobileMenuOpen(false);
-          }
+    <div className="relative">
+      <button
+        type="button"
+        disabled={isDisabled}
+        aria-current={isActive ? 'page' : undefined}
+        aria-label={isMini ? item.title : undefined}
+        onClick={() => {
+          if (isDisabled) return;
+          navigate(item.path);
+          if (isMobile && setMobileMenuOpen) setMobileMenuOpen(false);
         }}
-        className={`flex items-center px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 group border cursor-pointer
-          ${isDisabled ? THEME.locked : isActive ? THEME.active : THEME.inactive}
-          ${isMini ? 'justify-center px-2' : ''}`}
-        onMouseEnter={() => isMini && setHoveredMenu(item.key)}
-        onMouseLeave={() => isMini && setHoveredMenu(null)}
+        onMouseEnter={() => isMini && setHoveredMenu && setHoveredMenu(item.key)}
+        onMouseLeave={() => isMini && setHoveredMenu && setHoveredMenu(null)}
+        className={`group w-full flex items-center gap-2.5 h-[38px] rounded-[9px] text-sm transition-colors
+          ${isMini ? 'justify-center px-0' : 'px-2.5'}
+          ${isDisabled
+            ? 'text-slate-300 cursor-not-allowed'
+            : isActive
+              ? 'bg-brand-50 text-brand-800 font-semibold'
+              : 'text-ink-700 font-medium hover:bg-[#F3F2FA] hover:text-ink'}`}
       >
-        <span className={`${isMini ? '' : 'mr-3'} ${isDisabled ? 'text-slate-300' : isActive ? THEME.iconActive : THEME.iconInactive} transition-colors relative`}>
+        <span className={`relative flex-none transition-colors ${iconClass}`}>
           {item.icon}
           {isMini && showUnreadBadge && (
-            <span className="absolute -top-1 -right-1 min-w-[16px] h-4 px-1 rounded-full bg-green-500 text-white text-[10px] font-semibold flex items-center justify-center border-2 border-white">
+            <span className="absolute -top-1.5 -right-2 min-w-[16px] h-4 px-1 rounded-full bg-brand-600 text-white text-[10px] font-bold flex items-center justify-center ring-2 ring-white">
               {unreadCount > 9 ? '9+' : unreadCount}
             </span>
           )}
         </span>
         {!isMini && (
-          <div className="flex-1 flex items-center justify-between">
-            <span>{item.title}</span>
-            <div className="flex items-center gap-2">
-              {showUnreadBadge && (
-                <span className="min-w-[20px] h-5 px-1.5 rounded-full bg-green-500 text-white text-xs font-semibold flex items-center justify-center">
-                  {unreadCount > 99 ? '99+' : unreadCount}
-                </span>
-              )}
-              {isDisabled && <FiLock size={12} className="text-slate-300" />}
-            </div>
-          </div>
+          <>
+            <span className="flex-1 text-left truncate">{item.title}</span>
+            {showUnreadBadge && (
+              <span className="min-w-[22px] h-5 px-1.5 rounded-full bg-brand-600 text-white text-[11px] font-bold flex items-center justify-center">
+                {unreadCount > 99 ? '99+' : unreadCount}
+              </span>
+            )}
+            {isDisabled && <FiLock size={12} className="text-slate-300" />}
+          </>
         )}
-        {isMini && hoveredMenu === item.key && (
-          <div className="absolute left-16 ml-3 px-3 py-1.5 bg-slate-800 text-white text-xs rounded-md shadow-lg z-50 whitespace-nowrap animate-in fade-in zoom-in-95 duration-200">
-            {item.title} {isDisabled && '(Locked)'}
-          </div>
-        )}
-      </div>
+      </button>
+      {isMini && hoveredMenu === item.key && (
+        <div className="pointer-events-none absolute left-full top-1/2 -translate-y-1/2 ml-3 px-2.5 py-1.5 bg-ink text-white text-xs font-medium rounded-md shadow-pop z-50 whitespace-nowrap">
+          {item.title} {isDisabled && '(Locked)'}
+        </div>
+      )}
     </div>
   );
 });
@@ -221,9 +143,81 @@ const exitBrowserFullscreen = () => {
 };
 
 // ==========================================
+// Theme switcher (Light / Dark / System)
+// ==========================================
+const THEME_OPTIONS = [
+  { id: 'light', label: 'Light', icon: FiSun },
+  { id: 'dark', label: 'Dark', icon: FiMoon },
+  { id: 'system', label: 'System', icon: FiMonitor },
+];
+
+const ThemeMenu = () => {
+  const { theme, setTheme, resolvedTheme } = useTheme();
+  const [open, setOpen] = useState(false);
+  const ref = useRef(null);
+
+  useEffect(() => {
+    if (!open) return undefined;
+    const onDown = (e) => { if (ref.current && !ref.current.contains(e.target)) setOpen(false); };
+    const onKey = (e) => { if (e.key === 'Escape') setOpen(false); };
+    document.addEventListener('mousedown', onDown);
+    document.addEventListener('keydown', onKey);
+    return () => {
+      document.removeEventListener('mousedown', onDown);
+      document.removeEventListener('keydown', onKey);
+    };
+  }, [open]);
+
+  const current = THEME_OPTIONS.find(o => o.id === theme) || THEME_OPTIONS[2];
+  const CurrentIcon = current.icon;
+
+  return (
+    <div className="relative" ref={ref}>
+      <button
+        type="button"
+        onClick={() => setOpen(o => !o)}
+        aria-haspopup="menu"
+        aria-expanded={open}
+        aria-label={`Theme: ${current.label}`}
+        title={`Theme: ${current.label}`}
+        className="flex items-center justify-center h-9 w-9 rounded-[9px] border border-[#E1DFEC] bg-white text-ink-700 hover:bg-surface-soft transition-colors"
+      >
+        <CurrentIcon size={16} />
+      </button>
+      {open && (
+        <div role="menu" aria-label="Theme" className="absolute right-0 mt-2 w-48 rounded-xl border border-line bg-white p-1.5 shadow-pop z-50">
+          <p className="px-2.5 pt-1 pb-1.5 text-[11px] font-bold uppercase tracking-[0.08em] text-ink-400">Theme</p>
+          {THEME_OPTIONS.map(option => {
+            const Icon = option.icon;
+            const selected = theme === option.id;
+            return (
+              <button
+                key={option.id}
+                type="button"
+                role="menuitemradio"
+                aria-checked={selected}
+                onClick={() => { setTheme(option.id); setOpen(false); }}
+                className={`flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-sm font-medium transition-colors ${selected ? 'bg-brand-50 text-brand-800' : 'text-ink-700 hover:bg-[#F3F2FA] hover:text-ink'}`}
+              >
+                <Icon size={15} />
+                <span className="flex-1 text-left">{option.label}</span>
+                {option.id === 'system' && (
+                  <span className="text-[11px] font-semibold text-ink-400">{resolvedTheme === 'dark' ? 'Dark' : 'Light'}</span>
+                )}
+                {selected && <FiCheck size={14} />}
+              </button>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+};
+
+// ==========================================
 // 4. Header Component
 // ==========================================
-export const Header = ({ mobileMenuOpen, setMobileMenuOpen, isMinimized, setIsMinimized, isFullScreen = false }) => {
+const HeaderView = ({ mobileMenuOpen, setMobileMenuOpen, isMinimized, setIsMinimized, isFullScreen = false }) => {
   const [profileDropdownOpen, setProfileDropdownOpen] = useState(false);
   const [switchProjectModalOpen, setSwitchProjectModalOpen] = useState(false);
   const [projectQrModalOpen, setProjectQrModalOpen] = useState(false);
@@ -463,147 +457,145 @@ export const Header = ({ mobileMenuOpen, setMobileMenuOpen, isMinimized, setIsMi
   const profileItems = [
     { title: 'My Profile', icon: <FiUser size={16} />, path: '/my-profile' },
     { title: 'My Subscription', icon: <FiCreditCard size={16} />, path: '/my-subscription' },
-    { title: 'Transactions', icon: <FiPieChart size={16} />, path: '/transactions' },
-    { title: 'AI Bills', icon: <FiPieChart size={16} />, path: '/ai-bills' },
+    { title: 'Transactions', icon: <FiList size={16} />, path: '/transactions' },
+    { title: 'AI Bills', icon: <FiCpu size={16} />, path: '/ai-bills' },
   ];
 
   return (
     <>
       <SubscriptionAlert isMinimized={isMinimized} isFullScreen={isFullScreen} />
-      <header className={`fixed top-0 inset-x-0 z-50 h-16 border-b border-indigo-100 bg-white/90 backdrop-blur-md transition-all duration-300 ease-in-out ${isFullScreen ? '-translate-y-full opacity-0 pointer-events-none' : 'translate-y-0 opacity-100'
+      <header className={`fixed top-0 right-0 left-0 ${isMinimized ? 'md:left-20' : 'md:left-[260px]'} z-50 h-16 border-b border-line bg-white/95 backdrop-blur-md transition-all duration-300 ease-in-out ${isFullScreen ? '-translate-y-full opacity-0 pointer-events-none' : 'translate-y-0 opacity-100'
         }`}>
-        <div className="flex h-full items-center justify-between px-4 sm:px-6">
+        <div className="flex h-full items-center justify-between gap-3 px-4 sm:px-6">
           {/* Left */}
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-3 min-w-0">
             <button
-              className="text-slate-500 hover:bg-indigo-50 hover:text-indigo-600 p-2 rounded-md transition-colors focus:outline-none"
+              type="button"
+              aria-label={isMinimized ? 'Expand sidebar' : 'Collapse sidebar'}
+              className="flex h-9 w-9 items-center justify-center rounded-[9px] text-ink-500 hover:bg-[#F3F2FA] hover:text-ink transition-colors"
               onClick={window.innerWidth >= 768 ? toggleSidebar : () => setMobileMenuOpen(true)}
             >
-              <FiMenu size={22} />
+              <FiMenu size={20} />
             </button>
-            <div className="flex items-center gap-2 cursor-pointer" onClick={() => navigate('/')} aria-label="OneChatting home">
-              <img src="/logo.png" alt="" className="h-9 w-9 rounded-lg object-cover" />
-              <span className="text-lg font-bold tracking-tight text-slate-800 whitespace-nowrap">
-                One<span className="text-indigo-600">Chatting</span>
-              </span>
-            </div>
+            <button type="button" className="md:hidden flex items-center gap-2" onClick={() => navigate('/')} aria-label="OneChatting home">
+              <img src="/logo.png" alt="" className="h-8 w-8 rounded-lg object-cover" />
+              <span className="text-base font-extrabold tracking-tight text-ink">OneChatting</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setSwitchProjectModalOpen(true)}
+              className="hidden md:flex items-center gap-2 min-w-0 rounded-[9px] px-2.5 h-9 text-sm text-ink-500 hover:bg-[#F3F2FA] transition-colors"
+            >
+              <span className="text-ink-400">Project</span>
+              <span className="font-semibold text-ink truncate max-w-[220px]">{selectedProjectName || selectedCompany?.name || 'Select project'}</span>
+              <FiChevronDown size={14} className="text-ink-400 flex-none" />
+            </button>
           </div>
 
           {/* Right */}
-          <div className="flex items-center gap-3 md:gap-5">
+          <div className="flex items-center gap-2 md:gap-3">
             <button
               type="button"
               onClick={toggleBrowserFullscreen}
-              className="hidden md:flex items-center justify-center h-9 w-9 rounded-lg border border-slate-200 bg-white text-slate-600 hover:border-indigo-300 hover:text-indigo-600 hover:shadow-sm transition-all duration-200"
+              className="hidden md:flex items-center justify-center h-9 w-9 rounded-[9px] border border-[#E1DFEC] bg-white text-ink-700 hover:bg-surface-soft transition-colors"
               title={isBrowserFullscreen ? 'Exit full screen (Esc)' : 'Full screen'}
               aria-label={isBrowserFullscreen ? 'Exit full screen' : 'Enter full screen'}
             >
-              {isBrowserFullscreen ? <FiMinimize2 size={18} /> : <FiMaximize2 size={18} />}
+              {isBrowserFullscreen ? <FiMinimize2 size={16} /> : <FiMaximize2 size={16} />}
             </button>
 
-            <button
-              onClick={() => setSwitchProjectModalOpen(true)}
-              className={`relative flex items-center gap-2 rounded-lg border bg-white px-2.5 md:px-3 py-1.5 text-sm font-medium hover:shadow-sm transition-all duration-200 group ${pendingInviteCount > 0 ? 'border-indigo-400 text-indigo-700' : 'border-slate-200 text-slate-700 hover:border-indigo-300 hover:text-indigo-600'}`}
-            >
-              {pendingInviteCount > 0 && (
-                <motion.span
-                  aria-hidden="true"
-                  className="pointer-events-none absolute -inset-1 rounded-xl"
-                  animate={{
-                    boxShadow: [
-                      '0 0 0 0 rgba(99,102,241,0.55)',
-                      '0 0 12px 4px rgba(99,102,241,0.35)',
-                      '0 0 0 0 rgba(99,102,241,0)'
-                    ]
-                  }}
-                  transition={{ duration: 1.8, repeat: Infinity, ease: 'easeOut' }}
-                />
-              )}
-              <FiBriefcase size={16} className={`transition-colors ${pendingInviteCount > 0 ? 'text-indigo-500' : 'text-slate-400 group-hover:text-indigo-500'}`} />
-              <span className="hidden md:inline max-w-[120px] truncate">{selectedProjectName || selectedCompany?.name || 'Select Project'}</span>
-              <FiChevronDown size={14} className="hidden md:inline text-slate-400" />
-              {pendingInviteCount > 0 && (
-                <span className="absolute -top-1.5 -right-1.5 flex h-4 min-w-[16px] items-center justify-center rounded-full bg-amber-500 px-1 text-[10px] font-bold text-white shadow">
-                  {pendingInviteCount}
-                </span>
-              )}
-            </button>
+            <ThemeMenu />
 
             {activeProjectId && (
               <button
                 type="button"
                 onClick={() => setProjectQrModalOpen(true)}
-                className="hidden sm:flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-semibold text-slate-700 hover:border-indigo-300 hover:text-indigo-600 hover:shadow-sm transition-all duration-200 group"
+                className="hidden sm:flex items-center gap-2 h-9 rounded-[9px] border border-[#E1DFEC] bg-white px-3 text-[13px] font-semibold text-ink hover:bg-surface-soft transition-colors"
                 title="View & Download Project QR Code"
               >
-                <LuQrCode size={15} className="text-indigo-500 group-hover:scale-110 transition-transform" />
-                <span>QR Code</span>
+                <LuQrCode size={15} className="text-ink-500" />
+                <span>Project QR</span>
               </button>
             )}
 
-            <div className="flex items-center gap-2 rounded-full border border-slate-200 bg-white p-1 pr-3 shadow-sm hover:border-indigo-200 transition-colors cursor-default">
-              <div className="flex h-7 w-7 items-center justify-center rounded-full bg-indigo-50 text-indigo-600">
-                <FiCreditCard size={14} />
-              </div>
-              <div className="flex flex-col leading-none">
-                {/* <span className="text-[10px] text-slate-400 font-semibold uppercase tracking-wider">Balance</span> */}
-                <span className="text-sm font-bold text-slate-700 font-mono">₹{Number(walletBalance).toFixed(2)}</span>
-              </div>
-              <button onClick={() => navigate('/wallet-recharge')} className="ml-2 flex h-5 w-5 items-center justify-center rounded-full bg-indigo-600 text-white hover:bg-indigo-700 hover:scale-105 transition-all shadow-md shadow-indigo-200">
-                <FiPlus size={12} />
+            <div className="flex items-center gap-2 h-9 rounded-[9px] border border-[#E1DFEC] bg-white pl-3 pr-1">
+              <span className="hidden lg:inline text-xs font-semibold text-ink-500">Wallet</span>
+              <span className="text-sm font-semibold text-ink font-mono">₹{Number(walletBalance).toFixed(2)}</span>
+              <button
+                type="button"
+                onClick={() => navigate('/wallet-recharge')}
+                aria-label="Recharge wallet"
+                title="Recharge wallet"
+                className="flex h-7 w-7 items-center justify-center rounded-[7px] bg-brand-600 text-white hover:bg-brand-700 transition-colors"
+              >
+                <FiPlus size={14} />
               </button>
             </div>
 
-            <div className="h-6 w-px bg-slate-200"></div>
-
-
             <div className="relative" ref={profileDropdownRef}>
-              <button className="flex items-center gap-2 focus:outline-none ring-offset-2 focus:ring-2 focus:ring-indigo-100 rounded-full transition-all" onClick={() => setProfileDropdownOpen(!profileDropdownOpen)}>
-                <div className="flex h-9 w-9 items-center justify-center rounded-full bg-gradient-to-tr from-indigo-500 to-purple-600 text-white font-medium text-sm shadow-md shadow-indigo-200 border-2 border-white">{getUserInitials()}</div>
+              <button
+                type="button"
+                aria-label="Account menu"
+                aria-expanded={profileDropdownOpen}
+                className="relative flex h-9 w-9 items-center justify-center rounded-full bg-brand-100 text-brand-800 text-[13px] font-bold hover:bg-brand-200 transition-colors"
+                onClick={() => setProfileDropdownOpen(!profileDropdownOpen)}
+              >
+                {getUserInitials()}
+                {pendingInviteCount > 0 && (
+                  <span className="absolute -top-1 -right-1 flex h-4 min-w-[16px] items-center justify-center rounded-full bg-amber-500 px-1 text-[10px] font-bold text-white ring-2 ring-white">
+                    {pendingInviteCount}
+                  </span>
+                )}
               </button>
 
               {profileDropdownOpen && (
                 <>
                   <div className="fixed inset-0 z-40" onClick={() => setProfileDropdownOpen(false)}></div>
-                  <div className="absolute right-0 mt-3 w-56 origin-top-right rounded-xl border border-slate-100 bg-white p-1 shadow-xl ring-1 ring-black ring-opacity-5 z-50 animate-in fade-in zoom-in-95 duration-100">
-                    <div className="px-3 py-2 border-b border-slate-100 mb-1">
-                      <p className="text-sm font-semibold text-slate-900">{userProfile.name || 'User'}</p>
-                      <p className="text-xs text-slate-500 truncate">{userProfile.email || ''}</p>
+                  <div className="absolute right-0 mt-2 w-64 origin-top-right rounded-xl border border-line bg-white p-1.5 shadow-pop z-50">
+                    <div className="px-3 py-2.5 border-b border-line-soft mb-1">
+                      <p className="text-sm font-bold text-ink truncate">{userProfile.name || 'User'}</p>
+                      <p className="text-xs text-ink-500 truncate">{userProfile.email || ''}</p>
                     </div>
-                    <button className={`md:hidden relative flex w-full items-center gap-2 rounded-md px-3 py-2 text-sm transition-colors ${pendingInviteCount > 0 ? 'text-indigo-700 bg-indigo-50' : 'text-slate-600 hover:bg-indigo-50 hover:text-indigo-600'}`} onClick={() => { setProfileDropdownOpen(false); setSwitchProjectModalOpen(true); }}>
-                      <FiBriefcase size={16} /> Switch Project
+                    <button
+                      type="button"
+                      className={`relative flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-sm font-medium transition-colors ${pendingInviteCount > 0 ? 'text-brand-800 bg-brand-50' : 'text-ink-700 hover:bg-[#F3F2FA] hover:text-ink'}`}
+                      onClick={() => { setProfileDropdownOpen(false); setSwitchProjectModalOpen(true); }}
+                    >
+                      <FiBriefcase size={16} /> Switch project
                       {pendingInviteCount > 0 && (
-                        <span className="ml-auto flex h-4 min-w-[16px] items-center justify-center rounded-full bg-amber-500 px-1 text-[10px] font-bold text-white animate-pulse">
+                        <span className="ml-auto flex h-5 min-w-[20px] items-center justify-center rounded-full bg-amber-500 px-1.5 text-[11px] font-bold text-white">
                           {pendingInviteCount}
                         </span>
                       )}
                     </button>
                     {activeProjectId && (
-                      <div
+                      <button
+                        type="button"
                         onClick={() => {
                           setProfileDropdownOpen(false);
                           setProjectQrModalOpen(true);
                         }}
-                        className="flex items-center gap-2 rounded-md px-3 py-2 text-sm text-slate-600 hover:bg-indigo-50 hover:text-indigo-600 transition-colors cursor-pointer"
+                        className="sm:hidden flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-sm font-medium text-ink-700 hover:bg-[#F3F2FA] hover:text-ink transition-colors"
                       >
-                        <LuQrCode size={16} className="text-indigo-500" /> Project QR Code
-                      </div>
+                        <LuQrCode size={16} /> Project QR code
+                      </button>
                     )}
                     {profileItems.map((item, index) => (
-                      <div
+                      <button
+                        type="button"
                         key={index}
                         onClick={() => {
                           if (item.path !== '#') navigate(item.path);
                           setProfileDropdownOpen(false);
                         }}
-                        className="flex items-center gap-2 rounded-md px-3 py-2 text-sm text-slate-600 hover:bg-indigo-50 hover:text-indigo-600 transition-colors cursor-pointer"
+                        className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-sm font-medium text-ink-700 hover:bg-[#F3F2FA] hover:text-ink transition-colors"
                       >
                         {item.icon} {item.title}
-                      </div>
+                      </button>
                     ))}
-                    <div className="my-1 h-px bg-slate-100"></div>
-                    <button onClick={handleLogout} className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-sm text-red-600 hover:bg-red-50 transition-colors">
-                      <FiLogOut size={16} /> Logout
+                    <div className="my-1 h-px bg-line-soft"></div>
+                    <button type="button" onClick={handleLogout} className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-sm font-medium text-red-700 hover:bg-red-50 transition-colors">
+                      <FiLogOut size={16} /> Log out
                     </button>
                   </div>
                 </>
@@ -620,14 +612,12 @@ export const Header = ({ mobileMenuOpen, setMobileMenuOpen, isMinimized, setIsMi
         onInvitationsChange={(list) => setPendingInviteCount(Array.isArray(list) ? list.length : 0)}
       />
 
-      {projectQrModalOpen && activeProjectId && (
-        <ProjectQRModal
-          isOpen={projectQrModalOpen}
-          onClose={() => setProjectQrModalOpen(false)}
-          projectId={activeProjectId}
-          projectName={selectedProjectName || selectedCompany?.name || 'Project Chat'}
-        />
-      )}
+      <ProjectQRModal
+        isOpen={Boolean(projectQrModalOpen && activeProjectId)}
+        onClose={() => setProjectQrModalOpen(false)}
+        projectId={activeProjectId}
+        projectName={selectedProjectName || selectedCompany?.name || 'Project Chat'}
+      />
     </>
   );
 };
@@ -647,8 +637,7 @@ const notifyUnreadCountListeners = (count) => {
 // ==========================================
 // 5. Sidebar Component
 // ==========================================
-export const Sidebar = ({ mobileMenuOpen, setMobileMenuOpen, isMinimized, setIsMinimized, totalUnreadCount: propUnreadCount, isFullScreen = false }) => {
-  const [openSubmenus, setOpenSubmenus] = useState({});
+const SidebarView = ({ mobileMenuOpen, setMobileMenuOpen, isMinimized, setIsMinimized, totalUnreadCount: propUnreadCount, isFullScreen = false }) => {
   const [hoveredMenu, setHoveredMenu] = useState(null);
   const [isHovered, setIsHovered] = useState(false);
   const [totalUnreadCount, setTotalUnreadCount] = useState(globalUnreadCount);
@@ -733,160 +722,294 @@ export const Sidebar = ({ mobileMenuOpen, setMobileMenuOpen, isMinimized, setIsM
   void projectRevision;
   const hasProjects = Boolean(userData?.selected_project_id);
 
-  const toggleSubmenu = (menuKey) => {
-    setOpenSubmenus(prev => ({ ...prev, [menuKey]: !prev[menuKey] }));
-  };
-
   const handleSidebarHover = (hoverState) => {
     if (isMinimized) setIsHovered(hoverState);
   };
 
-  const allMenuItems = [
-    { key: 'dashboard', title: 'Dashboard', icon: <FiPieChart size={18} />, path: '/' },
-    { key: 'live-chat', title: 'Live Chat', icon: <FiMessageSquare size={18} />, path: '/live-chat' },
-    { key: 'open-cases', title: 'Open Cases', icon: <FiBriefcase size={18} />, path: '/open-cases' },
-    { key: 'scanned-users', title: 'Scanned Users', icon: <LuQrCode size={18} />, path: '/scanned-users' },
+  const sections = [
     {
-      key: 'contact', title: 'Audience', icon: <FiUsers size={18} />,
-      submenus: [
-        { title: 'All Contacts', path: '/contact' },
-        { title: 'Groups', path: '/contact-group' },
+      key: 'workspace', title: 'Workspace', items: [
+        { key: 'dashboard', title: 'Dashboard', icon: <FiGrid size={18} />, path: '/' },
+        { key: 'live-chat', title: 'Live chat', icon: <FiMessageSquare size={18} />, path: '/live-chat' },
+        { key: 'open-cases', title: 'Open cases', icon: <FiBriefcase size={18} />, path: '/open-cases' },
+        { key: 'scanned-users', title: 'Scanned users', icon: <LuQrCode size={18} />, path: '/scanned-users' },
       ]
     },
-    { key: 'templates', title: 'Templates', icon: <FiMail size={18} />, path: '/template' },
-    { key: 'campaigns', title: 'Campaigns', icon: <FiZap size={18} />, path: '/campaigns' },
-    // {
-    //   key: 'automation', title: 'Automation', icon: <FiCpu size={18} />,
-    //   submenus: [
-    //     { title: 'Auto Reply', path: '/auto-reply' },
-    //     { title: 'Flow Builder', path: '/flow' }
-    //   ]
-    // },
-    { key: 'projects', title: 'Projects', icon: <FiBriefcase size={18} />, path: '/projects' },
     {
-      key: 'management', title: 'Management', icon: <FiSettings size={18} />,
-      submenus: [
-        { title: 'Agents', path: '/agent-management' },
-        { title: 'Permissions', path: '/permission-list' },
-        { title: 'Configuration', path: '/project-config' },
-        { title: 'Developer Access', path: '/developer-access' }
+      key: 'audience', title: 'Audience', items: [
+        { key: 'contact', title: 'Contacts', icon: <FiUsers size={18} />, path: '/contact' },
+        { key: 'contact-group', title: 'Groups', icon: <FiFolder size={18} />, path: '/contact-group' },
       ]
-    }
+    },
+    {
+      key: 'messaging', title: 'Messaging', items: [
+        { key: 'templates', title: 'Templates', icon: <FiFileText size={18} />, path: '/template' },
+        { key: 'campaigns', title: 'Campaigns', icon: <FiSend size={18} />, path: '/campaigns' },
+      ]
+    },
+    {
+      key: 'management', title: 'Management', ownerOnly: true, items: [
+        { key: 'agents', title: 'Agents', icon: <FiUserCheck size={18} />, path: '/agent-management' },
+        { key: 'permissions', title: 'Permissions', icon: <FiLock size={18} />, path: '/permission-list' },
+        { key: 'configuration', title: 'Configuration', icon: <FiSliders size={18} />, path: '/project-config' },
+        { key: 'developer', title: 'Developer access', icon: <FiCode size={18} />, path: '/developer-access' },
+      ]
+    },
+    {
+      key: 'account', title: 'Account', items: [
+        { key: 'projects', title: 'Projects', icon: <FiLayers size={18} />, path: '/projects' },
+      ]
+    },
   ];
 
-  // Filter menu items based on user role (hide Management for agents)
-  const menuItems = allMenuItems.filter(item => {
-    if (!isOwner && item.key === 'management') {
-      return false;
-    }
-    return true;
-  });
+  // Filter sections based on user role (hide Management for agents)
+  const visibleSections = sections.filter(section => !(section.ownerOnly && !isOwner));
+
+  const renderNav = (isMobile) => (
+    <nav aria-label="Main" className="flex flex-col gap-0.5">
+      {visibleSections.map(section => (
+        <div key={section.key} className="flex flex-col gap-0.5">
+          {(isMobile || !isMinimized || isHovered) ? (
+            <div className="px-2.5 pt-4 pb-1.5 text-[11px] font-bold uppercase tracking-[0.08em] text-ink-400">{section.title}</div>
+          ) : (
+            <div className="mx-3 my-3 h-px bg-line-soft" />
+          )}
+          {section.items.map(item => (
+            <NavItem
+              key={item.key}
+              item={item}
+              isMobile={isMobile}
+              isMinimized={isMinimized}
+              isHovered={isHovered}
+              currentPath={currentPath}
+              setHoveredMenu={setHoveredMenu}
+              hoveredMenu={hoveredMenu}
+              hasProjects={hasProjects}
+              setMobileMenuOpen={setMobileMenuOpen}
+              unreadCount={totalUnreadCount}
+              navigate={navigate}
+            />
+          ))}
+        </div>
+      ))}
+    </nav>
+  );
+
+  const renderHelp = (compact) => (
+    <button
+      type="button"
+      onClick={() => hasProjects && navigate('/support')}
+      disabled={!hasProjects}
+      title="Contact support"
+      className={`flex items-center gap-3 w-full rounded-[11px] border border-line text-left transition-colors ${compact ? 'justify-center p-2' : 'px-3 py-2.5'} ${hasProjects ? 'bg-white hover:bg-surface-soft' : 'bg-surface-soft cursor-not-allowed opacity-60'}`}
+    >
+      <span className="flex h-8 w-8 flex-none items-center justify-center rounded-lg bg-brand-50 text-brand-700">
+        <FiHelpCircle size={16} />
+      </span>
+      {!compact && (
+        <span className="flex flex-col">
+          <span className="text-[13px] font-bold text-ink leading-tight">Need help?</span>
+          <span className="text-xs text-ink-500">{hasProjects ? 'Contact support' : 'Locked'}</span>
+        </span>
+      )}
+    </button>
+  );
+
+  const isCompact = isMinimized && !isHovered;
 
   return (
     <>
       <AnimatePresence>
         {mobileMenuOpen && !isFullScreen && (
           <>
-            <motion.div className="fixed inset-0 z-40 bg-slate-900/40 backdrop-blur-sm md:hidden" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setMobileMenuOpen(false)} />
+            <motion.div className="fixed inset-0 z-40 bg-ink/40 backdrop-blur-sm md:hidden" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setMobileMenuOpen(false)} />
             <motion.div className="fixed inset-y-0 left-0 z-50 w-72 bg-white shadow-2xl md:hidden flex flex-col" initial={{ x: '-100%' }} animate={{ x: 0 }} exit={{ x: '-100%' }} transition={{ type: "spring", damping: 30, stiffness: 300 }}>
-              <div className="h-16 flex items-center justify-between px-6 border-b border-indigo-100 bg-indigo-50/30">
-                <span className="text-xl font-bold text-slate-800 font-sans">WICHAT</span>
-                <button onClick={() => setMobileMenuOpen(false)} className="p-1 rounded-md text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 transition-colors">
+              <div className="h-16 flex items-center justify-between px-4 border-b border-line">
+                <div className="flex items-center gap-2.5">
+                  <img src="/logo.png" alt="" className="h-8 w-8 rounded-lg object-cover" />
+                  <span className="text-[17px] font-extrabold tracking-tight text-ink">OneChatting</span>
+                </div>
+                <button type="button" aria-label="Close menu" onClick={() => setMobileMenuOpen(false)} className="flex h-9 w-9 items-center justify-center rounded-[9px] text-ink-500 hover:bg-[#F3F2FA] hover:text-ink transition-colors">
                   <FiX size={20} />
                 </button>
               </div>
-              <div className="flex-1 overflow-y-auto py-6 px-4 space-y-1">
-                {menuItems.map(item => (
-                  <NavItem
-                    key={item.key}
-                    item={item}
-                    isMobile={true}
-                    currentPath={currentPath}
-                    openSubmenus={openSubmenus}
-                    toggleSubmenu={toggleSubmenu}
-                    hasProjects={hasProjects}
-                    setMobileMenuOpen={setMobileMenuOpen}
-                    unreadCount={totalUnreadCount}
-                    navigate={navigate}
-                  />
-                ))}
+              <div className="flex-1 overflow-y-auto px-3.5 py-4">
+                {renderNav(true)}
               </div>
+              <div className="p-3.5 border-t border-line">{renderHelp(false)}</div>
             </motion.div>
           </>
         )}
       </AnimatePresence>
 
-      <motion.div
-        className="hidden md:flex md:flex-col md:fixed md:inset-y-0 bg-white border-r border-indigo-100 z-40 shadow-[4px_0_24px_-12px_rgba(0,0,0,0.05)]"
+      <motion.aside
+        className="hidden md:flex md:flex-col md:fixed md:top-0 md:left-0 bg-white border-r border-line z-40"
         initial={false}
         animate={{
-          width: (isMinimized && !isHovered) ? 80 : 260,
+          width: isCompact ? 80 : 260,
           x: isFullScreen ? -280 : 0,
           opacity: isFullScreen ? 0 : 1,
         }}
-        transition={{ duration: 0.35, ease: [0.4, 0, 0.2, 1] }}
+        transition={{ duration: 0.3, ease: [0.4, 0, 0.2, 1] }}
         style={{
-          top: isFullScreen ? 0 : '64px',
-          height: isFullScreen ? '100vh' : 'calc(100vh - 64px)',
+          height: '100vh',
           pointerEvents: isFullScreen ? 'none' : 'auto',
         }}
         onMouseEnter={() => handleSidebarHover(true)}
         onMouseLeave={() => handleSidebarHover(false)}
       >
-        <div className="flex-1 flex flex-col overflow-y-auto py-6 px-3 scrollbar-hide">
-          <nav className="space-y-1">
-            {menuItems.map(item => (
-              <NavItem
-                key={item.key}
-                item={item}
-                isMobile={false}
-                isMinimized={isMinimized}
-                isHovered={isHovered}
-                currentPath={currentPath}
-                openSubmenus={openSubmenus}
-                toggleSubmenu={toggleSubmenu}
-                setHoveredMenu={setHoveredMenu}
-                hoveredMenu={hoveredMenu}
-                hasProjects={hasProjects}
-                unreadCount={totalUnreadCount}
-                navigate={navigate}
-              />
-            ))}
-          </nav>
+        <button
+          type="button"
+          onClick={() => navigate('/')}
+          aria-label="OneChatting home"
+          className={`h-16 flex-none flex items-center gap-2.5 border-b border-line ${isCompact ? 'justify-center px-0' : 'px-5'}`}
+        >
+          <img src="/logo.png" alt="" className="h-8 w-8 rounded-lg object-cover flex-none" />
+          {!isCompact && <span className="text-[17px] font-extrabold tracking-tight text-ink whitespace-nowrap">OneChatting</span>}
+        </button>
+        <div className="flex-1 flex flex-col overflow-y-auto px-3.5 py-4 scrollbar-hide">
+          {renderNav(false)}
         </div>
-
-        <AnimatePresence>
-          {(!isMinimized || isHovered) && (
-            <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 10 }} transition={{ delay: 0.1 }} className="p-3 border-t border-indigo-100">
-              <div
-                onClick={() => hasProjects && navigate('/support')}
-                className={`flex items-center gap-3 px-3 py-2.5 rounded-xl border transition-all group ${hasProjects ? 'bg-gradient-to-r from-indigo-50 to-white border-indigo-100 hover:border-indigo-200 hover:shadow-sm cursor-pointer' : 'bg-slate-50 border-slate-100 cursor-not-allowed'}`}
-              >
-                <div className={`flex h-8 w-8 items-center justify-center rounded-lg bg-white shadow-sm border transition-transform ${hasProjects ? 'text-indigo-600 border-indigo-50 group-hover:scale-105' : 'text-slate-300 border-slate-100'}`}>
-                  <FiHelpCircle size={16} />
-                </div>
-                <div className="flex flex-col">
-                  <span className={`text-xs font-bold leading-none mb-0.5 ${hasProjects ? 'text-slate-700' : 'text-slate-300'}`}>Need Help?</span>
-                  <span className={`text-[10px] font-medium ${hasProjects ? 'text-slate-500' : 'text-slate-300'}`}>{hasProjects ? 'Contact Support' : 'Locked'}</span>
-                </div>
-              </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
-      </motion.div>
+        <div className="p-3.5 border-t border-line">{renderHelp(isCompact)}</div>
+      </motion.aside>
     </>
   );
 };
 
+
 // ==========================================
-// 6. Main Layout Wrapper (Default Export)
+// 6. Persistent app shell
+// ==========================================
+// The header and sidebar are rendered ONCE by <ShellProvider> (mounted around the
+// routes in index.js), so navigating between pages no longer remounts them — the
+// sidebar keeps its scroll position and nothing flashes. Pages still render
+// <Header/> and <Sidebar/>; inside the shell those calls only sync state
+// (collapsed sidebar, full-screen mode) and render nothing.
+const ShellContext = React.createContext(null);
+
+const readMinimizedPref = () => {
+  try { return JSON.parse(localStorage.getItem('sidebarMinimized')) === true; } catch (e) { return false; }
+};
+
+const hasActiveSession = () => {
+  try { return Boolean(JSON.parse(localStorage.getItem('userData'))?.token); } catch (e) { return false; }
+};
+
+export const ShellProvider = ({ children }) => {
+  const location = useLocation();
+  const [isMinimized, setIsMinimizedState] = useState(readMinimizedPref);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [isFullScreen, setIsFullScreen] = useState(false);
+  const [activeCount, setActiveCount] = useState(0);
+
+  const setIsMinimized = useCallback((value) => {
+    setIsMinimizedState(prev => {
+      const next = typeof value === 'function' ? value(prev) : Boolean(value);
+      try { localStorage.setItem('sidebarMinimized', JSON.stringify(next)); } catch (e) { /* ignore */ }
+      return next;
+    });
+  }, []);
+
+  const register = useCallback(() => {
+    setActiveCount(c => c + 1);
+    return () => setActiveCount(c => Math.max(0, c - 1));
+  }, []);
+
+  // Close the mobile drawer after navigating
+  useEffect(() => { setMobileMenuOpen(false); }, [location.pathname]);
+
+  // Lock page scroll while the mobile drawer is open
+  useEffect(() => {
+    if (!mobileMenuOpen) return undefined;
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => { document.body.style.overflow = prev; };
+  }, [mobileMenuOpen]);
+
+  const value = useMemo(() => ({
+    isMinimized, setIsMinimized, mobileMenuOpen, setMobileMenuOpen, isFullScreen, setIsFullScreen, register,
+  }), [isMinimized, setIsMinimized, mobileMenuOpen, isFullScreen, register]);
+
+  const sessionActive = hasActiveSession();
+  const visible = sessionActive && activeCount > 0;
+
+  // Mount the header/sidebar only after a protected page has rendered (i.e. after the
+  // session check), then keep them mounted for the rest of the session.
+  const [shellReady, setShellReady] = useState(false);
+  useEffect(() => {
+    if (visible && !shellReady) setShellReady(true);
+    if (!sessionActive && shellReady) setShellReady(false);
+  }, [visible, sessionActive, shellReady]);
+
+  return (
+    <ShellContext.Provider value={value}>
+      {/* Shell first in the DOM so page modals (z-50) render above the header */}
+      {sessionActive && (shellReady || visible) && (
+        <div style={visible ? undefined : { display: 'none' }}>
+          <HeaderView
+            mobileMenuOpen={mobileMenuOpen}
+            setMobileMenuOpen={setMobileMenuOpen}
+            isMinimized={isMinimized}
+            setIsMinimized={setIsMinimized}
+            isFullScreen={isFullScreen}
+          />
+          <SidebarView
+            mobileMenuOpen={mobileMenuOpen}
+            setMobileMenuOpen={setMobileMenuOpen}
+            isMinimized={isMinimized}
+            setIsMinimized={setIsMinimized}
+            isFullScreen={isFullScreen}
+          />
+        </div>
+      )}
+      {children}
+    </ShellContext.Provider>
+  );
+};
+
+export const useShell = () => useContext(ShellContext);
+
+// Page-level Header: inside the shell it only syncs state; outside it renders as before.
+export const Header = ({ isMinimized, setIsMinimized, isFullScreen = false, ...rest }) => {
+  const shell = useContext(ShellContext);
+  const register = shell?.register;
+  const shellMinimized = shell?.isMinimized;
+  const setShellFullScreen = shell?.setIsFullScreen;
+
+  useLayoutEffect(() => (register ? register() : undefined), [register]);
+
+  useLayoutEffect(() => {
+    if (shell && typeof setIsMinimized === 'function' && isMinimized !== shellMinimized) {
+      setIsMinimized(shellMinimized);
+    }
+  }, [shell, shellMinimized, isMinimized, setIsMinimized]);
+
+  useLayoutEffect(() => {
+    if (setShellFullScreen) setShellFullScreen(Boolean(isFullScreen));
+  }, [setShellFullScreen, isFullScreen]);
+
+  useLayoutEffect(() => () => { if (setShellFullScreen) setShellFullScreen(false); }, [setShellFullScreen]);
+
+  if (shell) return null;
+  return <HeaderView isMinimized={isMinimized} setIsMinimized={setIsMinimized} isFullScreen={isFullScreen} {...rest} />;
+};
+
+// Page-level Sidebar: rendered by the shell instead.
+export const Sidebar = (props) => {
+  const shell = useContext(ShellContext);
+  if (shell) return null;
+  return <SidebarView {...props} />;
+};
+
+// ==========================================
+// 7. Main Layout Wrapper (Default Export)
 // ==========================================
 const Layout = () => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [isMinimized, setIsMinimized] = useState(false);
 
   return (
-    <div className="min-h-screen bg-[#f4f6fb] font-sans text-slate-900">
+    <div className="min-h-screen bg-surface-ground font-sans text-ink">
       <Header
         mobileMenuOpen={mobileMenuOpen}
         setMobileMenuOpen={setMobileMenuOpen}

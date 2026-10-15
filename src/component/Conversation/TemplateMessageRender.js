@@ -32,7 +32,7 @@ const TemplateMessageRenderer = ({ msg, darkMode, renderFilePreview, isOwnMessag
     const buttons = buttonsComponent?.buttons || [];
 
     const bubbleBgClass = isOwnMessage
-        ? (darkMode ? 'bg-[#005c4b]' : 'bg-[#d9fdd3]')
+        ? (darkMode ? 'bg-[#005c4b]' : 'bg-[#ECE9FD]')
         : (darkMode ? 'bg-[#202c33]' : 'bg-white');
 
     const tailColorClass = isOwnMessage

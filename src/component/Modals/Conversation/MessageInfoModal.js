@@ -4,8 +4,6 @@ import { FiUser } from 'react-icons/fi';
 import { parseServerDate } from '../../../utils/dateTime';
 
 const MessageInfoModal = ({ isOpen, onClose, message, activeChat }) => {
-    if (!isOpen || !message) return null;
-
     const formatDateTime = (timestamp) => {
         if (!timestamp) return 'Unknown';
         const date = parseServerDate(timestamp);
@@ -34,7 +32,9 @@ const MessageInfoModal = ({ isOpen, onClose, message, activeChat }) => {
 
     return (
         <AnimatePresence>
+            {isOpen && message && (
             <motion.div
+                key="modal"
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 exit={{ opacity: 0 }}
@@ -149,6 +149,7 @@ const MessageInfoModal = ({ isOpen, onClose, message, activeChat }) => {
                     </div>
                 </motion.div>
             </motion.div>
+            )}
         </AnimatePresence>
     );
 };

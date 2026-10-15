@@ -159,7 +159,6 @@ export const SearchChatModal = ({
         e.stopPropagation();
     };
 
-    if (!isOpen) return null;
 
     return (
         <AnimatePresence>

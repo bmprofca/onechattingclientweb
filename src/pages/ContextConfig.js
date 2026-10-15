@@ -11,7 +11,7 @@ import { Encrypt } from './encryption/payload-encryption';
 import {
     FiArrowLeft, FiShield, FiLock, FiEdit2, FiPlus, FiTrash2,
     FiChevronDown, FiChevronUp, FiMessageSquare, FiInfo, FiFileText, FiX, FiUpload,
-    FiAlertTriangle, FiCheck, FiKey, FiExternalLink
+    FiCheck, FiKey, FiExternalLink
 } from 'react-icons/fi';
 import toast from 'react-hot-toast';
 
@@ -832,11 +832,11 @@ function ContextConfig() {
 
     if (!isOwner) {
         return (
-            <div className="min-h-screen bg-[#f4f6fb]">
+            <div className="min-h-screen bg-surface-ground">
                 <Header mobileMenuOpen={mobileMenuOpen} setMobileMenuOpen={setMobileMenuOpen} isMinimized={isMinimized} setIsMinimized={setIsMinimized} />
                 <Sidebar mobileMenuOpen={mobileMenuOpen} setMobileMenuOpen={setMobileMenuOpen} isMinimized={isMinimized} setIsMinimized={setIsMinimized} />
                 <div className={`pt-16 transition-all duration-300 ease-in-out ${isMinimized ? 'md:pl-20' : 'md:pl-[260px]'}`}>
-                    <div className="w-full px-4 py-5">
+                    <div className="w-full max-w-[1320px] px-4 sm:px-7 py-7">
                         <div className="max-w-2xl mx-auto mt-12 rounded-2xl border border-slate-200 bg-white p-8 shadow-xs text-center">
                             <FiLock className="w-14 h-14 mx-auto text-slate-300 mb-4" />
                             <h2 className="text-xl font-semibold text-slate-800 mb-2">Access denied</h2>
@@ -862,33 +862,26 @@ function ContextConfig() {
     const CurrentIcon = currentTabConf.icon;
 
     return (
-        <div className="min-h-screen bg-[#f4f6fb]/60 pb-24">
+        <div className="min-h-screen bg-surface-ground/60 pb-24">
             <Header mobileMenuOpen={mobileMenuOpen} setMobileMenuOpen={setMobileMenuOpen} isMinimized={isMinimized} setIsMinimized={setIsMinimized} />
             <Sidebar mobileMenuOpen={mobileMenuOpen} setMobileMenuOpen={setMobileMenuOpen} isMinimized={isMinimized} setIsMinimized={setIsMinimized} />
             <div className={`pt-16 transition-all duration-300 ease-in-out ${isMinimized ? 'md:pl-20' : 'md:pl-[260px]'}`}>
-                <div className="w-full px-4 py-5">
+                <div className="w-full max-w-[1320px] px-4 sm:px-7 py-7">
                     
-                    {/* Header bar */}
                     <div className="mb-6">
-                        <button
-                            type="button"
-                            onClick={() => navigate('/project-config')}
-                            className="inline-flex items-center gap-1.5 text-sm font-medium text-slate-500 hover:text-slate-800 transition-colors mb-3"
-                        >
-                            <FiArrowLeft className="w-4 h-4" />
-                            Back to Project Config
-                        </button>
-                        
-                        <div className="flex items-center justify-between gap-4 flex-wrap">
-                            <div className="flex items-center gap-3.5">
-                                <div className="p-3 bg-sky-600 text-white rounded-2xl shadow-xs">
-                                    <FiShield className="w-6 h-6" />
-                                </div>
+                        <div className="flex items-start justify-between gap-4 flex-wrap">
+                            <div className="flex items-start gap-3">
+                                <button
+                                    type="button"
+                                    onClick={() => navigate('/project-config')}
+                                    className="mt-1.5 flex h-8 w-8 items-center justify-center rounded-[9px] text-ink-500 hover:bg-[#F3F2FA] hover:text-ink"
+                                    aria-label="Back to configuration"
+                                >
+                                    <FiArrowLeft className="w-4 h-4" />
+                                </button>
                                 <div>
-                                    <h1 className="text-2xl font-bold text-slate-900">Company Context</h1>
-                                    <p className="text-sm text-slate-500">
-                                        Manage structured knowledge base sections used by the AI bot for accurate responses.
-                                    </p>
+                                    <h1 className="oc-page-title">Company context</h1>
+                                    <p className="oc-page-sub">The AI agent uses this to answer customers accurately. Keep it short and factual.</p>
                                 </div>
                             </div>
 
@@ -900,7 +893,7 @@ function ContextConfig() {
                                             type="button"
                                             onClick={handleCancel}
                                             disabled={isSaving}
-                                            className="px-4 py-2 rounded-xl border border-slate-200 bg-white text-sm font-semibold text-slate-700 hover:bg-slate-50 transition shadow-2xs disabled:opacity-50"
+                                            className="oc-btn-ghost disabled:opacity-50"
                                         >
                                             Cancel
                                         </button>
@@ -908,7 +901,7 @@ function ContextConfig() {
                                             type="button"
                                             onClick={handleSave}
                                             disabled={isSaving}
-                                            className="inline-flex items-center gap-1.5 px-5 py-2 rounded-xl bg-sky-600 text-sm font-semibold text-white hover:bg-sky-700 transition shadow-xs disabled:cursor-not-allowed disabled:bg-slate-300"
+                                            className="oc-btn-primary"
                                         >
                                             {isSaving ? (
                                                 <>
@@ -927,7 +920,7 @@ function ContextConfig() {
                                     <button
                                         type="button"
                                         onClick={() => handleStartEdit(activeTab)}
-                                        className="inline-flex items-center gap-1.5 rounded-xl bg-sky-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-sky-700 shadow-xs"
+                                        className="oc-btn-primary"
                                     >
                                         <FiEdit2 className="w-4 h-4" />
                                         Edit Context
@@ -938,33 +931,28 @@ function ContextConfig() {
                     </div>
 
                     {/* Integrated Tab Navigation Card */}
-                    <div className="bg-white border border-slate-200/80 rounded-2xl shadow-xs overflow-hidden mb-6">
-                        <div className="flex items-center border-b border-slate-200/80 overflow-x-auto overflow-y-hidden no-scrollbar px-2 pt-1.5 bg-slate-50/50">
+                    <div className="oc-card overflow-hidden mb-6">
+                        <div className="flex items-center border-b border-line overflow-x-auto overflow-y-hidden px-2">
                             {TABS.map(tab => {
-                                const Icon = tab.icon;
                                 const isActive = activeTab === tab.id;
                                 const count = tabCounts[tab.id] || 0;
-                                const colors = TYPE_COLORS[tab.id];
 
                                 return (
                                     <button
                                         key={tab.id}
                                         type="button"
                                         onClick={() => setActiveTab(tab.id)}
-                                        className={`group relative flex items-center gap-2.5 px-4 sm:px-5 py-2.5 text-sm font-semibold transition-all whitespace-nowrap border-b-2 ${
+                                        className={`group relative flex items-center gap-2 px-3 sm:px-4 py-3 text-sm font-semibold transition-all whitespace-nowrap border-b-2 ${
                                             isActive
-                                                ? `border-sky-600 text-sky-700 bg-white rounded-t-xl shadow-2xs`
-                                                : `border-transparent text-slate-500 hover:text-slate-800 hover:bg-slate-100/50 rounded-t-xl`
+                                                ? 'border-brand-600 text-ink'
+                                                : 'border-transparent text-ink-500 hover:text-ink'
                                         }`}
                                     >
-                                        <Icon className={`w-4 h-4 transition ${isActive ? 'text-sky-600' : 'text-slate-400 group-hover:text-slate-600'}`} />
                                         <span>{tab.label}</span>
-                                        <span className={`text-[11px] font-bold px-2 py-0.5 rounded-full transition ${
+                                        <span className={`text-[11px] font-bold px-1.5 py-0.5 rounded-md ${
                                             isActive
-                                                ? 'bg-sky-100 text-sky-700'
-                                                : count > 0
-                                                    ? 'bg-slate-200/80 text-slate-700'
-                                                    : 'bg-slate-100 text-slate-400'
+                                                ? 'bg-brand-50 text-brand-800'
+                                                : 'bg-[#F3F2FA] text-ink-500'
                                         }`}>
                                             {count}
                                         </span>
@@ -1035,7 +1023,7 @@ function ContextConfig() {
                                                         onChange={(e) => setCompanyOverview(e.target.value)}
                                                         placeholder="e.g. We are a leading company providing automated customer support and AI chat solutions..."
                                                         rows={4}
-                                                        className="w-full bg-white border border-slate-200 rounded-xl px-3.5 py-2.5 text-sm text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-sky-200 focus:border-sky-400 resize-y"
+                                                        className="w-full min-h-[96px] bg-white border border-line rounded-[9px] px-3.5 py-2.5 text-sm text-ink placeholder:text-ink-400 focus:outline-none focus:border-brand-600 focus:ring-[3px] focus:ring-brand-600/20 resize-y"
                                                     />
                                                 </div>
                                             </div>
@@ -1057,7 +1045,7 @@ function ContextConfig() {
                                                         value={companyAddress}
                                                         onChange={(e) => setCompanyAddress(e.target.value)}
                                                         placeholder="e.g. 123 Main Street, Suite 400, San Francisco, CA 94105"
-                                                        className="w-full bg-white border border-slate-200 rounded-xl px-3.5 py-2.5 text-sm text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-sky-200 focus:border-sky-400"
+                                                        className="oc-input"
                                                     />
                                                 </div>
                                             </div>

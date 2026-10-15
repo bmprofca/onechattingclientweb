@@ -6,7 +6,7 @@ export default function CampaignHeader({ activeTab }) {
     <div className="bg-white rounded-2xl shadow-lg p-4 sm:p-6 mb-6">
       <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
         <div>
-          <h1 className="text-2xl sm:text-3xl font-bold bg-gradient-to-r from-indigo-600 to-indigo-600 bg-clip-text text-transparent">
+          <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-ink">
             Create Campaign
           </h1>
           <p className="text-gray-600 mt-1 text-sm sm:text-base">Build and send your WhatsApp campaign in 2 simple steps</p>

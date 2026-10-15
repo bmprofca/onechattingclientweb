@@ -79,6 +79,7 @@ import InteractiveMessageRenderer from '../component/Conversation/InteractiveMes
 import ContactMediaSection from '../component/Conversation/ContactMediaSection';
 import { getInteractiveSearchText, normalizeInteractiveMessage } from '../utils/interactiveMessage';
 
+import AnimatedModal from '../component/Modals/AnimatedModal';
 const escapeRegExp = (value = '') => String(value).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
 const computeSimpleHash = (value) => {
@@ -298,7 +299,7 @@ const MessageItem = ({ msg, activeChat, displayName, darkMode, renderFilePreview
     const isHighlighted = highlightedMessageId === messageKey;
     const bubbleHighlightClass = isHighlighted
         ? (msg.type === 'out'
-            ? 'ring-2 ring-offset-2 ring-blue-500 ring-offset-blue-100 dark:ring-offset-blue-900/40 animate-pulse bg-[#c8f7c5]'
+            ? 'ring-2 ring-offset-2 ring-blue-500 ring-offset-blue-100 dark:ring-offset-blue-900/40 animate-pulse bg-[#DCD6FB]'
             : 'ring-2 ring-offset-2 ring-blue-500 ring-offset-gray-100 dark:ring-offset-gray-800 animate-pulse !bg-blue-50 dark:!bg-blue-900/30')
         : '';
 
@@ -315,7 +316,7 @@ const MessageItem = ({ msg, activeChat, displayName, darkMode, renderFilePreview
                         <div
                             id={`message-${messageKey}`}
                             className={`p-1 rounded-2xl ${msg.type === 'out'
-                                ? 'bg-[#D9FDD3] text-gray-800 rounded-br-md'
+                                ? 'bg-[#ECE9FD] text-gray-900 rounded-br-md'
                                 : 'bg-white dark:bg-gray-800 text-gray-900 dark:text-white rounded-bl-md border border-gray-200 dark:border-gray-700'
                                 } max-w-full relative ${bubbleHighlightClass}`}
                         >
@@ -3283,7 +3284,7 @@ function Conversation({ activeChat, tokens, onBack, darkMode, dbAvailable, socke
     const isAssignedToMeOrChatAssignAccess = assignmentInfo?.assigned_to_me === true || projectInfo?.permissions?.chat_assign_access === true;
 
     return (
-        <div className="flex h-full dark:bg-gray-900 w-full relative overflow-hidden" style={{ backgroundImage: "url('/wpbg.png')", backgroundSize: 'cover', backgroundPosition: 'center', backgroundRepeat: 'no-repeat' }}>
+        <div className="flex h-full bg-surface-ground dark:bg-gray-900 w-full relative overflow-hidden">
             {/* Main conversation area - hidden when contact details is open (WhatsApp Web style: contact takes full window) */}
             <div className={`flex flex-col transition-all duration-300 shrink-0 ${showContactDetails ? 'w-0 min-w-0 overflow-hidden' : 'w-full'}`}>
                 {/* Chat header */}
@@ -3948,7 +3949,7 @@ function Conversation({ activeChat, tokens, onBack, darkMode, dbAvailable, socke
                             <div className="absolute inset-0 z-20 flex items-center justify-center bg-white/60 dark:bg-gray-900/60 backdrop-blur-[1px]">
                                 <button
                                     onClick={() => setHasAcknowledgedUnassigned(true)}
-                                    className="group flex items-center space-x-3 bg-green-500 hover:bg-green-600 text-white px-6 py-2.5 rounded-full shadow-lg transition-all transform hover:scale-105 active:scale-95"
+                                    className="group flex items-center space-x-3 bg-brand-600 hover:bg-brand-700 text-white px-6 py-2.5 rounded-full shadow-lg transition-all transform hover:scale-105 active:scale-95"
                                 >
                                     <span className="text-sm font-bold tracking-wide">CLAIM & CONTINUE</span>
                                     <div className="w-5 h-5 bg-white/20 rounded-full flex items-center justify-center group-hover:translate-x-1 transition-transform">
@@ -4527,34 +4528,36 @@ function Conversation({ activeChat, tokens, onBack, darkMode, dbAvailable, socke
                 </AnimatePresence>
 
                 {/* Preview Overlay - inline to avoid re-mount flicker */}
-                {previewFileItem && (
-                    <div
-                        className="fixed inset-0 bg-black/80 flex items-center justify-center z-[70] p-4"
-                        onClick={closePreviewOverlay}
-                    >
-                        <div className="max-w-full max-h-full overflow-auto" onClick={(e) => e.stopPropagation()}>
-                            {previewFileItem.type === 'photo' && previewFileItem.previewUrl && <img src={previewFileItem.previewUrl} alt="" className="max-h-[90vh] rounded-lg" />}
-                            {previewFileItem.type === 'video' && previewFileItem.previewUrl && <video src={previewFileItem.previewUrl} controls className="max-h-[90vh] rounded-lg" />}
-                            {previewFileItem.type === 'audio' && previewFileItem.previewUrl && (
-                                <audio src={previewFileItem.previewUrl} controls className="rounded-lg" />
-                            )}
-                            {previewFileItem.type === 'document' && (
-                                <div className="bg-white dark:bg-gray-800 rounded-lg p-6 text-gray-700 dark:text-gray-300">
-                                    <FiFile className="w-12 h-12 mx-auto mb-2 text-gray-400" />
-                                    <p className="font-medium">{previewFileItem.displayName}</p>
-                                    <p className="text-sm text-gray-500">Document preview not available</p>
-                                </div>
-                            )}
-                        </div>
-                        <button
-                            type="button"
-                            onClick={closePreviewOverlay}
-                            className="absolute top-4 right-4 p-2 rounded-full bg-white/10 text-white hover:bg-white/20"
-                        >
-                            <FiX className="w-5 h-5" />
-                        </button>
-                    </div>
-                )}
+                <AnimatedModal open={previewFileItem}>
+                  {previewFileItem && (
+                      <div
+                          className="fixed inset-0 bg-black/80 flex items-center justify-center z-[70] p-4"
+                          onClick={closePreviewOverlay}
+                      >
+                          <div className="max-w-full max-h-full overflow-auto" onClick={(e) => e.stopPropagation()}>
+                              {previewFileItem.type === 'photo' && previewFileItem.previewUrl && <img src={previewFileItem.previewUrl} alt="" className="max-h-[90vh] rounded-lg" />}
+                              {previewFileItem.type === 'video' && previewFileItem.previewUrl && <video src={previewFileItem.previewUrl} controls className="max-h-[90vh] rounded-lg" />}
+                              {previewFileItem.type === 'audio' && previewFileItem.previewUrl && (
+                                  <audio src={previewFileItem.previewUrl} controls className="rounded-lg" />
+                              )}
+                              {previewFileItem.type === 'document' && (
+                                  <div className="bg-white dark:bg-gray-800 rounded-lg p-6 text-gray-700 dark:text-gray-300">
+                                      <FiFile className="w-12 h-12 mx-auto mb-2 text-gray-400" />
+                                      <p className="font-medium">{previewFileItem.displayName}</p>
+                                      <p className="text-sm text-gray-500">Document preview not available</p>
+                                  </div>
+                              )}
+                          </div>
+                          <button
+                              type="button"
+                              onClick={closePreviewOverlay}
+                              className="absolute top-4 right-4 p-2 rounded-full bg-white/10 text-white hover:bg-white/20"
+                          >
+                              <FiX className="w-5 h-5" />
+                          </button>
+                      </div>
+                  )}
+                </AnimatedModal>
 
                 {/* Template Selection Modal */}
                 <ChatTemplateModal
