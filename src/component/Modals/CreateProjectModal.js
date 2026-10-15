@@ -1,9 +1,12 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useDispatch } from 'react-redux';
 import { FiBriefcase, FiCheck, FiCreditCard, FiDollarSign, FiX } from 'react-icons/fi';
 import { AnimatePresence, motion } from 'framer-motion';
 import toast from 'react-hot-toast';
 import { createProject, fetchUserProfile, getSubscriptionPacks } from '../../api/auth';
+import { setAuthData, setSelectedProjectId } from '../../store/authSlice';
+import { fetchProjectInfo } from '../../store/projectSlice';
 import SearchableSelect from '../SearchableSelect';
 
 const FIRM_TYPES = ['Proprietorship', 'Partnership', 'LLP', 'Private Limited', 'Public Limited', 'Other'];
@@ -63,8 +66,24 @@ const fieldClass = (hasError) =>
     hasError ? 'border-red-400' : 'border-gray-300'
   }`;
 
+const selectCreatedProject = (projectId) => {
+  if (!projectId) return null;
+  try {
+    const stored = localStorage.getItem('userData');
+    const parsed = stored ? JSON.parse(stored) : {};
+    const updatedUserData = { ...parsed, selected_project_id: projectId };
+    localStorage.setItem('userData', JSON.stringify(updatedUserData));
+    sessionStorage.removeItem('showProjectPicker');
+    return updatedUserData;
+  } catch (error) {
+    console.error('Failed to select the new project', error);
+    return null;
+  }
+};
+
 const CreateProjectModal = ({ isOpen, onClose, onCreated }) => {
   const navigate = useNavigate();
+  const dispatch = useDispatch();
   const [formData, setFormData] = useState(emptyProjectForm);
   const [formErrors, setFormErrors] = useState({});
   const [submitting, setSubmitting] = useState(false);
@@ -176,7 +195,19 @@ const CreateProjectModal = ({ isOpen, onClose, onCreated }) => {
       }
 
       toast.success('Project created successfully');
+      const createdProjectId = response?.data?.project_id || null;
       const profileResponse = await fetchUserProfile();
+      const projectList = profileResponse?.projects?.list || [];
+      const selectedId = createdProjectId
+        || projectList[projectList.length - 1]?.project_id
+        || null;
+      const updatedUserData = selectCreatedProject(selectedId);
+      if (updatedUserData) {
+        dispatch(setAuthData(updatedUserData));
+        dispatch(setSelectedProjectId(selectedId));
+        dispatch(fetchProjectInfo(selectedId));
+        window.dispatchEvent(new Event('projects-updated'));
+      }
       onClose();
       if (onCreated) onCreated(profileResponse);
     } catch (error) {

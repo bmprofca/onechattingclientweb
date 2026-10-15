@@ -259,9 +259,14 @@ export const Header = ({ mobileMenuOpen, setMobileMenuOpen, isMinimized, setIsMi
         return { id: selectedProjectId || null, name: null };
       } catch (error) { return { id: null, name: null }; }
     };
-    const pInfo = getSelectedProjectInfo();
-    setActiveProjectId(pInfo.id);
-    setSelectedProjectName(pInfo.name);
+    const applySelectedProject = () => {
+      const next = getSelectedProjectInfo();
+      setActiveProjectId(next.id);
+      setSelectedProjectName(next.name);
+    };
+    applySelectedProject();
+    window.addEventListener('projects-updated', applySelectedProject);
+    return () => window.removeEventListener('projects-updated', applySelectedProject);
   }, [switchProjectModalOpen]);
 
   useEffect(() => {
