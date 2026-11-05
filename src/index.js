@@ -8,6 +8,7 @@ import Login from './pages/Login';
 import Register from './pages/Register';
 import QRLanding from './pages/QRLanding';
 import LiveChat from './pages/LiveChat';
+import Catalogs from './pages/Catalogs';
 import Template from './pages/Template';
 import TemplateAdd from './pages/TemplateAdd';
 import TemplateEdit from './pages/TemplateEdit';
@@ -110,6 +111,11 @@ root.render(
           <Route path="/live-chat/:phone" element={
             <ProtectedRoute requiresProject={true}>
               <LiveChat />
+            </ProtectedRoute>
+          } />
+          <Route path="/catalogs" element={
+            <ProtectedRoute requiresProject={true}>
+              <Catalogs />
             </ProtectedRoute>
           } />
           <Route path="/template" element={

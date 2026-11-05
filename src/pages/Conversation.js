@@ -44,7 +44,8 @@ import {
     FiPhone,
     FiCheckCircle,
     FiPlus,
-    FiTrash2
+    FiTrash2,
+    FiShoppingBag
 } from 'react-icons/fi';
 import { LuSendHorizontal } from "react-icons/lu";
 import RowActionMenu from '../component/table/RowActionMenu';
@@ -58,6 +59,7 @@ import { uploadFile } from '../utils/uploadFile';
 import { dbHelper, contactDbHelper } from './db';
 import ContactFormModal from '../component/Modals/ContactFormModal';
 import ChatTemplateModal from '../component/Modals/ChatTemplateModal';
+import ProductCatalogsModal from '../component/Modals/ProductCatalogsModal';
 import TemplatePreview from '../component/Modals/TemplatePreview';
 import EmojiPickerPopover from '../component/Modals/Conversation/EmojiPicker';
 import ErrorModal from '../component/Modals/Conversation/ErrorModal';
@@ -637,6 +639,7 @@ function Conversation({ activeChat, tokens, onBack, darkMode, dbAvailable, socke
     const [previewFileItem, setPreviewFileItem] = useState(null);
     const [isDraggingOverFileModal, setIsDraggingOverFileModal] = useState(false);
     const [showTemplateModal, setShowTemplateModal] = useState(false);
+    const [showProductCatalogsModal, setShowProductCatalogsModal] = useState(false);
     const [showTemplatePreview, setShowTemplatePreview] = useState(false);
     const [selectedTemplate, setSelectedTemplate] = useState(null);
     const [selectedFiles, setSelectedFiles] = useState([]);
@@ -2319,6 +2322,7 @@ function Conversation({ activeChat, tokens, onBack, darkMode, dbAvailable, socke
         const newMessage = {
             id: Date.now().toString(),
             message_id: tempMessageId,
+            client_message_id: tempMessageId,
             type: 'out',
             message_type: 'text',
             message: text,
@@ -2347,6 +2351,7 @@ function Conversation({ activeChat, tokens, onBack, darkMode, dbAvailable, socke
                 project_id: tokens.selected_project_id || '',
                 message: text,
                 number: activeChat.number,
+                client_message_id: tempMessageId,
                 ...(replyInfo.is_reply && {
                     is_reply: true,
                     reply_wamid: replyInfo.reply_wamid
@@ -2369,38 +2374,58 @@ function Conversation({ activeChat, tokens, onBack, darkMode, dbAvailable, socke
             );
 
             if (!response.data.error) {
+                const serverMessage = response.data?.data ?? response.data ?? {};
+                const sentStatus = serverMessage.status === 'pending'
+                    ? 'sent'
+                    : serverMessage.status || 'sent';
                 setMessages(prev =>
                     prev.map(msg =>
                         msg.message_id === tempMessageId
-                            ? { ...msg, status: 'sent' }
+                            ? {
+                                ...msg,
+                                ...serverMessage,
+                                message_id: serverMessage.message_id || tempMessageId,
+                                client_message_id: tempMessageId,
+                                send_by_username: serverMessage.send_by?.username || msg.send_by_username,
+                                send_by_name: serverMessage.send_by?.name || msg.send_by_name,
+                                send_by_mobile: serverMessage.send_by?.mobile || msg.send_by_mobile,
+                                status: sentStatus,
+                            }
                             : msg
                     )
                 );
 
                 if (dbAvailable) {
-                    const sentMessage = { ...newMessage, status: 'sent' };
-                    await dbHelper.addMessage(activeChat.number, sentMessage);
+                    await dbHelper.mergeServerOutgoingMessage(activeChat.number, {
+                        ...newMessage,
+                        ...serverMessage,
+                        client_message_id: tempMessageId,
+                        send_by_username: serverMessage.send_by?.username || tokens?.username || '',
+                        send_by_name: serverMessage.send_by?.name || '',
+                        send_by_mobile: serverMessage.send_by?.mobile || '',
+                        status: sentStatus,
+                    });
                     await dbHelper.saveChats([
                         {
                             number: activeChat.number,
                             name: activeChat.name,
                             is_favorite: activeChat.is_favorite || false,
-                            wamid: '',
-                            create_date: new Date().toISOString(),
+                            wamid: serverMessage.wamid || '',
+                            create_date: serverMessage.create_date || new Date().toISOString(),
                             type: 'out',
                             message_type: 'text',
                             message: text,
-                            status: 'sent',
-                            unique_id: tempMessageId,
-                            last_id: Date.now(),
-                            send_by_username: tokens?.username || '',
+                            status: sentStatus,
+                            unique_id: serverMessage.message_id || tempMessageId,
+                            last_id: serverMessage.id || Date.now(),
+                            send_by_username: serverMessage.send_by?.username || tokens?.username || '',
                             send_by_mobile: ''
                         }
                     ]);
                 }
 
                 if (onMessageStatusUpdate) {
-                    onMessageStatusUpdate(activeChat.number, tempMessageId, 'sent');
+                    onMessageStatusUpdate(activeChat.number, serverMessage.message_id || tempMessageId, sentStatus);
                 }
             } else {
                 const errMsg = response.data.error || response.data.msg || 'Failed to send message';
@@ -3839,6 +3864,14 @@ function Conversation({ activeChat, tokens, onBack, darkMode, dbAvailable, socke
                             >
                                 <FiPaperclip className="w-5 h-5" />
                             </button>
+                            <button
+                                onClick={() => setShowProductCatalogsModal(true)}
+                                className="flex-shrink-0 flex items-center justify-center w-10 h-10 rounded-full text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800 transition-all"
+                                title="Product catalogs"
+                                aria-label="Product catalogs"
+                            >
+                                <FiShoppingBag className="w-5 h-5" />
+                            </button>
 
                             {/* 2. Main Input Pill */}
                             <div className="flex-1 flex items-end bg-gray-100 dark:bg-gray-800 rounded-[24px] border border-transparent  focus-within:ring-4 focus-within:ring-blue-500/10 transition-all duration-200">
@@ -4591,6 +4624,13 @@ function Conversation({ activeChat, tokens, onBack, darkMode, dbAvailable, socke
                         setSelectedTemplate(null);
                         setShowTemplateModal(false);
                     }}
+                />
+
+                <ProductCatalogsModal
+                    isOpen={showProductCatalogsModal}
+                    onClose={() => setShowProductCatalogsModal(false)}
+                    tokens={tokens}
+                    darkMode={darkMode}
                 />
             </div>
 

@@ -273,6 +273,7 @@ export const dbHelper = {
                 for (const message of messageList) {
                     const data = {
                         message_id: message.message_id || '',
+                        client_message_id: message.client_message_id || '',
                         wamid: message.wamid || '',
                         create_date: message.create_date || '',
                         type: message.type || '',
@@ -343,10 +344,67 @@ export const dbHelper = {
     async getMessages(chatNumber) {
         try {
             const db = this.db;
-            return await db.messages
+            const messages = await db.messages
                 .where('chat_number')
                 .equals(chatNumber)
                 .sortBy('id');
+
+            const confirmedOutgoing = messages.filter((message) =>
+                message.type === 'out'
+                && !String(message.message_id || '').startsWith('temp_')
+                && (message.wamid || message.status === 'sent' || message.status === 'delivered' || message.status === 'read')
+            );
+            const optimisticOutgoing = messages.filter((message) =>
+                message.type === 'out'
+                && String(message.message_id || '').startsWith('temp_')
+                && message.status !== 'failed'
+            );
+            const duplicateKeys = new Set();
+            const matchedConfirmed = new Set();
+
+            const getTimestamp = (message) => {
+                const tempIdTime = String(message.message_id || '').match(/^temp_(\d+)$/)?.[1];
+                const timestamp = tempIdTime
+                    ? Number(tempIdTime)
+                    : toServerTimestamp(message.timestamp || message.create_date);
+                return Number.isFinite(timestamp) ? timestamp : undefined;
+            };
+            const sameContent = (optimistic, confirmed) =>
+                optimistic.message_type === confirmed.message_type
+                && optimistic.message === confirmed.message
+                && (optimistic.media_url || '') === (confirmed.media_url || '')
+                && (optimistic.reply_wamid || '') === (confirmed.reply_wamid || '')
+                && Boolean(optimistic.is_template) === Boolean(confirmed.is_template);
+
+            for (const confirmed of confirmedOutgoing) {
+                const confirmedTime = getTimestamp(confirmed);
+                if (!confirmedTime) continue;
+
+                const duplicate = optimisticOutgoing
+                    .filter((optimistic) =>
+                        !duplicateKeys.has(optimistic.id)
+                        && !matchedConfirmed.has(optimistic.id)
+                        && sameContent(optimistic, confirmed)
+                    )
+                    .map((optimistic) => ({
+                        message: optimistic,
+                        distance: Math.abs((getTimestamp(optimistic) || 0) - confirmedTime),
+                    }))
+                    .filter((candidate) => candidate.distance <= 120000)
+                    .sort((a, b) => a.distance - b.distance)[0];
+
+                if (duplicate) {
+                    duplicateKeys.add(duplicate.message.id);
+                    matchedConfirmed.add(duplicate.message.id);
+                }
+            }
+
+            if (duplicateKeys.size > 0) {
+                await db.messages.bulkDelete([...duplicateKeys]);
+                return messages.filter((message) => !duplicateKeys.has(message.id));
+            }
+
+            return messages;
         } catch (error) {
             console.error("❌ Error getting messages:", error);
             return [];
@@ -562,6 +620,9 @@ export const dbHelper = {
 
             const candidate = [...recentMessages].reverse().find(m => {
                 if (!m || m.type !== 'out') return false;
+                if (serverMessage.client_message_id && m.client_message_id === serverMessage.client_message_id) {
+                    return true;
+                }
                 const isPendingish = (m.status === 'pending' || m.status === 'sent' || !m.status);
                 if (!isPendingish) return false;
                 // Prefer temp ids for safer merge
@@ -576,11 +637,17 @@ export const dbHelper = {
             });
 
             if (candidate) {
-                // Update the temp message with server identifiers and status
-                await db.messages.update(candidate.id, {
+                const existingServerMessage = serverMessage.message_id
+                    ? await db.messages.where('message_id').equals(serverMessage.message_id).first()
+                    : null;
+                const mergedMessage = {
+                    ...candidate,
+                    ...serverMessage,
+                    client_message_id: serverMessage.client_message_id || candidate.client_message_id || '',
+                    chat_number: chatNumber,
                     message_id: serverMessage.message_id || candidate.message_id,
                     wamid: serverMessage.wamid || candidate.wamid,
-                    id: serverMessage.id || candidate.id,
+                    id: existingServerMessage?.id || serverMessage.id || candidate.id,
                     create_date: serverMessage.create_date || candidate.create_date,
                     status: serverMessage.status || candidate.status,
                     message_type: serverMessage.message_type || candidate.message_type,
@@ -596,7 +663,21 @@ export const dbHelper = {
                         || candidate.timestamp
                         || Date.now()
                     )
-                });
+                };
+
+                if (existingServerMessage) {
+                    if (candidate.id !== existingServerMessage.id) {
+                        await db.messages.delete(candidate.id);
+                    }
+                    await db.messages.update(existingServerMessage.id, {
+                        ...mergedMessage,
+                        id: existingServerMessage.id,
+                    });
+                } else {
+                    await db.messages.delete(candidate.id);
+                    await db.messages.add(mergedMessage);
+                }
+
                 // Also ensure chat row reflects latest identifiers
                 const existingChat = await db.chats.where('number').equals(chatNumber).first();
                 await this.saveChats([{
@@ -616,7 +697,20 @@ export const dbHelper = {
                 return;
             }
 
-            // Fallback: no candidate found, save as new message
+            const existingServerMessage = serverMessage.message_id
+                ? await db.messages.where('message_id').equals(serverMessage.message_id).first()
+                : null;
+            if (existingServerMessage) {
+                await db.messages.update(existingServerMessage.id, {
+                    ...serverMessage,
+                    id: existingServerMessage.id,
+                    client_message_id: serverMessage.client_message_id || existingServerMessage.client_message_id || '',
+                    chat_number: chatNumber,
+                });
+                return;
+            }
+
+            // No optimistic message exists yet; persist the server message with its correlation id.
             await this.saveMessage([{
                 ...serverMessage,
                 chat_number: chatNumber,

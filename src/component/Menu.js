@@ -8,7 +8,7 @@ import {
   FiLogOut, FiList, FiCpu, FiMessageSquare, FiUsers,
   FiLock, FiX, FiMaximize2, FiMinimize2,
   FiGrid, FiFolder, FiFileText, FiSend, FiUserCheck, FiSliders, FiCode, FiLayers,
-  FiSun, FiMoon, FiMonitor, FiCheck
+  FiSun, FiMoon, FiMonitor, FiCheck, FiShoppingBag
 } from 'react-icons/fi';
 import { useTheme } from '../theme/ThemeContext';
 
@@ -744,6 +744,7 @@ const SidebarView = ({ mobileMenuOpen, setMobileMenuOpen, isMinimized, setIsMini
     {
       key: 'messaging', title: 'Messaging', items: [
         { key: 'templates', title: 'Templates', icon: <FiFileText size={18} />, path: '/template' },
+        { key: 'catalogs', title: 'Catalogs', icon: <FiShoppingBag size={18} />, path: '/catalogs' },
         { key: 'campaigns', title: 'Campaigns', icon: <FiSend size={18} />, path: '/campaigns' },
       ]
     },

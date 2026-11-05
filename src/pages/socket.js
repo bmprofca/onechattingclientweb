@@ -281,6 +281,7 @@ class SocketManager {
                 // Merge echoed server message into temp outgoing if same media
                 await dbHelper.mergeServerOutgoingMessage(chatNumber, {
                     message_id: messageData.message.message_id || '',
+                    client_message_id: messageData.message.client_message_id || '',
                     wamid: messageData.message.wamid || '',
                     create_date: messageData.message.create_date || '',
                     type: messageData.message.type || '',
@@ -324,6 +325,7 @@ class SocketManager {
             // New Message
             const messageList = [{
                 message_id: messageData.message.message_id || '',
+                client_message_id: messageData.message.client_message_id || '',
                 wamid: messageData.message.wamid || '',
                 create_date: messageData.message.create_date || '',
                 type: messageData.message.type || '',
