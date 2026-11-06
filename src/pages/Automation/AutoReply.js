@@ -2,6 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { Header, Sidebar } from '../../component/Menu';
 import SearchableSelect from '../../component/SearchableSelect';
 import { motion, AnimatePresence } from 'framer-motion';
+import api from '../../api/client';
+import toast from 'react-hot-toast';
 import {
     FiPlus,
     FiEdit,
@@ -13,18 +15,14 @@ import {
     FiKey,
     FiCheckCircle,
     FiXCircle,
-    FiEye,
-    FiFilter,
-    FiRefreshCw,
     FiX,
     FiSave,
-    FiCalendar,
     FiBarChart2,
-    FiZap,
-    FiSettings,
-    FiLayers
+    FiZap
 } from 'react-icons/fi';
 import moment from 'moment';
+
+const DEFAULT_TIMEZONE = Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
 
 const AutoReply = () => {
     const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -32,43 +30,35 @@ const AutoReply = () => {
         const saved = localStorage.getItem('sidebarMinimized');
         return saved ? JSON.parse(saved) : false;
     });
-    const [autoReplyEnabled, setAutoReplyEnabled] = useState(() => {
-        const saved = localStorage.getItem('autoReplyEnabled');
-        return saved ? JSON.parse(saved) : false;
-    });
-    const [rules, setRules] = useState(() => {
-        const saved = localStorage.getItem('autoReplyRules');
-        return saved ? JSON.parse(saved) : [];
-    });
+    const [projectId, setProjectId] = useState('');
+    const [autoReplyEnabled, setAutoReplyEnabled] = useState(false);
+    const [rules, setRules] = useState([]);
+    const [rulesLoading, setRulesLoading] = useState(true);
+    const [pageError, setPageError] = useState('');
+    const [saving, setSaving] = useState(false);
+    const [reloadToken, setReloadToken] = useState(0);
     const [showCreateModal, setShowCreateModal] = useState(false);
     const [editingRule, setEditingRule] = useState(null);
     const [searchTerm, setSearchTerm] = useState('');
     const [filterStatus, setFilterStatus] = useState('all');
     const [formData, setFormData] = useState({
         name: '',
+        ruleType: 'keyword',
         keywords: '',
         response: '',
         matchType: 'contains', // contains, exact, startsWith, endsWith
         enabled: true,
         businessHours: false,
+        timezone: DEFAULT_TIMEZONE,
         startTime: '09:00',
         endTime: '17:00',
         daysOfWeek: [1, 2, 3, 4, 5], // Monday to Friday
-        priority: 1,
-        multiSteps: [] // additional automated follow-up messages
+        priority: 1
     });
 
     useEffect(() => {
         localStorage.setItem('sidebarMinimized', JSON.stringify(isMinimized));
     }, [isMinimized]);
-
-    useEffect(() => {
-        localStorage.setItem('autoReplyEnabled', JSON.stringify(autoReplyEnabled));
-    }, [autoReplyEnabled]);
-
-    useEffect(() => {
-        localStorage.setItem('autoReplyRules', JSON.stringify(rules));
-    }, [rules]);
 
     useEffect(() => {
         if (mobileMenuOpen) {
@@ -81,24 +71,99 @@ const AutoReply = () => {
         };
     }, [mobileMenuOpen]);
 
-    const handleToggleAutoReply = () => {
-        setAutoReplyEnabled(!autoReplyEnabled);
+    useEffect(() => {
+        const readProjectId = () => {
+            try {
+                const userData = JSON.parse(localStorage.getItem('userData') || '{}');
+                return userData.selected_project_id ||
+                    userData.projects?.list?.[0]?.project_id ||
+                    userData.projects?.[0]?.project_id ||
+                    '';
+            } catch {
+                return '';
+            }
+        };
+        const syncProject = () => setProjectId(readProjectId());
+        syncProject();
+        window.addEventListener('storage', syncProject);
+        window.addEventListener('onechatting:project-changed', syncProject);
+        window.addEventListener('projects-updated', syncProject);
+        return () => {
+            window.removeEventListener('storage', syncProject);
+            window.removeEventListener('onechatting:project-changed', syncProject);
+            window.removeEventListener('projects-updated', syncProject);
+        };
+    }, []);
+
+    useEffect(() => {
+        if (!projectId) {
+            setRules([]);
+            setRulesLoading(false);
+            setPageError('Select a project to manage auto-reply rules.');
+            return undefined;
+        }
+        let cancelled = false;
+        const loadProjectData = async () => {
+            setRulesLoading(true);
+            setPageError('');
+            setRules([]);
+            setAutoReplyEnabled(false);
+            try {
+                const [settingsResponse, rulesResponse] = await Promise.all([
+                    api.post('/bot-reply/get-settings', { project_id: projectId }),
+                    api.get('/bot-reply/rules', { project_id: projectId })
+                ]);
+                if (cancelled) return;
+                setAutoReplyEnabled(Boolean(settingsResponse.data?.auto_reply));
+                setRules(Array.isArray(rulesResponse.data?.rules) ? rulesResponse.data.rules : []);
+            } catch (error) {
+                if (cancelled) return;
+                setPageError(error?.message || 'Unable to load auto-reply rules.');
+            } finally {
+                if (!cancelled) setRulesLoading(false);
+            }
+        };
+        loadProjectData();
+        return () => { cancelled = true; };
+    }, [projectId, reloadToken]);
+
+    const refreshRules = async () => {
+        const response = await api.get('/bot-reply/rules', { project_id: projectId });
+        setRules(Array.isArray(response.data?.rules) ? response.data.rules : []);
+    };
+
+    const handleToggleAutoReply = async () => {
+        if (!projectId || saving) return;
+        setSaving(true);
+        try {
+            await api.post('/bot-reply/toggle-auto-reply', {
+                project_id: projectId,
+                auto_reply: !autoReplyEnabled
+            });
+            setAutoReplyEnabled(!autoReplyEnabled);
+            toast.success(`Auto-reply turned ${!autoReplyEnabled ? 'on' : 'off'}`);
+        } catch (error) {
+            toast.error(error?.message || 'Unable to update auto-reply status.');
+        } finally {
+            setSaving(false);
+        }
     };
 
     const handleCreateRule = () => {
         setEditingRule(null);
         setFormData({
             name: '',
+            ruleType: 'keyword',
             keywords: '',
             response: '',
             matchType: 'contains',
             enabled: true,
             businessHours: false,
+            timezone: DEFAULT_TIMEZONE,
             startTime: '09:00',
             endTime: '17:00',
             daysOfWeek: [1, 2, 3, 4, 5],
             priority: rules.length + 1,
-            multiSteps: []
         });
         setShowCreateModal(true);
     };
@@ -107,117 +172,94 @@ const AutoReply = () => {
         setEditingRule(rule);
         setFormData({
             name: rule.name,
-            keywords: rule.keywords.join(', '),
+            ruleType: rule.ruleType || 'keyword',
+            keywords: (rule.keywords || []).join(', '),
             response: rule.response,
             matchType: rule.matchType,
             enabled: rule.enabled,
             businessHours: rule.businessHours || false,
+            timezone: rule.timezone || 'UTC',
             startTime: rule.startTime || '09:00',
             endTime: rule.endTime || '17:00',
             daysOfWeek: rule.daysOfWeek || [1, 2, 3, 4, 5],
-            priority: rule.priority,
-            multiSteps: rule.multiSteps || []
+            priority: rule.priority
         });
         setShowCreateModal(true);
     };
 
-    // Multi-level (follow-up) steps helpers
-    const handleAddMultiStep = () => {
-        setFormData((prev) => ({
-            ...prev,
-            multiSteps: [
-                ...prev.multiSteps,
-                {
-                    id: Date.now().toString() + '-' + prev.multiSteps.length,
-                    label: `Step ${prev.multiSteps.length + 1}`,
-                    delaySeconds: 30,
-                    message: ''
-                }
-            ]
-        }));
-    };
-
-    const handleUpdateMultiStep = (index, field, value) => {
-        setFormData((prev) => {
-            const updated = [...prev.multiSteps];
-            updated[index] = {
-                ...updated[index],
-                [field]: field === 'delaySeconds' ? (parseInt(value, 10) || 0) : value
-            };
-            return { ...prev, multiSteps: updated };
-        });
-    };
-
-    const handleRemoveMultiStep = (index) => {
-        setFormData((prev) => ({
-            ...prev,
-            multiSteps: prev.multiSteps.filter((_, i) => i !== index)
-        }));
-    };
-
-    const handleDeleteRule = (ruleId) => {
-        if (window.confirm('Are you sure you want to delete this auto-reply rule?')) {
-            setRules(rules.filter(rule => rule.id !== ruleId));
+    const handleDeleteRule = async (ruleId) => {
+        if (!window.confirm('Are you sure you want to delete this auto-reply rule?')) return;
+        try {
+            await api.delete(`/bot-reply/rules/${ruleId}`, { data: { project_id: projectId } });
+            await refreshRules();
+            toast.success('Rule deleted.');
+        } catch (error) {
+            toast.error(error?.message || 'Unable to delete rule.');
         }
     };
 
-    const handleToggleRule = (ruleId) => {
-        setRules(rules.map(rule =>
-            rule.id === ruleId ? { ...rule, enabled: !rule.enabled } : rule
-        ));
+    const handleToggleRule = async (ruleId) => {
+        const rule = rules.find((item) => item.id === ruleId);
+        if (!rule) return;
+        try {
+            await api.patch(`/bot-reply/rules/${ruleId}/status`, {
+                project_id: projectId,
+                enabled: !rule.enabled
+            });
+            await refreshRules();
+        } catch (error) {
+            toast.error(error?.message || 'Unable to update rule status.');
+        }
     };
 
-    const handleSubmit = (e) => {
+    const handleSubmit = async (e) => {
         e.preventDefault();
 
         const keywordsArray = formData.keywords.split(',').map(k => k.trim()).filter(k => k);
 
-        if (keywordsArray.length === 0) {
-            alert('Please enter at least one keyword');
+        if (formData.ruleType === 'keyword' && keywordsArray.length === 0) {
+            toast.error('Please enter at least one keyword.');
             return;
         }
 
         if (!formData.response.trim()) {
-            alert('Please enter a response message');
+            toast.error('Please enter a response message.');
             return;
         }
 
         const ruleData = {
-            id: editingRule ? editingRule.id : Date.now().toString(),
-            name: formData.name || `Rule ${rules.length + 1}`,
+            project_id: projectId,
+            name: formData.name,
+            ruleType: formData.ruleType,
             keywords: keywordsArray,
             response: formData.response,
             matchType: formData.matchType,
             enabled: formData.enabled,
-            businessHours: formData.businessHours,
-            startTime: formData.businessHours ? formData.startTime : null,
-            endTime: formData.businessHours ? formData.endTime : null,
-            daysOfWeek: formData.businessHours ? formData.daysOfWeek : null,
-            priority: formData.priority,
-            multiSteps: (formData.multiSteps || []).map((step, idx) => ({
-                id: step.id || `${Date.now().toString()}-${idx}`,
-                label: step.label || `Step ${idx + 1}`,
-                delaySeconds: typeof step.delaySeconds === 'number'
-                    ? step.delaySeconds
-                    : parseInt(step.delaySeconds, 10) || 0,
-                message: step.message || ''
-            })),
-            createdAt: editingRule ? editingRule.createdAt : new Date().toISOString(),
-            updatedAt: new Date().toISOString(),
-            stats: editingRule ? editingRule.stats : {
-                triggered: 0,
-                lastTriggered: null
-            }
+            businessHours: formData.ruleType === 'away' || formData.businessHours,
+            timezone: formData.timezone,
+            startTime: formData.ruleType === 'away' || formData.businessHours ? formData.startTime : null,
+            endTime: formData.ruleType === 'away' || formData.businessHours ? formData.endTime : null,
+            daysOfWeek: formData.ruleType === 'away' || formData.businessHours ? formData.daysOfWeek : [],
+            priority: Number(formData.priority)
         };
 
-        if (editingRule) {
-            setRules(rules.map(rule => rule.id === editingRule.id ? ruleData : rule));
-        } else {
-            setRules([...rules, ruleData]);
+        setSaving(true);
+        try {
+            if (editingRule) {
+                await api.put(`/bot-reply/rules/${editingRule.id}`, ruleData);
+                toast.success('Rule updated.');
+            } else {
+                await api.post('/bot-reply/rules', ruleData);
+                toast.success('Rule created.');
+            }
+            await refreshRules();
+            setShowCreateModal(false);
+            setEditingRule(null);
+        } catch (error) {
+            toast.error(error?.message || 'Unable to save rule.');
+        } finally {
+            setSaving(false);
         }
-
-        setShowCreateModal(false);
-        setEditingRule(null);
     };
 
     const handleDayToggle = (day) => {
@@ -289,10 +331,11 @@ const AutoReply = () => {
                             <div className="flex items-center gap-2">
                                 <button
                                     onClick={handleToggleAutoReply}
+                                    disabled={!projectId || saving || rulesLoading}
                                     className={`inline-flex items-center px-4 py-2 rounded-md shadow-sm text-sm font-medium transition-colors ${autoReplyEnabled
                                             ? 'bg-green-600 text-white hover:bg-green-700'
                                             : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
-                                        }`}
+                                        } disabled:opacity-50 disabled:cursor-not-allowed`}
                                 >
                                     {autoReplyEnabled ? (
                                         <>
@@ -308,6 +351,7 @@ const AutoReply = () => {
                                 </button>
                                 <button
                                     onClick={handleCreateRule}
+                                    disabled={!projectId || rulesLoading}
                                     className="inline-flex items-center h-[38px] px-3.5 border border-transparent rounded-[9px] text-[13px] font-semibold text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-colors"
                                 >
                                     <FiPlus className="mr-2" size={18} />
@@ -316,6 +360,23 @@ const AutoReply = () => {
                             </div>
                         </div>
                     </div>
+
+                    {pageError && (
+                        <div role="alert" className="mb-5 rounded-md border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-900 dark:border-amber-800 dark:bg-amber-950 dark:text-amber-100">
+                            <div className="flex items-center justify-between gap-4">
+                                <span>{pageError}</span>
+                                {projectId && (
+                                    <button
+                                        type="button"
+                                        onClick={() => setReloadToken((token) => token + 1)}
+                                        className="font-semibold underline"
+                                    >
+                                        Retry
+                                    </button>
+                                )}
+                            </div>
+                        </div>
+                    )}
 
                     {/* Summary Stats */}
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
@@ -399,7 +460,11 @@ const AutoReply = () => {
 
                     {/* Rules List */}
                     <div className="overflow-hidden rounded-card border border-line bg-white dark:border-gray-700 dark:bg-gray-800">
-                        {sortedRules.length === 0 ? (
+                        {rulesLoading ? (
+                            <div className="p-12 text-center text-sm text-gray-500 dark:text-gray-400" role="status">
+                                Loading auto-reply rules...
+                            </div>
+                        ) : sortedRules.length === 0 ? (
                             <div className="p-12 text-center">
                                 <FiMessageSquare className="mx-auto h-12 w-12 text-gray-400 mb-4" />
                                 <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">No auto-reply rules</h3>
@@ -440,10 +505,13 @@ const AutoReply = () => {
                                                     <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-indigo-100 text-indigo-800 dark:bg-indigo-900 dark:text-indigo-200">
                                                         Priority: {rule.priority}
                                                     </span>
+                                                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200">
+                                                        {rule.ruleType === 'away' ? 'Away hours' : rule.ruleType === 'welcome' ? 'Welcome' : 'Keyword'}
+                                                    </span>
                                                 </div>
 
                                                 <div className="mt-3 space-y-2">
-                                                    <div className="flex items-start">
+                                                    {rule.ruleType === 'keyword' && <div className="flex items-start">
                                                         <FiKey className="mt-1 mr-2 text-gray-400 flex-shrink-0" size={16} />
                                                         <div>
                                                             <span className="text-sm font-medium text-gray-500 dark:text-gray-400">Keywords:</span>
@@ -459,7 +527,7 @@ const AutoReply = () => {
                                                             </div>
                                                             <span className="text-xs text-gray-400 ml-2">({rule.matchType})</span>
                                                         </div>
-                                                    </div>
+                                                    </div>}
 
                                                     <div className="flex items-start">
                                                         <FiMessageSquare className="mt-1 mr-2 text-gray-400 flex-shrink-0" size={16} />
@@ -469,27 +537,13 @@ const AutoReply = () => {
                                                         </div>
                                                     </div>
 
-                                                    {Array.isArray(rule.multiSteps) && rule.multiSteps.length > 0 && (
-                                                        <div className="flex items-start">
-                                                            <FiLayers className="mt-1 mr-2 text-gray-400 flex-shrink-0" size={16} />
-                                                            <div>
-                                                                <span className="text-sm font-medium text-gray-500 dark:text-gray-400">
-                                                                    Multi-level follow-ups:
-                                                                </span>
-                                                                <p className="mt-1 text-sm text-gray-900 dark:text-white">
-                                                                    {rule.multiSteps.length} step{rule.multiSteps.length > 1 ? 's' : ''} configured
-                                                                </p>
-                                                            </div>
-                                                        </div>
-                                                    )}
-
                                                     {rule.businessHours && (
                                                         <div className="flex items-start">
                                                             <FiClock className="mt-1 mr-2 text-gray-400 flex-shrink-0" size={16} />
                                                             <div>
                                                                 <span className="text-sm font-medium text-gray-500 dark:text-gray-400">Business Hours:</span>
                                                                 <p className="mt-1 text-sm text-gray-900 dark:text-white">
-                                                                    {rule.startTime} - {rule.endTime} ({rule.daysOfWeek.map(d => daysOfWeek[d].label).join(', ')})
+                                                                    {rule.startTime} - {rule.endTime} ({(rule.daysOfWeek || []).map(d => daysOfWeek[d]?.label).filter(Boolean).join(', ')}) · {rule.timezone}
                                                                 </p>
                                                             </div>
                                                         </div>
@@ -507,6 +561,7 @@ const AutoReply = () => {
                                             <div className="flex items-center space-x-2 ml-4">
                                                 <button
                                                     onClick={() => handleToggleRule(rule.id)}
+                                                    disabled={saving}
                                                     className={`p-2 rounded-md transition-colors ${rule.enabled
                                                             ? 'text-green-600 hover:bg-green-50 dark:hover:bg-green-900'
                                                             : 'text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700'
@@ -517,6 +572,7 @@ const AutoReply = () => {
                                                 </button>
                                                 <button
                                                     onClick={() => handleEditRule(rule)}
+                                                    disabled={saving}
                                                     className="p-2 text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900 rounded-md transition-colors"
                                                     title="Edit rule"
                                                 >
@@ -524,6 +580,7 @@ const AutoReply = () => {
                                                 </button>
                                                 <button
                                                     onClick={() => handleDeleteRule(rule.id)}
+                                                    disabled={saving}
                                                     className="p-2 text-red-600 hover:bg-red-50 dark:hover:bg-red-900 rounded-md transition-colors"
                                                     title="Delete rule"
                                                 >
@@ -586,20 +643,46 @@ const AutoReply = () => {
                                         <input
                                             type="text"
                                             value={formData.name}
+                                            maxLength={120}
+                                            required
                                             onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                                             placeholder="e.g., Greeting Response"
                                             className="block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                                         />
                                     </div>
 
-                                    {/* Keywords */}
                                     <div>
+                                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                                            Rule Type
+                                        </label>
+                                        <select
+                                            value={formData.ruleType}
+                                            onChange={(e) => setFormData({
+                                                ...formData,
+                                                ruleType: e.target.value,
+                                                businessHours: e.target.value === 'away' ? true : formData.businessHours
+                                            })}
+                                            className="block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                                        >
+                                            <option value="keyword">Keyword reply</option>
+                                            <option value="welcome">First-message welcome</option>
+                                            <option value="away">Away-hours reply</option>
+                                        </select>
+                                        {formData.ruleType === 'away' && (
+                                            <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                                                This reply is sent outside the working hours configured below.
+                                            </p>
+                                        )}
+                                    </div>
+
+                                    {formData.ruleType === 'keyword' && <div>
                                         <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                                             Keywords <span className="text-red-500">*</span>
                                         </label>
                                         <input
                                             type="text"
                                             value={formData.keywords}
+                                            maxLength={2579}
                                             onChange={(e) => setFormData({ ...formData, keywords: e.target.value })}
                                             placeholder="Enter keywords separated by commas (e.g., hello, hi, hey)"
                                             className="block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
@@ -608,10 +691,10 @@ const AutoReply = () => {
                                         <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
                                             Separate multiple keywords with commas
                                         </p>
-                                    </div>
+                                    </div>}
 
                                     {/* Match Type */}
-                                    <div>
+                                    {formData.ruleType === 'keyword' && <div>
                                         <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                                             Match Type
                                         </label>
@@ -626,7 +709,7 @@ const AutoReply = () => {
                                             ]}
                                             className="block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                                         />
-                                    </div>
+                                    </div>}
 
                                     {/* Response Message */}
                                     <div>
@@ -643,90 +726,6 @@ const AutoReply = () => {
                                         />
                                     </div>
 
-                                    {/* Multi-level (Follow-up) Responses */}
-                                    <div>
-                                        <div className="flex items-center justify-between mb-2">
-                                            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                                                Multi-level follow-up messages
-                                            </label>
-                                            <button
-                                                type="button"
-                                                onClick={handleAddMultiStep}
-                                                className="inline-flex items-center px-2.5 py-1.5 border border-indigo-600 text-xs font-medium rounded-md text-indigo-600 bg-white hover:bg-indigo-50 dark:bg-gray-800 dark:hover:bg-gray-700 dark:text-indigo-300"
-                                            >
-                                                <FiPlus className="mr-1" size={14} />
-                                                Add step
-                                            </button>
-                                        </div>
-                                        {(!formData.multiSteps || formData.multiSteps.length === 0) && (
-                                            <p className="text-xs text-gray-500 dark:text-gray-400">
-                                                Optionally send additional automated messages after the first response
-                                                (e.g., follow-ups after a delay). This is your simple multi-level auto-reply.
-                                            </p>
-                                        )}
-                                        {Array.isArray(formData.multiSteps) && formData.multiSteps.length > 0 && (
-                                            <div className="space-y-4">
-                                                {formData.multiSteps.map((step, index) => (
-                                                    <div
-                                                        key={step.id || index}
-                                                        className="border border-gray-200 dark:border-gray-700 rounded-md p-3 bg-gray-50 dark:bg-gray-800/60"
-                                                    >
-                                                        <div className="flex items-center justify-between mb-2">
-                                                            <div className="flex items-center space-x-2">
-                                                                <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-indigo-100 text-indigo-800 dark:bg-indigo-900 dark:text-indigo-200">
-                                                                    Step {index + 1}
-                                                                </span>
-                                                                <input
-                                                                    type="text"
-                                                                    value={step.label || ''}
-                                                                    onChange={(e) => handleUpdateMultiStep(index, 'label', e.target.value)}
-                                                                    placeholder="Short label (optional)"
-                                                                    className="block w-40 px-2 py-1 border border-gray-300 dark:border-gray-600 rounded-md text-xs bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                                                                />
-                                                            </div>
-                                                            <button
-                                                                type="button"
-                                                                onClick={() => handleRemoveMultiStep(index)}
-                                                                className="text-xs text-red-600 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300"
-                                                            >
-                                                                Remove
-                                                            </button>
-                                                        </div>
-                                                        <div className="grid grid-cols-1 sm:grid-cols-5 gap-3">
-                                                            <div className="sm:col-span-2">
-                                                                <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
-                                                                    Delay (seconds)
-                                                                </label>
-                                                                <input
-                                                                    type="number"
-                                                                    min="0"
-                                                                    value={step.delaySeconds}
-                                                                    onChange={(e) => handleUpdateMultiStep(index, 'delaySeconds', e.target.value)}
-                                                                    className="block w-full px-2 py-1 border border-gray-300 dark:border-gray-600 rounded-md text-xs bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                                                                />
-                                                                <p className="mt-1 text-[10px] text-gray-500 dark:text-gray-400">
-                                                                    How long after the previous reply this message should be sent.
-                                                                </p>
-                                                            </div>
-                                                            <div className="sm:col-span-3">
-                                                                <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
-                                                                    Follow-up message
-                                                                </label>
-                                                                <textarea
-                                                                    rows={2}
-                                                                    value={step.message}
-                                                                    onChange={(e) => handleUpdateMultiStep(index, 'message', e.target.value)}
-                                                                    placeholder="Enter the follow-up message..."
-                                                                    className="block w-full px-2 py-1 border border-gray-300 dark:border-gray-600 rounded-md text-xs bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                                                                />
-                                                            </div>
-                                                        </div>
-                                                    </div>
-                                                ))}
-                                            </div>
-                                        )}
-                                    </div>
-
                                     {/* Priority */}
                                     <div>
                                         <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
@@ -735,6 +734,7 @@ const AutoReply = () => {
                                         <input
                                             type="number"
                                             min="1"
+                                            max="10000"
                                             value={formData.priority}
                                             onChange={(e) => setFormData({ ...formData, priority: parseInt(e.target.value) || 1 })}
                                             className="block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
@@ -745,7 +745,7 @@ const AutoReply = () => {
                                     </div>
 
                                     {/* Business Hours Toggle */}
-                                    <div className="flex items-center">
+                                    {formData.ruleType !== 'away' && <div className="flex items-center">
                                         <input
                                             type="checkbox"
                                             id="businessHours"
@@ -754,13 +754,26 @@ const AutoReply = () => {
                                             className="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded"
                                         />
                                         <label htmlFor="businessHours" className="ml-2 block text-sm text-gray-700 dark:text-gray-300">
-                                            Enable Business Hours
+                                            Apply a schedule to this rule
                                         </label>
-                                    </div>
+                                    </div>}
 
                                     {/* Business Hours Settings */}
-                                    {formData.businessHours && (
+                                    {(formData.businessHours || formData.ruleType === 'away') && (
                                         <div className="pl-6 border-l-2 border-indigo-200 dark:border-indigo-800 space-y-4">
+                                            <div>
+                                                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                                                    Timezone
+                                                </label>
+                                                <input
+                                                    type="text"
+                                                    value={formData.timezone}
+                                                    onChange={(e) => setFormData({ ...formData, timezone: e.target.value })}
+                                                    placeholder="e.g., Asia/Kolkata"
+                                                    required={formData.ruleType === 'away' || formData.businessHours}
+                                                    className="block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                                                />
+                                            </div>
                                             <div className="grid grid-cols-2 gap-4">
                                                 <div>
                                                     <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
@@ -769,6 +782,7 @@ const AutoReply = () => {
                                                     <input
                                                         type="time"
                                                         value={formData.startTime}
+                                                        required={formData.ruleType === 'away' || formData.businessHours}
                                                         onChange={(e) => setFormData({ ...formData, startTime: e.target.value })}
                                                         className="block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                                                     />
@@ -780,6 +794,7 @@ const AutoReply = () => {
                                                     <input
                                                         type="time"
                                                         value={formData.endTime}
+                                                        required={formData.ruleType === 'away' || formData.businessHours}
                                                         onChange={(e) => setFormData({ ...formData, endTime: e.target.value })}
                                                         className="block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                                                     />
@@ -835,10 +850,11 @@ const AutoReply = () => {
                                     </button>
                                     <button
                                         type="submit"
+                                        disabled={saving}
                                         className="inline-flex items-center h-[38px] px-3.5 border border-transparent rounded-[9px] text-[13px] font-semibold text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
                                     >
                                         <FiSave className="mr-2" size={16} />
-                                        {editingRule ? 'Update Rule' : 'Create Rule'}
+                                        {saving ? 'Saving...' : editingRule ? 'Update Rule' : 'Create Rule'}
                                     </button>
                                 </div>
                             </form>
