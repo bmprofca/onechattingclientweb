@@ -4713,6 +4713,22 @@ function Conversation({ activeChat, tokens, onBack, darkMode, dbAvailable, socke
                                                             <p className="text-sm text-gray-500 dark:text-gray-400 font-mono">{contactDetails.contact.number}</p>
                                                         </div>
                                                     </div>
+                                                    {contactDetails.contact.tags?.length > 0 && (
+                                                        <div className="flex flex-wrap gap-2">
+                                                            {contactDetails.contact.tags.map((tag) => (
+                                                                <span
+                                                                    key={tag.tag_id}
+                                                                    className="rounded-full px-2.5 py-1 text-xs font-medium"
+                                                                    style={{
+                                                                        backgroundColor: `${tag.color || '#6366f1'}25`,
+                                                                        color: tag.color || '#6366f1'
+                                                                    }}
+                                                                >
+                                                                    {tag.name}
+                                                                </span>
+                                                            ))}
+                                                        </div>
+                                                    )}
                                                     <dl className="space-y-3 text-sm">
                                                         {contactDetails.contact.contact_id && (
                                                             <div className="flex flex-col gap-0.5 py-2 px-3 rounded-xl bg-gray-50 dark:bg-gray-700/40">

@@ -157,6 +157,7 @@ function ChatList({ tokens, onChatSelect, activeChat, darkMode, dbAvailable, soc
                     if (isCurrentlyOpen) {
                         return {
                             ...socketChat,
+                            tags: socketChat.tags || existingChat?.tags || [],
                             unread_count: 0,
                             unread: false
                         };
@@ -175,6 +176,7 @@ function ChatList({ tokens, onChatSelect, activeChat, darkMode, dbAvailable, soc
                         const currentUnread = existingChat?.unread_count || 0;
                         return {
                             ...socketChat,
+                            tags: socketChat.tags || existingChat?.tags || [],
                             unread_count: currentUnread + 1,
                             unread: true
                         };
@@ -189,6 +191,7 @@ function ChatList({ tokens, onChatSelect, activeChat, darkMode, dbAvailable, soc
 
                     return {
                         ...socketChat,
+                        tags: socketChat.tags || existingChat?.tags || [],
                         unread_count: unreadCount,
                         unread: unreadCount > 0
                     };
@@ -245,6 +248,7 @@ function ChatList({ tokens, onChatSelect, activeChat, darkMode, dbAvailable, soc
                 number: apiChat.contact.number,
                 name: apiChat.contact.name || apiChat.contact.number,
                 is_favorite: apiChat.contact.is_favorite || false,
+                tags: Array.isArray(apiChat.contact.tags) ? apiChat.contact.tags : [],
                 case_open_count: caseOpenCount,
                 wamid: apiChat.last_message.wamid,
                 create_date: apiChat.last_message.create_date,
@@ -820,7 +824,25 @@ function ChatList({ tokens, onChatSelect, activeChat, darkMode, dbAvailable, soc
                                                                 <h3 className="font-medium truncate text-gray-900 dark:text-white">
                                                                     {(chat.name || chat.number || '').startsWith("91") ? `+${chat.name || chat.number}` : (chat.name || chat.number)}
                                                                 </h3>
-                                                                {(chat.case_open_count || 0) > 0 && (
+                                                                        {chat.tags?.slice(0, 2).map((tag) => (
+                                                                            <span
+                                                                                key={tag.tag_id}
+                                                                                className="max-w-[84px] truncate rounded px-1.5 py-0.5 text-[10px] font-medium"
+                                                                                style={{
+                                                                                    backgroundColor: `${tag.color || '#6366f1'}25`,
+                                                                                    color: tag.color || '#6366f1'
+                                                                                }}
+                                                                                title={tag.name}
+                                                                            >
+                                                                                {tag.name}
+                                                                            </span>
+                                                                        ))}
+                                                                        {(chat.tags?.length || 0) > 2 && (
+                                                                            <span className="text-[10px] text-gray-500 dark:text-gray-400" title={chat.tags.slice(2).map((tag) => tag.name).join(', ')}>
+                                                                                +{chat.tags.length - 2}
+                                                                            </span>
+                                                                        )}
+                                                                        {(chat.case_open_count || 0) > 0 && (
                                                                     <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] font-medium bg-amber-100 text-amber-800 dark:bg-amber-900/50 dark:text-amber-200 flex-shrink-0" title="Open cases">
                                                                         <FiBriefcase className="w-3 h-3" />
                                                                         Case {(chat.case_open_count || 0) > 99 ? '99+' : chat.case_open_count}

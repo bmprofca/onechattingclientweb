@@ -4,6 +4,7 @@ import { API_BASE_URL } from '../../config/api';
 import axios from 'axios';
 import toast from 'react-hot-toast';
 import { Encrypt } from '../../pages/encryption/payload-encryption';
+import { useTheme } from '../../theme/ThemeContext';
 import SearchableSelect from '../SearchableSelect';
 import {
     FiX,
@@ -18,6 +19,7 @@ import {
     FiCheckCircle,
     FiAlertCircle,
     FiUsers,
+    FiTag,
     FiPlus,
     FiTrash2
 } from 'react-icons/fi';
@@ -112,9 +114,14 @@ const ContactFormModal = ({
     loading = false,
     submitting = false,
     error = '',
-    darkMode = false,
-    groups = []
+    groups = [],
+    customFields = [],
+    customFieldsLoading = false,
+    availableTags = [],
+    projectId = '',
+    onTagsChanged = () => {}
 }) => {
+    const { isDark: darkMode } = useTheme();
     const [activeTab, setActiveTab] = useState('details'); // 'details' | 'groups'
     const [country, setCountry] = useState(DEFAULT_COUNTRY);
     const [formData, setFormData] = useState({
@@ -135,6 +142,11 @@ const ContactFormModal = ({
     });
     const [originalNumber, setOriginalNumber] = useState('');
     const [numberChanged, setNumberChanged] = useState(false);
+    const [customAttributeValues, setCustomAttributeValues] = useState({});
+    const [assignedTags, setAssignedTags] = useState([]);
+    const [selectedTagId, setSelectedTagId] = useState('');
+    const [tagActionId, setTagActionId] = useState('');
+    const [tagError, setTagError] = useState('');
 
     // Assigned groups management state
     const [assignedGroups, setAssignedGroups] = useState([]);
@@ -174,6 +186,8 @@ const ContactFormModal = ({
     useEffect(() => {
         setActiveTab('details');
         setSelectedAddGroupId('');
+        setSelectedTagId('');
+        setTagError('');
 
         if (initialData.number || initialData.mobile) {
             const rawNum = String(initialData.number || initialData.mobile || '');
@@ -202,6 +216,8 @@ const ContactFormModal = ({
                 remark: initialData.remark || '',
                 group_id: initialData.group_id || ''
             });
+            setCustomAttributeValues(initialData.custom_attribute_values || {});
+            setAssignedTags(Array.isArray(initialData.tags) ? initialData.tags : []);
 
             // Populate initial groups from contact data if present
             const initGroups = [];
@@ -231,7 +247,9 @@ const ContactFormModal = ({
                 remark: initialData.remark || '',
                 group_id: initialData.group_id || ''
             });
+            setCustomAttributeValues(initialData.custom_attribute_values || {});
             setAssignedGroups([]);
+            setAssignedTags([]);
         }
 
         setErrors({
@@ -299,7 +317,8 @@ const ContactFormModal = ({
 
         onSubmit({
             ...formData,
-            number: fullNumber
+            number: fullNumber,
+            custom_attributes: customAttributeValues
         }, fullNumber, country);
     };
 
@@ -391,9 +410,120 @@ const ContactFormModal = ({
     // Filter unassigned groups for the dropdown in Tab 2
     const assignedGroupIds = new Set(assignedGroups.map(g => String(g.group_id || g.id)));
     const unassignedGroups = groups.filter(g => !assignedGroupIds.has(String(g.id || g.group_id)));
+    const assignedTagIds = new Set(assignedTags.map((tag) => String(tag.tag_id)));
+    const unassignedTags = availableTags.filter((tag) => !assignedTagIds.has(String(tag.tag_id)));
 
     const isFormValid = formData.name.trim() && formData.number.length === 10 &&
         !Object.values(errors).some(error => error !== '');
+
+    const handleContactTagChange = async (tag, action) => {
+        const contactId = initialData.contact_id || initialData.id;
+        const tokens = getStoredTokens();
+        const activeProjectId = initialData.project_id || projectId || tokens?.selected_project_id || '';
+        if (!contactId || !activeProjectId || !tokens?.token || !tokens?.username) {
+            setTagError('Unable to update this contact’s tags. Please check the active project and sign-in state.');
+            return;
+        }
+
+        setTagActionId(tag.tag_id);
+        setTagError('');
+        try {
+            const payload = {
+                project_id: activeProjectId,
+                tag_id: tag.tag_id,
+                action,
+                contact_ids: [contactId]
+            };
+            const { data, key } = Encrypt(payload);
+            const response = await axios.post(
+                `${API_BASE_URL}/contact/tag-contact-bulk`,
+                JSON.stringify({ data, key }),
+                { headers: { token: tokens.token, username: tokens.username, 'Content-Type': 'application/json' } }
+            );
+            if (response?.data?.error) throw new Error(response.data.error);
+            const result = response?.data?.results?.find((item) => String(item.contact_id) === String(contactId));
+            if (!result?.success) throw new Error(result?.error || response?.data?.msg || 'Failed to update contact tag');
+
+            setAssignedTags((current) => action === 'add'
+                ? (current.some((item) => item.tag_id === tag.tag_id) ? current : [...current, tag])
+                : current.filter((item) => item.tag_id !== tag.tag_id));
+            setSelectedTagId('');
+            onTagsChanged();
+        } catch (error) {
+            setTagError(error.message || 'Failed to update contact tag');
+        } finally {
+            setTagActionId('');
+        }
+    };
+
+    const renderCustomAttributes = () => (
+        <div className="space-y-4">
+            {customFieldsLoading && <p className="text-sm text-gray-500">Loading custom fields…</p>}
+            {!customFieldsLoading && customFields.length === 0 && (
+                <p className="text-sm text-gray-500">No custom attributes have been created for this project yet.</p>
+            )}
+            {customFields.map((field) => {
+                const value = customAttributeValues[field.field_id] ?? '';
+                const inputClass = `w-full rounded-lg border px-3 py-2 text-sm outline-none focus:ring-2 ${
+                    darkMode
+                        ? 'border-gray-600 bg-gray-900 text-white focus:border-blue-400 focus:ring-blue-800'
+                        : 'border-gray-300 bg-white text-gray-900 focus:border-blue-500 focus:ring-blue-200'
+                }`;
+                if (field.field_type === 'boolean') {
+                    return (
+                        <label key={field.field_id} className={`flex items-center gap-2 text-sm ${darkMode ? 'text-gray-200' : 'text-gray-700'}`}>
+                            <input
+                                type="checkbox"
+                                checked={value === true || value === 'true' || value === 1 || value === '1'}
+                                onChange={(event) => setCustomAttributeValues((previous) => ({
+                                    ...previous,
+                                    [field.field_id]: event.target.checked
+                                }))}
+                                disabled={loading || submitting}
+                                className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                            />
+                            {field.name}
+                        </label>
+                    );
+                }
+                return (
+                    <div key={field.field_id}>
+                        <label htmlFor={`custom-field-${field.field_id}`} className={`mb-1 block text-sm font-medium ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+                            {field.name}
+                        </label>
+                        {field.field_type === 'select' ? (
+                            <select
+                                id={`custom-field-${field.field_id}`}
+                                value={value}
+                                onChange={(event) => setCustomAttributeValues((previous) => ({
+                                    ...previous,
+                                    [field.field_id]: event.target.value
+                                }))}
+                                disabled={loading || submitting}
+                                className={inputClass}
+                            >
+                                <option value="">Select…</option>
+                                {(field.options || []).map((option) => <option key={option} value={option}>{option}</option>)}
+                            </select>
+                        ) : (
+                            <input
+                                id={`custom-field-${field.field_id}`}
+                                type={field.field_type === 'number' || field.field_type === 'date' ? field.field_type : 'text'}
+                                step={field.field_type === 'number' ? 'any' : undefined}
+                                value={value}
+                                onChange={(event) => setCustomAttributeValues((previous) => ({
+                                    ...previous,
+                                    [field.field_id]: event.target.value
+                                }))}
+                                disabled={loading || submitting}
+                                className={inputClass}
+                            />
+                        )}
+                    </div>
+                );
+            })}
+        </div>
+    );
 
     return (
         <AnimatePresence>
@@ -455,13 +585,13 @@ const ContactFormModal = ({
                             </button>
                         </div>
 
-                        {/* Two Tabs when isExisting === true */}
+                        {/* Contact management tabs */}
                         {isExisting && (
-                            <div className={`flex border-b px-4 bg-gray-50/70 ${darkMode ? 'border-gray-700 bg-gray-900/40' : 'border-gray-200'}`}>
+                            <div className={`flex overflow-x-auto scrollbar-hide border-b px-2 sm:px-4 ${darkMode ? 'border-gray-700 bg-gray-900/40' : 'border-gray-200 bg-gray-50/70'}`}>
                                 <button
                                     type="button"
                                     onClick={() => setActiveTab('details')}
-                                    className={`flex items-center gap-2 py-3 px-4 font-medium text-sm border-b-2 transition-colors ${
+                                    className={`flex shrink-0 items-center gap-2 whitespace-nowrap py-3 px-3 sm:px-4 font-medium text-sm border-b-2 transition-colors ${
                                         activeTab === 'details'
                                             ? 'border-indigo-600 text-indigo-600'
                                             : 'border-transparent text-gray-500 hover:text-gray-700'
@@ -473,7 +603,7 @@ const ContactFormModal = ({
                                 <button
                                     type="button"
                                     onClick={() => setActiveTab('groups')}
-                                    className={`flex items-center gap-2 py-3 px-4 font-medium text-sm border-b-2 transition-colors ${
+                                    className={`flex shrink-0 items-center gap-2 whitespace-nowrap py-3 px-3 sm:px-4 font-medium text-sm border-b-2 transition-colors ${
                                         activeTab === 'groups'
                                             ? 'border-indigo-600 text-indigo-600'
                                             : 'border-transparent text-gray-500 hover:text-gray-700'
@@ -489,11 +619,30 @@ const ContactFormModal = ({
                                         {assignedGroups.length}
                                     </span>
                                 </button>
+                                <button
+                                    type="button"
+                                    onClick={() => setActiveTab('tagsAttributes')}
+                                    className={`flex shrink-0 items-center gap-2 whitespace-nowrap py-3 px-3 sm:px-4 font-medium text-sm border-b-2 transition-colors ${
+                                        activeTab === 'tagsAttributes'
+                                            ? 'border-indigo-600 text-indigo-600'
+                                            : 'border-transparent text-gray-500 hover:text-gray-700'
+                                    }`}
+                                >
+                                    <FiTag className="h-4 w-4" />
+                                    Tags &amp; Attributes
+                                    <span className={`ml-1 px-2 py-0.5 text-xs rounded-full font-semibold ${
+                                        activeTab === 'tagsAttributes'
+                                            ? 'bg-indigo-100 text-indigo-700'
+                                            : 'bg-gray-200 text-gray-700'
+                                    }`}>
+                                        {assignedTags.length}
+                                    </span>
+                                </button>
                             </div>
                         )}
 
                         {/* Form Body */}
-                        <div className="flex-1 overflow-y-auto">
+                        <div className="flex-1 overflow-y-auto scrollbar-hide">
                             {/* TAB 1: PROFILE DETAILS */}
                             {activeTab === 'details' && (
                                 <div className="space-y-4 px-3 py-4 sm:px-5">
@@ -745,6 +894,14 @@ const ContactFormModal = ({
                                             {formData.remark.length}/1000 characters
                                         </p>
                                     </div>
+                                    {!isExisting && (customFieldsLoading || customFields.length > 0) && (
+                                        <section className={`space-y-4 border-t pt-4 ${darkMode ? 'border-gray-700' : 'border-gray-200'}`}>
+                                            <h3 className={`text-sm font-semibold ${darkMode ? 'text-gray-200' : 'text-gray-800'}`}>
+                                                Custom attributes
+                                            </h3>
+                                            {renderCustomAttributes()}
+                                        </section>
+                                    )}
                                 </div>
                             )}
 
@@ -813,7 +970,7 @@ const ContactFormModal = ({
                                         </div>
 
                                         {assignedGroups.length > 0 ? (
-                                            <div className="space-y-2 max-h-72 overflow-y-auto pr-1">
+                                            <div className="space-y-2 max-h-72 overflow-y-auto scrollbar-hide pr-1">
                                                 {assignedGroups.map((grp) => {
                                                     const gid = String(grp.group_id || grp.id);
                                                     const isRemoving = removingGroupId === gid;
@@ -867,10 +1024,90 @@ const ContactFormModal = ({
                                     </div>
                                 </div>
                             )}
+                            {activeTab === 'tagsAttributes' && isExisting && (
+                                <div className="space-y-6 px-3 py-4 sm:px-5">
+                                    <section className="space-y-3">
+                                        <div>
+                                            <h4 className={`text-sm font-semibold ${darkMode ? 'text-gray-100' : 'text-gray-900'}`}>Contact tags</h4>
+                                            <p className="mt-1 text-xs text-gray-500">Tags are applied immediately to this contact.</p>
+                                        </div>
+                                        {tagError && (
+                                            <p role="alert" className={`rounded-lg border px-3 py-2 text-sm ${darkMode ? 'border-red-500/30 bg-red-900/30 text-red-200' : 'border-red-200 bg-red-50 text-red-700'}`}>
+                                                {tagError}
+                                            </p>
+                                        )}
+                                        <div className="flex flex-col gap-2 sm:flex-row">
+                                            <select
+                                                value={selectedTagId}
+                                                onChange={(event) => setSelectedTagId(event.target.value)}
+                                                disabled={!unassignedTags.length || Boolean(tagActionId)}
+                                                className={`min-w-0 flex-1 rounded-lg border px-3 py-2 text-sm ${darkMode ? 'border-gray-600 bg-gray-900 text-white' : 'border-gray-300 bg-white text-gray-900'}`}
+                                            >
+                                                <option value="">Choose a tag to add…</option>
+                                                {unassignedTags.map((tag) => (
+                                                    <option key={tag.tag_id} value={tag.tag_id}>{tag.name}</option>
+                                                ))}
+                                            </select>
+                                            <button
+                                                type="button"
+                                                onClick={() => {
+                                                    const tag = unassignedTags.find((item) => item.tag_id === selectedTagId);
+                                                    if (tag) handleContactTagChange(tag, 'add');
+                                                }}
+                                                disabled={!selectedTagId || Boolean(tagActionId)}
+                                                className="inline-flex shrink-0 items-center justify-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-50"
+                                            >
+                                                {tagActionId && selectedTagId === tagActionId
+                                                    ? <span className="inline-block h-4 w-4 animate-spin rounded-full border-2 border-white border-r-transparent" />
+                                                    : <FiPlus className="h-4 w-4" />}
+                                                Add tag
+                                            </button>
+                                        </div>
+                                        {availableTags.length === 0 && (
+                                            <p className="text-sm text-gray-500">No tags have been created for this project yet.</p>
+                                        )}
+                                        {assignedTags.length > 0 ? (
+                                            <ul className={`divide-y rounded-lg border ${darkMode ? 'divide-gray-700 border-gray-700' : 'divide-gray-100 border-gray-200'}`}>
+                                                {assignedTags.map((tag) => (
+                                                    <li key={tag.tag_id} className="flex items-center justify-between gap-3 px-3 py-2.5">
+                                                        <span className={`flex min-w-0 items-center gap-2 truncate text-sm ${darkMode ? 'text-gray-100' : 'text-gray-800'}`}>
+                                                            <span className="h-3 w-3 shrink-0 rounded-full" style={{ backgroundColor: tag.color || '#6366f1' }} />
+                                                            {tag.name}
+                                                        </span>
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => handleContactTagChange(tag, 'remove')}
+                                                            disabled={Boolean(tagActionId)}
+                                                            aria-label={`Remove tag ${tag.name}`}
+                                                            className="rounded-lg p-2 text-red-500 transition hover:bg-red-50 hover:text-red-700 disabled:opacity-50"
+                                                        >
+                                                            {tagActionId === tag.tag_id
+                                                                ? <span className="inline-block h-4 w-4 animate-spin rounded-full border-2 border-red-500 border-r-transparent" />
+                                                                : <FiTrash2 className="h-4 w-4" />}
+                                                        </button>
+                                                    </li>
+                                                ))}
+                                            </ul>
+                                        ) : (
+                                            <div className={`rounded-lg border border-dashed px-4 py-6 text-center text-sm ${darkMode ? 'border-gray-700 text-gray-400' : 'border-gray-300 text-gray-500'}`}>
+                                                No tags assigned to this contact.
+                                            </div>
+                                        )}
+                                    </section>
+
+                                    <section className={`space-y-4 border-t pt-5 ${darkMode ? 'border-gray-700' : 'border-gray-200'}`}>
+                                        <div>
+                                            <h4 className={`text-sm font-semibold ${darkMode ? 'text-gray-100' : 'text-gray-900'}`}>Custom attributes</h4>
+                                            <p className="mt-1 text-xs text-gray-500">Update field values, then save to store them on this contact.</p>
+                                        </div>
+                                        {renderCustomAttributes()}
+                                    </section>
+                                </div>
+                            )}
                         </div>
 
-                        {/* Footer (Only for Profile Details tab or New Contact) */}
-                        {activeTab === 'details' && (
+                        {/* Footer for contact details and custom attributes */}
+                        {(activeTab === 'details' || activeTab === 'tagsAttributes') && (
                             <div className={`flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 border-t px-3 py-3 sm:px-5 sm:py-4 flex-shrink-0 ${darkMode
                                     ? 'border-gray-700 bg-gray-900/60'
                                     : 'border-gray-200 bg-gray-50'
@@ -880,8 +1117,8 @@ const ContactFormModal = ({
                                 </div>
                                 <button
                                     onClick={handleSubmit}
-                                    disabled={loading || submitting || !isFormValid}
-                                    className={`inline-flex items-center justify-center space-x-2 rounded-full px-4 py-2 text-sm font-semibold text-white transition w-full sm:w-auto ${loading || submitting || !isFormValid
+                                    disabled={loading || submitting || customFieldsLoading || !isFormValid}
+                                    className={`inline-flex items-center justify-center space-x-2 rounded-full px-4 py-2 text-sm font-semibold text-white transition w-full sm:w-auto ${loading || submitting || customFieldsLoading || !isFormValid
                                             ? darkMode
                                                 ? 'cursor-not-allowed bg-blue-700'
                                                 : 'cursor-not-allowed bg-blue-300'
@@ -898,18 +1135,20 @@ const ContactFormModal = ({
                                     ) : (
                                         <>
                                             <FiCheck className="h-4 w-4" />
-                                            <span>{isExisting ? 'Save Profile Details' : 'Save Contact'}</span>
+                                            <span>{isExisting
+                                                ? activeTab === 'tagsAttributes' ? 'Save Attributes' : 'Save Profile Details'
+                                                : 'Save Contact'}</span>
                                         </>
                                     )}
                                 </button>
                             </div>
                         )}
                         {activeTab === 'groups' && isExisting && (
-                            <div className="flex justify-end border-t px-4 py-3 bg-gray-50">
+                            <div className={`flex justify-end border-t px-4 py-3 ${darkMode ? 'border-gray-700 bg-gray-900/60' : 'border-gray-200 bg-gray-50'}`}>
                                 <button
                                     type="button"
                                     onClick={onClose}
-                                    className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-full hover:bg-gray-50 transition"
+                                    className={`px-4 py-2 text-sm font-medium rounded-full transition ${darkMode ? 'border border-gray-600 bg-gray-800 text-gray-100 hover:bg-gray-700' : 'border border-gray-300 bg-white text-gray-700 hover:bg-gray-50'}`}
                                 >
                                     Done
                                 </button>

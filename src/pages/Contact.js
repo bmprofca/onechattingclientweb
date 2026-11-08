@@ -12,6 +12,7 @@ import toast from 'react-hot-toast';
 import ExcelUpload from './Campaign/components/AudienceType/ExcelUpload';
 import GoogleSheet from './Campaign/components/AudienceType/GoogleSheet';
 import ContactFormModal from '../component/Modals/ContactFormModal';
+import ContactCrmManagerModal from '../component/Modals/ContactCrmManagerModal';
 import RowActionMenu from '../component/table/RowActionMenu';
 import RecordDetailsModal from '../component/table/RecordDetailsModal';
 import { TableSkeletonRows } from '../component/table/TableSkeleton';
@@ -59,8 +60,16 @@ function Contact() {
   const [editingContact, setEditingContact] = useState(null);
   const [favoriteContacts, setFavoriteContacts] = useState(new Set());
   const [contactGroups, setContactGroups] = useState([]);
+  const [contactTags, setContactTags] = useState([]);
+  const [customFields, setCustomFields] = useState([]);
+  const [crmDefinitionsLoading, setCrmDefinitionsLoading] = useState(false);
+  const [showCrmManager, setShowCrmManager] = useState(false);
+  const [crmReloadTick, setCrmReloadTick] = useState(0);
   const [bulkGroupId, setBulkGroupId] = useState('');
   const [bulkGroupLoading, setBulkGroupLoading] = useState(false);
+  const [bulkTagId, setBulkTagId] = useState('');
+  const [bulkTagLoading, setBulkTagLoading] = useState(false);
+  const [bulkTagResult, setBulkTagResult] = useState(null);
   const [showFavoritesOnly, setShowFavoritesOnly] = useState(false);
   const [detailContact, setDetailContact] = useState(null);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
@@ -184,6 +193,7 @@ function Contact() {
   const [importExcelData, setImportExcelData] = useState([]);
   const [importExcelFileUrl, setImportExcelFileUrl] = useState('');
   const [isImporting, setIsImporting] = useState(false);
+  const [importTagId, setImportTagId] = useState('');
 
   const [isMinimized, setIsMinimized] = useState(() => {
     const saved = localStorage.getItem('sidebarMinimized');
@@ -256,6 +266,57 @@ function Contact() {
     return () => { cancelled = true; };
   }, [tokens?.token, tokens?.username, tokens?.selected_project_id, tokens?.projects, permissions]);
 
+  useEffect(() => {
+    if (!tokens?.token || !tokens?.username || (permissions && permissions.view_contact === false)) {
+      setCrmDefinitionsLoading(false);
+      setContactTags([]);
+      setCustomFields([]);
+      return;
+    }
+    const projectId = tokens.selected_project_id || tokens.projects?.[0]?.project_id || '';
+    if (!projectId) {
+      setCrmDefinitionsLoading(false);
+      setContactTags([]);
+      setCustomFields([]);
+      return;
+    }
+    let cancelled = false;
+    setCrmDefinitionsLoading(true);
+    setContactTags([]);
+    setCustomFields([]);
+    setBulkTagId('');
+    setImportTagId('');
+    const loadCrmDefinitions = async () => {
+      try {
+        const [tagsPayload, fieldsPayload] = await Promise.all([
+          { endpoint: 'tags-list', payload: { project_id: projectId } },
+          { endpoint: 'custom-fields-list', payload: { project_id: projectId } }
+        ].map(async ({ endpoint, payload }) => {
+          const { data, key } = Encrypt(payload);
+          const response = await axios.post(
+            `${API_BASE_URL}/contact/${endpoint}`,
+            JSON.stringify({ data, key }),
+            { headers: { token: tokens.token, username: tokens.username, 'Content-Type': 'application/json' } }
+          );
+          if (response?.data?.error) throw new Error(response.data.error);
+          return response.data;
+        }));
+        if (cancelled) return;
+        setContactTags(Array.isArray(tagsPayload.data) ? tagsPayload.data : []);
+        setCustomFields(Array.isArray(fieldsPayload.data) ? fieldsPayload.data : []);
+      } catch (error) {
+        if (!cancelled) {
+          console.error('Failed to load CRM tags and custom fields:', error);
+          toast.error(error?.message || 'Failed to load CRM tags and custom fields');
+        }
+      } finally {
+        if (!cancelled) setCrmDefinitionsLoading(false);
+      }
+    };
+    loadCrmDefinitions();
+    return () => { cancelled = true; };
+  }, [tokens?.token, tokens?.username, tokens?.selected_project_id, tokens?.projects, permissions, crmReloadTick]);
+
   // Legacy paginated mode - fetch from API directly
   useEffect(() => {
     if (USE_INFINITE_CONTACTS_LIST) return;
@@ -295,6 +356,7 @@ function Contact() {
 
           const mapped = apiList.map(c => ({
             id: c.contact_id,
+            project_id: c.project_id,
             name: c.name,
             mobile: c.number,
             email: c.email,
@@ -305,6 +367,8 @@ function Contact() {
             country: c.country,
             createdOn: c.create_date,
             groups: c.groups || [],
+            tags: c.tags || [],
+            custom_attribute_values: c.custom_attribute_values || {},
             is_favorite: c.is_favorite === true
           }));
 
@@ -393,6 +457,7 @@ function Contact() {
 
           const mapped = apiList.map((c) => ({
             id: c.contact_id,
+            project_id: c.project_id,
             name: c.name,
             mobile: c.number,
             email: c.email,
@@ -402,6 +467,8 @@ function Contact() {
             languageCode: c.language_code,
             country: c.country,
             createdOn: c.create_date,
+            tags: c.tags || [],
+            custom_attribute_values: c.custom_attribute_values || {},
             is_favorite: c.is_favorite || false
           }));
 
@@ -595,6 +662,7 @@ function Contact() {
 
           const mapped = apiList.map((c) => ({
             id: c.contact_id,
+            project_id: c.project_id,
             name: c.name,
             mobile: c.number,
             email: c.email,
@@ -604,6 +672,8 @@ function Contact() {
             languageCode: c.language_code,
             country: c.country,
             createdOn: c.create_date,
+            tags: c.tags || [],
+            custom_attribute_values: c.custom_attribute_values || {},
             is_favorite: c.is_favorite || false
           }));
 
@@ -724,6 +794,7 @@ function Contact() {
 
           const mapped = apiList.map((c) => ({
             id: c.contact_id,
+            project_id: c.project_id,
             name: c.name,
             mobile: c.number,
             email: c.email,
@@ -733,6 +804,8 @@ function Contact() {
             languageCode: c.language_code,
             country: c.country,
             createdOn: c.create_date,
+            tags: c.tags || [],
+            custom_attribute_values: c.custom_attribute_values || {},
             is_favorite: c.is_favorite || false
           }));
 
@@ -937,7 +1010,7 @@ function Contact() {
           icon: '✓'
         });
       } else {
-        toast.error('Failed to create contact: ' + (response?.data?.message || response?.data?.msg || 'Unknown error'));
+        toast.error('Failed to create contact: ' + (response?.data?.error || response?.data?.message || response?.data?.msg || 'Unknown error'));
       }
     } catch (error) {
       console.error('Failed to create contact:', error);
@@ -955,6 +1028,7 @@ function Contact() {
     setEditingContact(contact);
     setEditContact({
       contact_id: contact.id || contact.contact_id,
+      project_id: contact.project_id || tokens?.selected_project_id || '',
       number: contact.mobile || contact.number,
       name: contact.name,
       email: contact.email || '',
@@ -963,7 +1037,9 @@ function Contact() {
       remark: contact.remark || '',
       groups: contact.groups || [],
       group_ids: contact.group_ids || [],
-      group_id: contact.group_id || ''
+      group_id: contact.group_id || '',
+      tags: contact.tags || [],
+      custom_attribute_values: contact.custom_attribute_values || {}
     });
     setShowEditModal(true);
   };
@@ -1021,7 +1097,7 @@ function Contact() {
           icon: '✓'
         });
       } else {
-        toast.error('Failed to update contact: ' + (response?.data?.message || response?.data?.msg || 'Unknown error'));
+        toast.error('Failed to update contact: ' + (response?.data?.error || response?.data?.message || response?.data?.msg || 'Unknown error'));
       }
     } catch (error) {
       console.error('Failed to update contact:', error);
@@ -1076,6 +1152,43 @@ function Contact() {
       toast.error(error.message || 'Failed to add contacts to group');
     } finally {
       setBulkGroupLoading(false);
+    }
+  };
+
+  const handleBulkTag = async (action) => {
+    if (!bulkTagId || !selection.hasSelection) return;
+    if (!tokens?.token || !tokens?.username) return;
+    setBulkTagLoading(true);
+    try {
+      const payload = {
+        project_id: tokens.selected_project_id || tokens.projects?.[0]?.project_id || '',
+        tag_id: bulkTagId,
+        action,
+        ...selection.buildPayload('contact_ids'),
+        filters: { query: debouncedSearch || '', is_favorite_only: showFavoritesOnly }
+      };
+      const { data, key } = Encrypt(payload);
+      const response = await axios.post(
+        `${API_BASE_URL}/contact/tag-contact-bulk`,
+        JSON.stringify({ data, key }),
+        { headers: { token: tokens.token, username: tokens.username, 'Content-Type': 'application/json' } }
+      );
+      const result = response?.data;
+      if (result?.error) throw new Error(result.error);
+      setBulkTagResult({
+        action,
+        tagName: contactTags.find((tag) => tag.tag_id === bulkTagId)?.name || 'tag',
+        succeeded: result?.succeeded || 0,
+        failed: result?.failed || 0,
+        results: result?.results || []
+      });
+      setBulkTagId('');
+      selection.clear();
+      setReloadTick((tick) => tick + 1);
+    } catch (error) {
+      toast.error(error?.response?.data?.error || error.message || 'Failed to update contact tags');
+    } finally {
+      setBulkTagLoading(false);
     }
   };
 
@@ -1144,6 +1257,7 @@ function Contact() {
         start_row: 1, // Skip header row
         end_row: importExcelData.length > 0 ? importExcelData.length : null
       };
+      if (importTagId) payload.tag_id = importTagId;
 
       // Add optional fields only if found
       if (emailIndex >= 0) {
@@ -1183,6 +1297,7 @@ function Contact() {
         setImportExcelHeaders([]);
         setImportExcelData([]);
         setImportExcelFileUrl('');
+        setImportTagId('');
 
         // Refresh contacts list
         setCurrentPage(1);
@@ -1655,6 +1770,7 @@ function Contact() {
 
           const mapped = apiList.map((c) => ({
             id: c.contact_id,
+            project_id: c.project_id,
             name: c.name,
             mobile: c.number,
             email: c.email,
@@ -1664,6 +1780,8 @@ function Contact() {
             languageCode: c.language_code,
             country: c.country,
             createdOn: c.create_date,
+            tags: c.tags || [],
+            custom_attribute_values: c.custom_attribute_values || {},
             is_favorite: c.is_favorite || false
           }));
 
@@ -1951,11 +2069,19 @@ function Contact() {
                 </button>
 
                 <button
-                  onClick={() => setShowImportModal(true)}
+                  onClick={() => { setImportTagId(''); setShowImportModal(true); }}
                   className="inline-flex items-center h-[38px] px-3.5 border border-[#E1DFEC] rounded-[9px] text-[13px] font-semibold text-ink bg-white hover:bg-surface-soft focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
                 >
                   <FiUpload className="mr-2 h-4 w-4" />
                   Import from Excel
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setShowCrmManager(true)}
+                  className="inline-flex items-center h-[38px] px-3.5 border border-[#E1DFEC] rounded-[9px] text-[13px] font-semibold text-ink bg-white hover:bg-surface-soft focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+                >
+                  Manage tags &amp; fields
                 </button>
 
                 <Tooltip
@@ -2007,6 +2133,34 @@ function Contact() {
             </div>
 
             <BulkActionBar selection={selection} totalCount={totalRecords} pageCount={sortedContacts.length} noun="contacts">
+              {contactTags.length > 0 && (
+                <>
+                  <SearchableSelect
+                    value={bulkTagId}
+                    onChange={(e) => setBulkTagId(e.target.value)}
+                    disabled={bulkTagLoading}
+                    options={[{ value: '', label: 'Choose tag…' }, ...contactTags.map((tag) => ({ value: tag.tag_id, label: tag.name }))]}
+                    placeholder="Choose tag…"
+                    className="oc-input h-9 min-w-[170px] text-sm"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => handleBulkTag('add')}
+                    disabled={!bulkTagId || bulkTagLoading}
+                    className="oc-btn-primary h-9"
+                  >
+                    {bulkTagLoading ? 'Updating…' : 'Add tag'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleBulkTag('remove')}
+                    disabled={!bulkTagId || bulkTagLoading}
+                    className="oc-btn h-9"
+                  >
+                    Remove tag
+                  </button>
+                </>
+              )}
               {contactGroups.length > 0 && (
                 <>
                   <SearchableSelect
@@ -2068,15 +2222,16 @@ function Contact() {
                         Company {sortColumn === 'firm_name' ? (sortDirection === 'asc' ? <FiChevronUp className="h-3.5 w-3.5" /> : <FiChevronDown className="h-3.5 w-3.5" />) : null}
                       </button>
                     </th>
+                    <th className="oc-th">Tags</th>
                     <th className="oc-th w-12 text-right"></th>
                   </tr>
                 </thead>
                 <tbody>
                   {loading ? (
-                    <TableSkeletonRows rows={8} cells={['index', 'short', 'avatar', 'text', 'text', 'text', 'action']} />
+                    <TableSkeletonRows rows={8} cells={['index', 'short', 'avatar', 'text', 'text', 'text', 'text', 'action']} />
                   ) : sortedContacts.length === 0 ? (
                     <tr>
-                      <td colSpan={7} className="px-6 py-14 text-center">
+                      <td colSpan={8} className="px-6 py-14 text-center">
                         <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-brand-50 text-brand-700">
                           <FiUser className="h-6 w-6" />
                         </div>
@@ -2116,6 +2271,17 @@ function Contact() {
                           <td className="oc-td whitespace-nowrap font-mono text-[13px] text-ink">{contact.mobile || '—'}</td>
                           <td className="oc-td hidden md:table-cell text-sm text-ink-500"><span className="block max-w-[220px] truncate">{contact.email || '—'}</span></td>
                           <td className="oc-td hidden lg:table-cell text-sm text-ink"><span className="block max-w-[200px] truncate">{contact.firm_name || '—'}</span></td>
+                          <td className="oc-td">
+                            <div className="flex max-w-[220px] flex-wrap gap-1">
+                              {(contact.tags || []).slice(0, 4).map((tag) => (
+                                <span key={tag.tag_id} className="rounded-full px-2 py-0.5 text-[11px] font-medium" style={{ backgroundColor: `${tag.color}20`, color: tag.color }}>
+                                  {tag.name}
+                                </span>
+                              ))}
+                              {(contact.tags || []).length > 4 && <span className="text-xs text-gray-500">+{contact.tags.length - 4}</span>}
+                              {(!contact.tags || contact.tags.length === 0) && <span className="text-sm text-gray-400">—</span>}
+                            </div>
+                          </td>
                           <td className="oc-td text-right">
                             <RowActionMenu
                               items={[
@@ -2165,6 +2331,11 @@ function Contact() {
           { label: 'Website', value: detailContact.website },
           { label: 'Address', value: detailContact.address },
           { label: 'Notes', value: detailContact.notes || detailContact.remark },
+          { label: 'Tags', value: (detailContact.tags || []).map((tag) => tag.name).join(', ') || '—' },
+          ...customFields.map((field) => ({
+            label: field.name,
+            value: detailContact.custom_attribute_values?.[field.field_id] ?? '—'
+          }))
         ] : []}
       />
 
@@ -2178,8 +2349,9 @@ function Contact() {
         loading={false}
         submitting={false}
         error=""
-        darkMode={false}
         groups={contactGroups}
+        customFields={customFields}
+        customFieldsLoading={crmDefinitionsLoading}
       />
 
       {/* Edit Contact Modal */}
@@ -2195,9 +2367,61 @@ function Contact() {
         loading={false}
         submitting={false}
         error=""
-        darkMode={false}
         groups={contactGroups}
+        customFields={customFields}
+        customFieldsLoading={crmDefinitionsLoading}
+        availableTags={contactTags}
+        projectId={editContact.project_id || tokens?.selected_project_id || ''}
+        onTagsChanged={() => setReloadTick((tick) => tick + 1)}
       />
+
+      <ContactCrmManagerModal
+        isOpen={showCrmManager}
+        onClose={() => setShowCrmManager(false)}
+        tokens={tokens}
+        onChanged={() => setCrmReloadTick((tick) => tick + 1)}
+      />
+
+      <AnimatedModal open={Boolean(bulkTagResult)}>
+        {bulkTagResult && (
+          <div className="fixed inset-0 z-[80] flex items-center justify-center bg-black/40 p-4">
+            <div className="max-h-[80vh] w-full max-w-xl overflow-hidden rounded-xl bg-white shadow-xl">
+              <div className="flex items-center justify-between border-b px-5 py-4">
+                <h2 className="font-semibold text-gray-900">
+                  {bulkTagResult.action === 'add' ? 'Add tag' : 'Remove tag'}: {bulkTagResult.tagName}
+                </h2>
+                <button type="button" aria-label="Close results" onClick={() => setBulkTagResult(null)} className="rounded p-2 text-gray-500 hover:bg-gray-100">
+                  <FiX />
+                </button>
+              </div>
+              <div className="px-5 py-4">
+                <p className="mb-3 text-sm text-gray-700">
+                  {bulkTagResult.succeeded} succeeded · {bulkTagResult.failed} failed
+                </p>
+                {bulkTagResult.failed > 0 ? (
+                  <div className="max-h-[55vh] overflow-y-auto rounded border border-red-100">
+                    <ul className="divide-y divide-red-50">
+                      {bulkTagResult.results.filter((row) => !row.success).slice(0, 1000).map((row, index) => (
+                        <li key={`${row.contact_id}-${index}`} className="px-3 py-2 text-sm text-red-700">
+                          {row.name || row.number || `Contact ${row.contact_id}`}: {row.error || 'Update failed'}
+                        </li>
+                      ))}
+                    </ul>
+                    {bulkTagResult.failed > 1000 && (
+                      <p className="px-3 py-2 text-xs text-gray-500">Showing first 1,000 failures of {bulkTagResult.failed}.</p>
+                    )}
+                  </div>
+                ) : (
+                  <p className="text-sm text-green-700">All selected contacts were updated.</p>
+                )}
+              </div>
+              <div className="flex justify-end border-t px-5 py-3">
+                <button type="button" onClick={() => setBulkTagResult(null)} className="oc-btn-primary">Done</button>
+              </div>
+            </div>
+          </div>
+        )}
+      </AnimatedModal>
 
       {/* Import Modal */}
       <AnimatedModal open={showImportModal}>
@@ -2216,6 +2440,7 @@ function Contact() {
                       setImportExcelHeaders([]);
                       setImportExcelData([]);
                       setImportExcelFileUrl('');
+                      setImportTagId('');
                     }}
                     className="text-gray-400 hover:text-gray-600"
                   >
@@ -2287,6 +2512,22 @@ function Contact() {
                   )}
                 </div>
 
+                <div className="mt-4 max-w-md">
+                  <label htmlFor="import-contact-tag" className="mb-1 block text-sm font-medium text-gray-700">
+                    Apply tag to imported contacts (optional)
+                  </label>
+                  <select
+                    id="import-contact-tag"
+                    value={importTagId}
+                    onChange={(event) => setImportTagId(event.target.value)}
+                    disabled={isImporting}
+                    className="oc-input w-full"
+                  >
+                    <option value="">Do not apply a tag</option>
+                    {contactTags.map((tag) => <option key={tag.tag_id} value={tag.tag_id}>{tag.name}</option>)}
+                  </select>
+                </div>
+
                 {/* Action Buttons */}
                 <div className="flex justify-end space-x-3 mt-6 border-t pt-4">
                   <button
@@ -2298,6 +2539,7 @@ function Contact() {
                       setImportExcelHeaders([]);
                       setImportExcelData([]);
                       setImportExcelFileUrl('');
+                      setImportTagId('');
                     }}
                     disabled={isImporting}
                     className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed"
