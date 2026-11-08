@@ -342,13 +342,15 @@ export const dbHelper = {
         }
     },
 
-    async getMessages(chatNumber) {
+    async getMessages(chatNumber, limit = null) {
         try {
             const db = this.db;
-            const messages = await db.messages
+            const messageQuery = db.messages
                 .where('chat_number')
-                .equals(chatNumber)
-                .sortBy('id');
+                .equals(chatNumber);
+            const messages = Number.isInteger(limit) && limit > 0
+                ? (await messageQuery.reverse().limit(limit).toArray()).reverse()
+                : await messageQuery.sortBy('id');
 
             const confirmedOutgoing = messages.filter((message) =>
                 message.type === 'out'

@@ -79,6 +79,7 @@ import { buildTemplateDisplayMessage } from '../utils/templateMessageDisplay';
 import Pagination from '../component/Pagination';
 import InteractiveMessageRenderer from '../component/Conversation/InteractiveMessageRenderer';
 import ContactMediaSection from '../component/Conversation/ContactMediaSection';
+import InboxProductivityTools from '../component/Conversation/InboxProductivityTools';
 import { getInteractiveSearchText, normalizeInteractiveMessage } from '../utils/interactiveMessage';
 
 import AnimatedModal from '../component/Modals/AnimatedModal';
@@ -738,6 +739,7 @@ function Conversation({ activeChat, tokens, onBack, darkMode, dbAvailable, socke
     const shouldAutoScrollRef = useRef(true); // Track if we should auto-scroll to bottom
     const emojiButtonRef = useRef(null);
     const messageInputRef = useRef(null);
+    const slashKeyHandlerRef = useRef(null);
     const inputSelectionRef = useRef({ start: 0, end: 0 });
     const headerMenuButtonRef = useRef(null);
     const headerMenuRef = useRef(null);
@@ -745,6 +747,7 @@ function Conversation({ activeChat, tokens, onBack, darkMode, dbAvailable, socke
     const assignMenuRef = useRef(null);
     const contactDbInitRef = useRef(false);
     const activeChatNumberRef = useRef(activeChat?.number ?? null);
+    const historyRequestsRef = useRef(new Set());
 
     const dispatch = useDispatch();
     const selectedFilesRef = useRef(selectedFiles);
@@ -1642,11 +1645,12 @@ function Conversation({ activeChat, tokens, onBack, darkMode, dbAvailable, socke
         setContactError('');
     }, [activeChat?.name, activeChat?.number]);
 
-    // Load message history when active chat changes: show loading immediately until API completes
+    // Load recent local messages first, then refresh from the server in the background.
     useEffect(() => {
         if (!tokens || !activeChat) return;
 
         const chatNumber = activeChat.number;
+        activeChatNumberRef.current = chatNumber;
         setMessages([]);
         setLoadingChatNumber(chatNumber);
 
@@ -1658,25 +1662,43 @@ function Conversation({ activeChat, tokens, onBack, darkMode, dbAvailable, socke
             setLoadingPrevious(false);
 
             try {
-                await syncWithAPI();
-
-                if (activeChat?.number !== chatNumber) return;
-
                 if (dbAvailable) {
-                    await dbHelper.deleteMessagesWithNullId(activeChat.number);
-                    const updatedMessage = await dbHelper.getMessages(activeChat.number);
-                    const validMessages = (updatedMessage || []).filter((m) => m.id != null && m.id !== '');
-                    setMessages(validMessages);
+                    const cachedMessages = await dbHelper.getMessages(chatNumber, 100);
+                    if (activeChatNumberRef.current !== chatNumber) return;
+                    const validCachedMessages = (cachedMessages || []).filter((message) => message.id != null && message.id !== '');
+                    if (validCachedMessages.length > 0) {
+                        setMessages(validCachedMessages);
+                        setLoadingChatNumber(null);
+                        requestAnimationFrame(() => {
+                            if (activeChatNumberRef.current === chatNumber) scrollToBottomImmediate();
+                        });
+                    }
                 }
 
-                setTimeout(() => scrollToBottomImmediate(), 220);
+                await syncWithAPI(false, chatNumber);
+
+                if (activeChatNumberRef.current !== chatNumber) return;
+
+                if (dbAvailable) {
+                    await dbHelper.deleteMessagesWithNullId(chatNumber);
+                }
+
+                setTimeout(() => {
+                    if (activeChatNumberRef.current === chatNumber) scrollToBottomImmediate();
+                }, 220);
             } finally {
-                if (activeChat?.number === chatNumber) {
+                if (activeChatNumberRef.current === chatNumber) {
                     setLoadingChatNumber(null);
                 }
             }
         })();
-    }, [tokens, activeChat?.number]);
+
+        return () => {
+            if (activeChatNumberRef.current === chatNumber) {
+                activeChatNumberRef.current = null;
+            }
+        };
+    }, [tokens, activeChat?.number, dbAvailable]);
 
     // 🔹 When a new socket-driven refresh arrives (messages for active chat)
     useEffect(() => {
@@ -1888,10 +1910,13 @@ function Conversation({ activeChat, tokens, onBack, darkMode, dbAvailable, socke
         }
     }, [activeChat?.number, tokens?.token, tokens?.username, tokens?.selected_project_id, assignmentInfo, updateSendPermission]);
 
-    const syncWithAPI = async (isLoadingPrevious = false) => {
-        if (!activeChat || (isLoadingPrevious ? loadingPrevious : loadingHistory)) return;
+    const syncWithAPI = async (isLoadingPrevious = false, requestedNumber = activeChat?.number) => {
+        if (!requestedNumber || (isLoadingPrevious && loadingPrevious)) return;
 
-        const loadingForNumber = activeChat.number;
+        const loadingForNumber = requestedNumber;
+        const requestKey = `${tokens?.selected_project_id || ''}:${loadingForNumber}:${isLoadingPrevious ? lastId : 'latest'}`;
+        if (historyRequestsRef.current.has(requestKey)) return;
+        historyRequestsRef.current.add(requestKey);
 
         if (isLoadingPrevious) {
             setLoadingPrevious(true);
@@ -1922,21 +1947,22 @@ function Conversation({ activeChat, tokens, onBack, darkMode, dbAvailable, socke
             );
 
             // Only apply response for the chat we loaded (avoid assignment/messages glitch on desktop when switching chats)
-            if (activeChat?.number !== loadingForNumber) return;
+            if (activeChatNumberRef.current !== loadingForNumber) return;
 
             if (!response.data.error && response.data.data) {
                 updateSendPermission(response.data.assigning, loadingForNumber);
                 const apiLastId = response.data.last_id;
-                await processApiResponse(response.data.data, isLoadingPrevious, apiLastId);
+                await processApiResponse(response.data.data, isLoadingPrevious, apiLastId, loadingForNumber);
             } else if (isLoadingPrevious && (!response.data.data || response.data.data.length === 0)) {
                 setHasMoreMessages(false);
             }
         } catch (error) {
         } finally {
+            historyRequestsRef.current.delete(requestKey);
             if (isLoadingPrevious) {
-                if (activeChat?.number === loadingForNumber) setLoadingPrevious(false);
+                if (activeChatNumberRef.current === loadingForNumber) setLoadingPrevious(false);
             } else {
-                setLoadingHistory(false);
+                if (activeChatNumberRef.current === loadingForNumber) setLoadingHistory(false);
             }
         }
     };
@@ -1980,7 +2006,7 @@ function Conversation({ activeChat, tokens, onBack, darkMode, dbAvailable, socke
         return activeChat?.name || '';
     }, [contactDetails, activeChat?.name]);
 
-    const processApiResponse = async (apiMessages, isLoadingPrevious = false, apiLastId = null) => {
+    const processApiResponse = async (apiMessages, isLoadingPrevious = false, apiLastId = null, conversationNumber = activeChat?.number) => {
         try {
             const messageList = apiMessages.map(apiMessage => {
                 // Normalize `component` (API may send an array OR a JSON-stringified array)
@@ -2102,7 +2128,7 @@ function Conversation({ activeChat, tokens, onBack, darkMode, dbAvailable, socke
                     reply_wamid: apiMessage.reply_wamid || '',
                     timestamp: apiMessage.timestamp || toServerTimestamp(apiMessage.create_date) || '',
                     retryCount: apiMessage.retryCount || '',
-                    chat_number: activeChat.number,
+                    chat_number: conversationNumber,
                     // Store template and component data for rendering
                     template: apiMessage.template || null,
                     component: normalizedComponent.length ? normalizedComponent : null,
@@ -2119,6 +2145,7 @@ function Conversation({ activeChat, tokens, onBack, darkMode, dbAvailable, socke
 
                 // Filter out duplicates by checking message_id and id
                 setMessages(prev => {
+                    if (activeChatNumberRef.current !== conversationNumber) return prev;
                     const existingIds = new Set([
                         ...prev.map(m => m.message_id),
                         ...prev.map(m => m.id)
@@ -2132,19 +2159,19 @@ function Conversation({ activeChat, tokens, onBack, darkMode, dbAvailable, socke
                 });
 
                 // Update lastId from API response (last_id + 20)
-                if (apiLastId !== null && apiLastId !== undefined) {
+                if (activeChatNumberRef.current === conversationNumber && apiLastId !== null && apiLastId !== undefined) {
                     const nextLastId = parseInt(apiLastId);
                     setLastId(nextLastId.toString());
                 }
 
                 // If we got no messages or fewer than expected, we might be at the end
-                if (messageList.length === 0) {
+                if (activeChatNumberRef.current === conversationNumber && messageList.length === 0) {
                     setHasMoreMessages(false);
                 }
 
                 // Restore scroll position after DOM updates
                 setTimeout(() => {
-                    if (container) {
+                    if (container && activeChatNumberRef.current === conversationNumber) {
                         const scrollHeightAfter = container.scrollHeight;
                         const scrollDifference = scrollHeightAfter - scrollHeightBefore;
                         container.scrollTop = scrollTopBefore + scrollDifference;
@@ -2152,10 +2179,15 @@ function Conversation({ activeChat, tokens, onBack, darkMode, dbAvailable, socke
                 }, 50);
             } else {
                 // Initial load - replace all messages
-                setMessages(messageList);
+                setMessages((currentMessages) => (
+                    activeChatNumberRef.current === conversationNumber ? messageList : currentMessages
+                ));
+                if (activeChatNumberRef.current === conversationNumber) {
+                    setLoadingChatNumber(null);
+                }
 
                 // Set lastId from API response for pagination
-                if (apiLastId !== null && apiLastId !== undefined) {
+                if (activeChatNumberRef.current === conversationNumber && apiLastId !== null && apiLastId !== undefined) {
                     const nextLastId = parseInt(apiLastId);
                     setLastId(nextLastId.toString());
                 }
@@ -3532,7 +3564,7 @@ function Conversation({ activeChat, tokens, onBack, darkMode, dbAvailable, socke
 
                 {/* Messages */}
                 <div ref={messagesContainerRef} className="flex-1 overflow-y-auto p-3 sm:p-4 dark:bg-gray-900 w-full">
-                    {(loadingHistory || loadingChatNumber) ? (
+                    {loadingChatNumber === activeChat?.number ? (
                         <div className="flex flex-col items-center justify-center min-h-[200px] py-12 sm:py-16">
                             <div className="animate-spin rounded-full h-8 w-8 sm:h-10 sm:w-10 border-2 border-blue-500 border-t-transparent"></div>
                             <p className="mt-3 text-sm text-gray-500 dark:text-gray-400">Loading conversation...</p>
@@ -3852,6 +3884,14 @@ function Conversation({ activeChat, tokens, onBack, darkMode, dbAvailable, socke
 
                 <div className="p-2 sm:p-4 border-t dark:border-gray-800 bg-white dark:bg-gray-900 w-full">
                     <div className="max-w-6xl mx-auto relative">
+                        <InboxProductivityTools
+                            tokens={tokens}
+                            number={activeChat?.number || ''}
+                            contactName={displayName}
+                            messageInput={messageInput}
+                            onMessageInputChange={setMessageInput}
+                            slashKeyHandlerRef={slashKeyHandlerRef}
+                        />
 
                         {/* --- Input Row --- */}
                         <div className={`flex items-end space-x-2 ${isComposerBlocked || needsUnassignedPrompt ? 'filter blur-[2px] pointer-events-none select-none' : ''}`}>
@@ -3907,6 +3947,7 @@ function Conversation({ activeChat, tokens, onBack, darkMode, dbAvailable, socke
                                     onKeyDown={(e) => {
                                         if (e.key === 'Enter' && !e.shiftKey) {
                                             e.preventDefault();
+                                            if (slashKeyHandlerRef.current?.()) return;
                                             handleSendMessage();
                                         }
                                     }}
@@ -4714,19 +4755,22 @@ function Conversation({ activeChat, tokens, onBack, darkMode, dbAvailable, socke
                                                         </div>
                                                     </div>
                                                     {contactDetails.contact.tags?.length > 0 && (
-                                                        <div className="flex flex-wrap gap-2">
-                                                            {contactDetails.contact.tags.map((tag) => (
-                                                                <span
-                                                                    key={tag.tag_id}
-                                                                    className="rounded-full px-2.5 py-1 text-xs font-medium"
-                                                                    style={{
-                                                                        backgroundColor: `${tag.color || '#6366f1'}25`,
-                                                                        color: tag.color || '#6366f1'
-                                                                    }}
-                                                                >
-                                                                    {tag.name}
-                                                                </span>
-                                                            ))}
+                                                        <div>
+                                                            <p className="mb-1.5 text-xs font-semibold text-gray-500 dark:text-gray-400">Contact tags</p>
+                                                            <div className="flex flex-wrap gap-2">
+                                                                {contactDetails.contact.tags.map((tag) => (
+                                                                    <span
+                                                                        key={tag.tag_id}
+                                                                        className="rounded-full px-2.5 py-1 text-xs font-medium"
+                                                                        style={{
+                                                                            backgroundColor: `${tag.color || '#6366f1'}25`,
+                                                                            color: tag.color || '#6366f1'
+                                                                        }}
+                                                                    >
+                                                                        {tag.name}
+                                                                    </span>
+                                                                ))}
+                                                            </div>
                                                         </div>
                                                     )}
                                                     <dl className="space-y-3 text-sm">

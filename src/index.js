@@ -8,6 +8,7 @@ import Login from './pages/Login';
 import Register from './pages/Register';
 import QRLanding from './pages/QRLanding';
 import LiveChat from './pages/LiveChat';
+import CannedReplies from './pages/CannedReplies';
 import Catalogs from './pages/Catalogs';
 import Template from './pages/Template';
 import TemplateAdd from './pages/TemplateAdd';
@@ -101,6 +102,11 @@ root.render(
           <Route path="/live-chat" element={
             <ProtectedRoute requiresProject={true}>
               <LiveChat />
+            </ProtectedRoute>
+          } />
+          <Route path="/canned-replies" element={
+            <ProtectedRoute requiresProject={true}>
+              <CannedReplies />
             </ProtectedRoute>
           } />
           <Route path="/open-cases" element={

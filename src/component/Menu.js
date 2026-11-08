@@ -7,7 +7,7 @@ import {
   FiPlus, FiUser, FiHelpCircle,
   FiLogOut, FiList, FiCpu, FiMessageSquare, FiUsers,
   FiLock, FiX, FiMaximize2, FiMinimize2,
-  FiGrid, FiFolder, FiFileText, FiSend, FiUserCheck, FiSliders, FiCode, FiLayers,
+  FiGrid, FiFolder, FiFileText, FiSend, FiUserCheck, FiSliders, FiCode, FiLayers, FiBookmark,
   FiSun, FiMoon, FiMonitor, FiCheck, FiShoppingBag
 } from 'react-icons/fi';
 import { useTheme } from '../theme/ThemeContext';
@@ -731,6 +731,7 @@ const SidebarView = ({ mobileMenuOpen, setMobileMenuOpen, isMinimized, setIsMini
       key: 'workspace', title: 'Workspace', items: [
         { key: 'dashboard', title: 'Dashboard', icon: <FiGrid size={18} />, path: '/' },
         { key: 'live-chat', title: 'Live chat', icon: <FiMessageSquare size={18} />, path: '/live-chat' },
+        { key: 'canned-replies', title: 'Canned replies', icon: <FiBookmark size={18} />, path: '/canned-replies' },
         { key: 'open-cases', title: 'Open cases', icon: <FiBriefcase size={18} />, path: '/open-cases' },
         { key: 'scanned-users', title: 'Scanned users', icon: <LuQrCode size={18} />, path: '/scanned-users' },
       ]

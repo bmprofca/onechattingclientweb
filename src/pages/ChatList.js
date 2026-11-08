@@ -50,6 +50,8 @@ function ChatList({ tokens, onChatSelect, activeChat, darkMode, dbAvailable, soc
     const [hasMore, setHasMore] = useState(true);
     const [loadingMore, setLoadingMore] = useState(false);
     const [activeTab, setActiveTab] = useState('All');
+    const [labelCatalog, setLabelCatalog] = useState([]);
+    const [selectedLabelId, setSelectedLabelId] = useState('');
     const [searchQuery, setSearchQuery] = useState('');
     const [chats, setChats] = useState([]);
     const activeChatRef = React.useRef(activeChat);
@@ -142,6 +144,42 @@ function ChatList({ tokens, onChatSelect, activeChat, darkMode, dbAvailable, soc
         })();
     }, [tokens, dbAvailable]);
 
+    useEffect(() => {
+        let cancelled = false;
+        const projectId = tokens?.selected_project_id || '';
+        setLabelCatalog([]);
+        setSelectedLabelId('');
+        if (!projectId || !tokens?.token) return undefined;
+
+        (async () => {
+            try {
+                const { data, key } = Encrypt({ project_id: projectId });
+                const response = await axios.post(
+                    `${API_BASE_URL}/contact/tags-list`,
+                    JSON.stringify({ data, key }),
+                    {
+                        headers: {
+                            token: tokens.token,
+                            username: tokens.username,
+                            'Content-Type': 'application/json'
+                        }
+                    }
+                );
+                if (cancelled) return;
+                if (response.data?.success === false || response.data?.error) {
+                    throw new Error(response.data?.message || response.data?.error?.message || 'Could not load labels');
+                }
+                setLabelCatalog(Array.isArray(response.data?.data) ? response.data.data : []);
+            } catch (error) {
+                if (!cancelled) console.error('Failed to load project conversation labels:', error);
+            }
+        })();
+
+        return () => {
+            cancelled = true;
+        };
+    }, [tokens?.selected_project_id, tokens?.token, tokens?.username]);
+
     // 🔹 When socket_chats prop changes (including status updates)
     useEffect(() => {
         if (socket_chats && socket_chats.length > 0) {
@@ -158,6 +196,7 @@ function ChatList({ tokens, onChatSelect, activeChat, darkMode, dbAvailable, soc
                         return {
                             ...socketChat,
                             tags: socketChat.tags || existingChat?.tags || [],
+                            labels: socketChat.labels || existingChat?.labels || [],
                             unread_count: 0,
                             unread: false
                         };
@@ -177,6 +216,7 @@ function ChatList({ tokens, onChatSelect, activeChat, darkMode, dbAvailable, soc
                         return {
                             ...socketChat,
                             tags: socketChat.tags || existingChat?.tags || [],
+                            labels: socketChat.labels || existingChat?.labels || [],
                             unread_count: currentUnread + 1,
                             unread: true
                         };
@@ -192,6 +232,7 @@ function ChatList({ tokens, onChatSelect, activeChat, darkMode, dbAvailable, soc
                     return {
                         ...socketChat,
                         tags: socketChat.tags || existingChat?.tags || [],
+                        labels: socketChat.labels || existingChat?.labels || [],
                         unread_count: unreadCount,
                         unread: unreadCount > 0
                     };
@@ -249,6 +290,7 @@ function ChatList({ tokens, onChatSelect, activeChat, darkMode, dbAvailable, soc
                 name: apiChat.contact.name || apiChat.contact.number,
                 is_favorite: apiChat.contact.is_favorite || false,
                 tags: Array.isArray(apiChat.contact.tags) ? apiChat.contact.tags : [],
+                labels: Array.isArray(apiChat.contact.labels) ? apiChat.contact.labels : [],
                 case_open_count: caseOpenCount,
                 wamid: apiChat.last_message.wamid,
                 create_date: apiChat.last_message.create_date,
@@ -330,7 +372,7 @@ function ChatList({ tokens, onChatSelect, activeChat, darkMode, dbAvailable, soc
     // NOT saved back into the local cache — the local cache stays a mirror
     // of the unfiltered "All" list (kept fresh by syncWithAPI above), while
     // this path is purely for what's currently on screen.
-    const fetchFilteredChats = async (search, tab, pageToFetch = 1, append = false) => {
+    const fetchFilteredChats = async (search, tab, pageToFetch = 1, append = false, tagId = selectedLabelId) => {
         if (!tokens) return;
 
         const requestId = ++filterRequestId.current;
@@ -352,6 +394,7 @@ function ChatList({ tokens, onChatSelect, activeChat, darkMode, dbAvailable, soc
                 filter: filterValue,
                 filter_type: filterValue,
                 type: filterValue,
+                ...(tagId ? { tag_id: tagId } : {})
             };
 
             const { data, key } = Encrypt(messagePayload);
@@ -407,8 +450,8 @@ function ChatList({ tokens, onChatSelect, activeChat, darkMode, dbAvailable, soc
     const loadMoreChats = () => {
         if (isLoading || isFiltering || loadingMore || !hasMore) return;
         const nextPage = page + 1;
-        if (searchQuery || activeTab !== 'All') {
-            fetchFilteredChats(searchQuery, activeTab, nextPage, true);
+        if (searchQuery || activeTab !== 'All' || selectedLabelId) {
+            fetchFilteredChats(searchQuery, activeTab, nextPage, true, selectedLabelId);
         } else {
             syncWithAPI(nextPage, true);
         }
@@ -443,15 +486,15 @@ function ChatList({ tokens, onChatSelect, activeChat, darkMode, dbAvailable, soc
 
         return () => clearTimeout(handler);
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [searchQuery, activeTab, tokens]);
+    }, [searchQuery, activeTab, selectedLabelId, tokens]);
 
     // Refresh chat list when cases are edited/created elsewhere
     useEffect(() => {
         const handler = () => {
             // Re-sync to refresh case_open_count + latest chat data for
             // whatever view (search/filter) is currently active.
-            if (searchQuery || activeTab !== 'All') {
-                fetchFilteredChats(searchQuery, activeTab, 1, false);
+            if (searchQuery || activeTab !== 'All' || selectedLabelId) {
+                fetchFilteredChats(searchQuery, activeTab, 1, false, selectedLabelId);
             } else {
                 syncWithAPI(1, false);
             }
@@ -460,7 +503,20 @@ function ChatList({ tokens, onChatSelect, activeChat, darkMode, dbAvailable, soc
         return () => window.removeEventListener('case_updated', handler);
         // Intentionally depends on tokens so sync uses latest auth
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [tokens, searchQuery, activeTab]);
+    }, [tokens, searchQuery, activeTab, selectedLabelId]);
+
+    useEffect(() => {
+        const handler = () => {
+            if (searchQuery || activeTab !== 'All' || selectedLabelId) {
+                fetchFilteredChats(searchQuery, activeTab, 1, false, selectedLabelId);
+            } else {
+                syncWithAPI(1, false);
+            }
+        };
+        window.addEventListener('conversation_labels_updated', handler);
+        return () => window.removeEventListener('conversation_labels_updated', handler);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [tokens, searchQuery, activeTab, selectedLabelId]);
 
     const processApiResponse = async (apiChats, append = false) => {
         try {
@@ -774,6 +830,46 @@ function ChatList({ tokens, onChatSelect, activeChat, darkMode, dbAvailable, soc
                 })}
             </div>
 
+            {labelCatalog.length > 0 && (
+                <div className="border-b px-3 py-2" aria-label="Filter conversations by label">
+                    <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">Conversation labels</p>
+                    <div className="flex gap-2 overflow-x-auto scrollbar-hide">
+                    <button
+                        type="button"
+                        onClick={() => setSelectedLabelId('')}
+                        className={`flex-shrink-0 rounded-full border px-3 py-1 text-xs font-medium ${
+                            selectedLabelId
+                                ? 'border-gray-300 text-gray-600 dark:border-gray-600 dark:text-gray-300'
+                                : 'border-blue-500 bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300'
+                        }`}
+                        aria-pressed={!selectedLabelId}
+                    >
+                        All labels
+                    </button>
+                    {labelCatalog.map((label) => {
+                        const selected = selectedLabelId === label.tag_id;
+                        const color = label.color || '#6366f1';
+                        return (
+                            <button
+                                key={label.tag_id}
+                                type="button"
+                                onClick={() => setSelectedLabelId(selected ? '' : label.tag_id)}
+                                className="flex-shrink-0 rounded-full border px-3 py-1 text-xs font-medium"
+                                style={{
+                                    borderColor: selected ? color : `${color}80`,
+                                    backgroundColor: selected ? `${color}20` : 'transparent',
+                                    color
+                                }}
+                                aria-pressed={selected}
+                            >
+                                {label.name}
+                            </button>
+                        );
+                    })}
+                    </div>
+                </div>
+            )}
+
             {/* Chat List */}
             <div className="flex-1 overflow-y-auto scrollbar-hide" onScroll={handleScroll}>
                 {isLoading && chats.length === 0 ? (
@@ -827,14 +923,14 @@ function ChatList({ tokens, onChatSelect, activeChat, darkMode, dbAvailable, soc
                                                                         {chat.tags?.slice(0, 2).map((tag) => (
                                                                             <span
                                                                                 key={tag.tag_id}
-                                                                                className="max-w-[84px] truncate rounded px-1.5 py-0.5 text-[10px] font-medium"
+                                                                                className="max-w-[100px] truncate rounded px-1.5 py-0.5 text-[10px] font-medium"
                                                                                 style={{
                                                                                     backgroundColor: `${tag.color || '#6366f1'}25`,
                                                                                     color: tag.color || '#6366f1'
                                                                                 }}
-                                                                                title={tag.name}
+                                                                                title={`Contact tag: ${tag.name}`}
                                                                             >
-                                                                                {tag.name}
+                                                                                <span className="opacity-70">Tag:</span> {tag.name}
                                                                             </span>
                                                                         ))}
                                                                         {(chat.tags?.length || 0) > 2 && (
@@ -842,6 +938,19 @@ function ChatList({ tokens, onChatSelect, activeChat, darkMode, dbAvailable, soc
                                                                                 +{chat.tags.length - 2}
                                                                             </span>
                                                                         )}
+                                                                        {chat.labels?.slice(0, 2).map((label) => (
+                                                                            <span
+                                                                                key={`label-${label.tag_id}`}
+                                                                                className="max-w-[110px] truncate rounded-full border px-1.5 py-0.5 text-[10px] font-medium"
+                                                                                style={{
+                                                                                    borderColor: `${label.color || '#6366f1'}80`,
+                                                                                    color: label.color || '#6366f1'
+                                                                                }}
+                                                                                title={`Conversation label: ${label.name}`}
+                                                                            >
+                                                                                <span className="opacity-70">Label:</span> {label.name}
+                                                                            </span>
+                                                                        ))}
                                                                         {(chat.case_open_count || 0) > 0 && (
                                                                     <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] font-medium bg-amber-100 text-amber-800 dark:bg-amber-900/50 dark:text-amber-200 flex-shrink-0" title="Open cases">
                                                                         <FiBriefcase className="w-3 h-3" />
