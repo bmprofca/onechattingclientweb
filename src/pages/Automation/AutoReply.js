@@ -18,7 +18,8 @@ import {
     FiX,
     FiSave,
     FiBarChart2,
-    FiZap
+    FiZap,
+    FiRefreshCw
 } from 'react-icons/fi';
 import moment from 'moment';
 
@@ -70,6 +71,22 @@ const AutoReply = () => {
             document.body.style.overflow = 'auto';
         };
     }, [mobileMenuOpen]);
+
+    useEffect(() => {
+        if (!showCreateModal) return undefined;
+
+        const previousOverflow = document.body.style.overflow;
+        const handleKeyDown = (event) => {
+            if (event.key === 'Escape') setShowCreateModal(false);
+        };
+
+        document.body.style.overflow = 'hidden';
+        document.addEventListener('keydown', handleKeyDown);
+        return () => {
+            document.body.style.overflow = previousOverflow;
+            document.removeEventListener('keydown', handleKeyDown);
+        };
+    }, [showCreateModal]);
 
     useEffect(() => {
         const readProjectId = () => {
@@ -302,7 +319,7 @@ const AutoReply = () => {
     ];
 
     return (
-        <div className="min-h-screen bg-surface-ground dark:bg-gray-900">
+        <div className="min-h-screen bg-surface-ground">
             <Header
                 mobileMenuOpen={mobileMenuOpen}
                 setMobileMenuOpen={setMobileMenuOpen}
@@ -320,44 +337,51 @@ const AutoReply = () => {
             <div className={`pt-16 transition-all duration-300 ease-in-out ${isMinimized ? 'md:pl-20' : 'md:pl-[260px]'}`}>
                 <div className="w-full max-w-[1320px] px-4 sm:px-7 py-7">
                     {/* Page Header */}
-                    <div className="mb-6">
-                        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between">
-                            <div>
-                                <h1 className="text-[26px] leading-tight font-extrabold tracking-tight text-ink dark:text-white">Auto Reply</h1>
-                                <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-                                    Automate responses to incoming WhatsApp messages
-                                </p>
-                            </div>
-                            <div className="flex items-center gap-2">
-                                <button
-                                    onClick={handleToggleAutoReply}
-                                    disabled={!projectId || saving || rulesLoading}
-                                    className={`inline-flex items-center px-4 py-2 rounded-md shadow-sm text-sm font-medium transition-colors ${autoReplyEnabled
-                                            ? 'bg-green-600 text-white hover:bg-green-700'
-                                            : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
-                                        } disabled:opacity-50 disabled:cursor-not-allowed`}
-                                >
-                                    {autoReplyEnabled ? (
-                                        <>
-                                            <FiPower className="mr-2" size={18} />
-                                            Enabled
-                                        </>
-                                    ) : (
-                                        <>
-                                            <FiBarChart2 className="mr-2" size={18} />
-                                            Disabled
-                                        </>
-                                    )}
-                                </button>
-                                <button
-                                    onClick={handleCreateRule}
-                                    disabled={!projectId || rulesLoading}
-                                    className="inline-flex items-center h-[38px] px-3.5 border border-transparent rounded-[9px] text-[13px] font-semibold text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-colors"
-                                >
-                                    <FiPlus className="mr-2" size={18} />
-                                    Create Rule
-                                </button>
-                            </div>
+                    <div className="mb-5 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                        <div className="min-w-0">
+                            <h1 className="text-[26px] leading-tight font-extrabold tracking-tight text-ink">Auto Reply</h1>
+                            <p className="mt-1 text-sm text-slate-500">
+                                Automate responses to incoming WhatsApp messages
+                            </p>
+                        </div>
+                        <div className="flex flex-wrap items-center gap-2">
+                            <button
+                                type="button"
+                                onClick={() => setReloadToken((token) => token + 1)}
+                                disabled={!projectId || rulesLoading}
+                                className="inline-flex h-10 items-center gap-2 rounded-lg border border-line bg-white px-3 text-sm font-semibold text-slate-700 transition hover:border-indigo-200 hover:text-indigo-600 disabled:cursor-not-allowed disabled:opacity-50"
+                            >
+                                <FiRefreshCw className={`h-4 w-4 ${rulesLoading ? 'animate-spin' : ''}`} />
+                                Refresh
+                            </button>
+                            <button
+                                onClick={handleToggleAutoReply}
+                                disabled={!projectId || saving || rulesLoading}
+                                className={`inline-flex h-10 items-center gap-2 rounded-lg border px-3 text-sm font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${autoReplyEnabled
+                                    ? 'border-emerald-600 bg-emerald-600 text-white hover:border-emerald-700 hover:bg-emerald-700'
+                                    : 'border-line bg-white text-slate-700 hover:border-indigo-200 hover:text-indigo-600'
+                                    }`}
+                            >
+                                {autoReplyEnabled ? (
+                                    <>
+                                        <FiPower size={16} />
+                                        Enabled
+                                    </>
+                                ) : (
+                                    <>
+                                        <FiPower size={16} />
+                                        Disabled
+                                    </>
+                                )}
+                            </button>
+                            <button
+                                onClick={handleCreateRule}
+                                disabled={!projectId || rulesLoading}
+                                className="inline-flex h-10 items-center gap-2 rounded-lg bg-indigo-600 px-3.5 text-sm font-semibold text-white transition hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-50"
+                            >
+                                <FiPlus size={18} />
+                                Create Rule
+                            </button>
                         </div>
                     </div>
 
@@ -427,11 +451,11 @@ const AutoReply = () => {
                     </div>
 
                     {/* Search and Filter Bar */}
-                    <div className="bg-white dark:bg-gray-800 rounded-card border border-line dark:border-gray-700 mb-6 p-4">
+                    <div className="mb-6 rounded-2xl border border-line bg-white p-4 dark:border-gray-700 dark:bg-gray-800">
                         <div className="flex flex-col sm:flex-row gap-4">
                             <div className="flex-1">
                                 <div className="relative">
-                                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                                    <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
                                         <FiSearch className="h-5 w-5 text-gray-400" />
                                     </div>
                                     <input
@@ -439,11 +463,11 @@ const AutoReply = () => {
                                         placeholder="Search rules by name, keywords, or response..."
                                         value={searchTerm}
                                         onChange={(e) => setSearchTerm(e.target.value)}
-                                        className="block w-full pl-10 pr-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md leading-5 bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 focus:outline-none focus:placeholder-gray-400 focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                                        className="h-10 w-full rounded-lg border border-line-strong bg-white py-2 pl-10 pr-3 text-sm text-ink placeholder:text-ink-400 outline-none transition focus:border-brand-600 focus:ring-[3px] focus:ring-brand-600/20 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
                                     />
                                 </div>
                             </div>
-                            <div className="sm:w-48">
+                            <div className="w-full sm:w-48">
                                 <SearchableSelect
                                     value={filterStatus}
                                     onChange={(e) => setFilterStatus(e.target.value)}
@@ -452,23 +476,25 @@ const AutoReply = () => {
                                         { value: 'enabled', label: 'Enabled' },
                                         { value: 'disabled', label: 'Disabled' },
                                     ]}
-                                    className="block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                                    className="h-10 w-full rounded-lg border border-line-strong bg-white px-3 text-sm text-ink outline-none transition focus:border-brand-600 focus:ring-[3px] focus:ring-brand-600/20 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
                                 />
                             </div>
                         </div>
                     </div>
 
                     {/* Rules List */}
-                    <div className="overflow-hidden rounded-card border border-line bg-white dark:border-gray-700 dark:bg-gray-800">
+                    <div className="overflow-hidden rounded-2xl border border-line bg-white dark:border-gray-700 dark:bg-gray-800">
                         {rulesLoading ? (
                             <div className="p-12 text-center text-sm text-gray-500 dark:text-gray-400" role="status">
                                 Loading auto-reply rules...
                             </div>
                         ) : sortedRules.length === 0 ? (
-                            <div className="p-12 text-center">
-                                <FiMessageSquare className="mx-auto h-12 w-12 text-gray-400 mb-4" />
-                                <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">No auto-reply rules</h3>
-                                <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
+                            <div className="flex flex-col items-center px-6 py-16 text-center">
+                                <span className="flex h-14 w-14 items-center justify-center rounded-2xl bg-indigo-50 text-indigo-600 dark:bg-indigo-900 dark:text-indigo-300">
+                                    <FiMessageSquare className="h-7 w-7" />
+                                </span>
+                                <h3 className="mt-4 text-base font-semibold text-slate-900 dark:text-white">No auto-reply rules</h3>
+                                <p className="mt-1 mb-0 max-w-md text-sm text-slate-500 dark:text-gray-400">
                                     {searchTerm || filterStatus !== 'all'
                                         ? 'No rules match your search criteria.'
                                         : 'Create your first auto-reply rule to get started.'}
@@ -476,9 +502,9 @@ const AutoReply = () => {
                                 {!searchTerm && filterStatus === 'all' && (
                                     <button
                                         onClick={handleCreateRule}
-                                        className="inline-flex items-center h-[38px] px-3.5 border border-transparent rounded-[9px] text-[13px] font-semibold text-white bg-indigo-600 hover:bg-indigo-700"
+                                        className="mt-5 inline-flex h-10 items-center gap-2 rounded-lg bg-indigo-600 px-4 text-sm font-semibold text-white transition hover:bg-indigo-700"
                                     >
-                                        <FiPlus className="mr-2" />
+                                        <FiPlus size={16} />
                                         Create Rule
                                     </button>
                                 )}
@@ -603,29 +629,36 @@ const AutoReply = () => {
                         initial={{ opacity: 0 }}
                         animate={{ opacity: 1 }}
                         exit={{ opacity: 0 }}
-                        className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 overflow-y-auto p-4"
-                        onClick={() => setShowCreateModal(false)}
+                        className="fixed inset-0 z-50 flex items-center justify-center overscroll-contain bg-black/50 p-2 sm:p-4"
+                        onMouseDown={(event) => {
+                            if (event.target === event.currentTarget) setShowCreateModal(false);
+                        }}
                     >
                         <motion.div
                             initial={{ scale: 0.9, opacity: 0 }}
                             animate={{ scale: 1, opacity: 1 }}
                             exit={{ scale: 0.9, opacity: 0 }}
                             transition={{ type: "spring", duration: 0.3 }}
-                            className="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-2xl w-full my-8"
-                            onClick={(e) => e.stopPropagation()}
+                            role="dialog"
+                            aria-modal="true"
+                            aria-labelledby="auto-reply-modal-title"
+                            className="flex max-h-[calc(100dvh-1rem)] w-full max-w-2xl flex-col overflow-hidden rounded-2xl bg-white shadow-xl dark:bg-gray-800"
+                            onMouseDown={(event) => event.stopPropagation()}
                         >
                             {/* Modal Header */}
-                            <div className="flex items-center justify-between p-6 border-b border-gray-200 dark:border-gray-700">
+                            <div className="flex shrink-0 items-center justify-between gap-3 border-b border-gray-200 p-4 dark:border-gray-700 sm:p-6">
                                 <div className="flex items-center space-x-3">
                                     <div className="flex-shrink-0">
                                         <FiZap className="w-6 h-6 text-indigo-600" />
                                     </div>
-                                    <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+                                    <h3 id="auto-reply-modal-title" className="text-lg font-semibold text-gray-900 dark:text-white">
                                         {editingRule ? 'Edit Auto-Reply Rule' : 'Create Auto-Reply Rule'}
                                     </h3>
                                 </div>
                                 <button
+                                    type="button"
                                     onClick={() => setShowCreateModal(false)}
+                                    aria-label="Close auto-reply rule form"
                                     className="text-gray-400 hover:text-gray-500 dark:hover:text-gray-300 focus:outline-none transition-colors"
                                 >
                                     <FiX className="w-5 h-5" />
@@ -633,21 +666,22 @@ const AutoReply = () => {
                             </div>
 
                             {/* Modal Body */}
-                            <form onSubmit={handleSubmit} className="p-6">
-                                <div className="space-y-6">
+                            <form onSubmit={handleSubmit} className="flex min-h-0 flex-1 flex-col">
+                                <div className="min-h-0 flex-1 space-y-6 overflow-y-auto overscroll-contain p-4 sm:p-6">
                                     {/* Rule Name */}
                                     <div>
-                                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                                        <label htmlFor="auto-reply-rule-name" className="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300">
                                             Rule Name
                                         </label>
                                         <input
+                                            id="auto-reply-rule-name"
                                             type="text"
                                             value={formData.name}
                                             maxLength={120}
                                             required
                                             onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                                             placeholder="e.g., Greeting Response"
-                                            className="block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                                            className="block h-11 w-full min-w-0 rounded-lg border border-gray-300 bg-white px-3 text-base text-gray-900 shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-indigo-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white sm:text-sm"
                                         />
                                     </div>
 
@@ -840,18 +874,18 @@ const AutoReply = () => {
                                 </div>
 
                                 {/* Modal Footer */}
-                                <div className="mt-6 flex items-center justify-end space-x-3 pt-6 border-t border-gray-200 dark:border-gray-700">
+                                <div className="flex shrink-0 items-center justify-end space-x-3 border-t border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-gray-800 sm:px-6">
                                     <button
                                         type="button"
                                         onClick={() => setShowCreateModal(false)}
-                                        className="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+                                        className="rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600"
                                     >
                                         Cancel
                                     </button>
                                     <button
                                         type="submit"
                                         disabled={saving}
-                                        className="inline-flex items-center h-[38px] px-3.5 border border-transparent rounded-[9px] text-[13px] font-semibold text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+                                        className="inline-flex h-10 items-center rounded-lg border border-transparent bg-indigo-600 px-3.5 text-sm font-semibold text-white hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:cursor-not-allowed disabled:opacity-50"
                                     >
                                         <FiSave className="mr-2" size={16} />
                                         {saving ? 'Saving...' : editingRule ? 'Update Rule' : 'Create Rule'}
