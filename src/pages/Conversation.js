@@ -751,6 +751,22 @@ function Conversation({ activeChat, tokens, onBack, darkMode, dbAvailable, socke
     const activeChatNumberRef = useRef(activeChat?.number ?? null);
     const historyRequestsRef = useRef(new Set());
     const timelineNavigationRequestRef = useRef(0);
+    const highlightTimeoutRef = useRef(null);
+
+    const highlightMessage = useCallback((messageKey) => {
+        setHighlightedMessageId(messageKey);
+        clearTimeout(highlightTimeoutRef.current);
+        highlightTimeoutRef.current = setTimeout(() => {
+            setHighlightedMessageId(null);
+            highlightTimeoutRef.current = null;
+        }, 3000);
+    }, []);
+
+    const clearMessageHighlight = useCallback(() => {
+        clearTimeout(highlightTimeoutRef.current);
+        highlightTimeoutRef.current = null;
+        setHighlightedMessageId(null);
+    }, []);
 
     const dispatch = useDispatch();
     const selectedFilesRef = useRef(selectedFiles);
@@ -1320,7 +1336,7 @@ function Conversation({ activeChat, tokens, onBack, darkMode, dbAvailable, socke
     const handleSearchResultClick = useCallback((messageKey) => {
         setSearchModalOpen(false);
         if (!messageKey) return;
-        setHighlightedMessageId(messageKey);
+        highlightMessage(messageKey);
 
         setTimeout(() => {
             const node = document.getElementById(`message-${messageKey}`);
@@ -1328,7 +1344,7 @@ function Conversation({ activeChat, tokens, onBack, darkMode, dbAvailable, socke
                 node.scrollIntoView({ behavior: 'smooth', block: 'center' });
             }
         }, 80);
-    }, []);
+    }, [highlightMessage]);
 
     // Scroll to a message and highlight it (used for reply click)
     const handleScrollToMessage = useCallback((messageKey) => {
@@ -1336,7 +1352,7 @@ function Conversation({ activeChat, tokens, onBack, darkMode, dbAvailable, socke
 
         const node = document.getElementById(`message-${messageKey}`);
         if (node?.scrollIntoView) {
-            setHighlightedMessageId(messageKey);
+            highlightMessage(messageKey);
             node.scrollIntoView({ behavior: 'smooth', block: 'center' });
         } else {
             // Message not found in current view - show toast
@@ -1345,7 +1361,7 @@ function Conversation({ activeChat, tokens, onBack, darkMode, dbAvailable, socke
                 icon: '💬'
             });
         }
-    }, []);
+    }, [highlightMessage]);
 
     const handleDateClick = useCallback((selectedDate) => {
         setSearchModalOpen(false);
@@ -1472,10 +1488,21 @@ function Conversation({ activeChat, tokens, onBack, darkMode, dbAvailable, socke
     }, [searchQuery, messages, activeChat?.name]);
 
     useEffect(() => {
-        if (!highlightedMessageId) return;
-        const timer = setTimeout(() => setHighlightedMessageId(null), 1100);
-        return () => clearTimeout(timer);
-    }, [highlightedMessageId]);
+        if (!highlightedMessageId) return undefined;
+        const dismissHighlight = () => clearMessageHighlight();
+        document.addEventListener('pointerdown', dismissHighlight, true);
+        document.addEventListener('touchstart', dismissHighlight, true);
+        document.addEventListener('wheel', dismissHighlight, true);
+        document.addEventListener('keydown', dismissHighlight, true);
+        return () => {
+            document.removeEventListener('pointerdown', dismissHighlight, true);
+            document.removeEventListener('touchstart', dismissHighlight, true);
+            document.removeEventListener('wheel', dismissHighlight, true);
+            document.removeEventListener('keydown', dismissHighlight, true);
+        };
+    }, [clearMessageHighlight, highlightedMessageId]);
+
+    useEffect(() => () => clearTimeout(highlightTimeoutRef.current), []);
 
     useEffect(() => {
         if (!showHeaderMenu) return;
@@ -1734,9 +1761,17 @@ function Conversation({ activeChat, tokens, onBack, darkMode, dbAvailable, socke
         let attempts = 0;
         const scrollToTarget = () => {
             const node = document.getElementById(`message-${messageKey}`);
-            if (node?.scrollIntoView) {
-                setHighlightedMessageId(messageKey);
-                node.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            const container = messagesContainerRef.current;
+            if (node && container) {
+                const containerBounds = container.getBoundingClientRect();
+                const messageBounds = node.getBoundingClientRect();
+                const messageCenter = messageBounds.top + messageBounds.height / 2;
+                const containerCenter = containerBounds.top + container.clientHeight / 2;
+                highlightMessage(messageKey);
+                container.scrollTo({
+                    top: container.scrollTop + messageCenter - containerCenter,
+                    behavior: 'smooth'
+                });
                 setPendingTimelineMessageId(null);
                 return;
             }
@@ -1747,7 +1782,7 @@ function Conversation({ activeChat, tokens, onBack, darkMode, dbAvailable, socke
         frameId = requestAnimationFrame(scrollToTarget);
 
         return () => cancelAnimationFrame(frameId);
-    }, [activeChat?.number, loadingChatNumber, messages, pendingTimelineMessageId, showContactDetails]);
+    }, [activeChat?.number, highlightMessage, loadingChatNumber, messages, pendingTimelineMessageId, showContactDetails]);
 
     // Add scroll event handler for infinite scroll
     useEffect(() => {
