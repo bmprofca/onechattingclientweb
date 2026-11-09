@@ -35,6 +35,10 @@ const COUNTRY_CODES = [
 // to the same value).
 const mapTabToFilter = (tab) => {
     switch (tab) {
+        case 'My Open': return 'my_open';
+        case 'Unassigned': return 'unassigned';
+        case 'SLA Breach': return 'sla_breach';
+        case 'VIP': return 'vip';
         case 'Unread': return 'unread';
         case 'Favourites': return 'favourites';
         case 'Assigned': return 'assigned';
@@ -42,7 +46,7 @@ const mapTabToFilter = (tab) => {
     }
 };
 
-function ChatList({ tokens, onChatSelect, activeChat, darkMode, dbAvailable, socket_chats = [], onRepairChats, isFullScreen = false, onToggleFullScreen }) {
+function ChatList({ tokens, onChatSelect, activeChat, darkMode, dbAvailable, socket_chats = [], onChatSnoozed, onRepairChats, isFullScreen = false, onToggleFullScreen }) {
     const navigate = useNavigate();
     const [isLoading, setIsLoading] = useState(true);
     const [isFiltering, setIsFiltering] = useState(false);
@@ -51,10 +55,34 @@ function ChatList({ tokens, onChatSelect, activeChat, darkMode, dbAvailable, soc
     const [loadingMore, setLoadingMore] = useState(false);
     const [activeTab, setActiveTab] = useState('All');
     const [labelCatalog, setLabelCatalog] = useState([]);
+    const [labelCatalogError, setLabelCatalogError] = useState('');
+    const [assignmentMembers, setAssignmentMembers] = useState([]);
+    const [assignmentMembersError, setAssignmentMembersError] = useState('');
     const [selectedLabelId, setSelectedLabelId] = useState('');
     const [searchQuery, setSearchQuery] = useState('');
+    const [selectedNumbers, setSelectedNumbers] = useState([]);
+    const [bulkAction, setBulkAction] = useState('');
+    const [bulkTarget, setBulkTarget] = useState('');
+    const [bulkTagId, setBulkTagId] = useState('');
+    const [bulkLabelAction, setBulkLabelAction] = useState('add');
+    const [bulkActionLoading, setBulkActionLoading] = useState(false);
+    const [bulkActionMessage, setBulkActionMessage] = useState('');
+    const [snoozeChat, setSnoozeChat] = useState(null);
+    const [snoozeMode, setSnoozeMode] = useState('time');
+    const [snoozeUntil, setSnoozeUntil] = useState('');
+    const [snoozeLoading, setSnoozeLoading] = useState(false);
     const [chats, setChats] = useState([]);
+    const [chatListError, setChatListError] = useState('');
     const activeChatRef = React.useRef(activeChat);
+    const selectedProjectIdRef = useRef(tokens?.selected_project_id || '');
+    selectedProjectIdRef.current = tokens?.selected_project_id || '';
+    const inboxContextRef = useRef({});
+    inboxContextRef.current = {
+        projectId: tokens?.selected_project_id || '',
+        activeTab,
+        searchQuery,
+        selectedLabelId
+    };
     const [showSettingsMenu, setShowSettingsMenu] = useState(false);
     const [showDirectChatModal, setShowDirectChatModal] = useState(false);
     const [showRepairChatsModal, setShowRepairChatsModal] = useState(false);
@@ -66,6 +94,53 @@ function ChatList({ tokens, onChatSelect, activeChat, darkMode, dbAvailable, soc
     const directChatInputRef = useRef(null);
     const isFirstFilterRun = useRef(true);
     const filterRequestId = useRef(0);
+    const snoozeRefreshTimers = useRef(new Set());
+    const loadNextSnoozeRef = useRef(null);
+
+    useEffect(() => {
+        setSelectedNumbers([]);
+        setBulkTarget('');
+        setBulkTagId('');
+        setBulkActionMessage('');
+    }, [activeTab, searchQuery, selectedLabelId, tokens?.selected_project_id]);
+
+    useEffect(() => {
+        setChats([]);
+        setIsLoading(true);
+        filterRequestId.current += 1;
+    }, [tokens?.selected_project_id]);
+
+    useEffect(() => {
+        setSnoozeChat(null);
+        snoozeRefreshTimers.current.forEach((timer) => clearTimeout(timer));
+        snoozeRefreshTimers.current.clear();
+        let cancelled = false;
+        if (!tokens?.selected_project_id || !tokens?.token) return undefined;
+
+        const loadNextSnooze = async () => {
+            snoozeRefreshTimers.current.forEach((timer) => clearTimeout(timer));
+            snoozeRefreshTimers.current.clear();
+            try {
+                const result = await getInboxRequest('next-snooze', {});
+                if (cancelled) return;
+                const nextSnooze = result.data?.next_snooze_at;
+                if (nextSnooze) scheduleSnoozeRefresh(nextSnooze);
+            } catch (error) {
+                if (!cancelled) console.error('Failed to load the next snooze deadline:', error);
+            }
+        };
+        loadNextSnoozeRef.current = loadNextSnooze;
+        loadNextSnooze();
+
+        return () => {
+            cancelled = true;
+            if (loadNextSnoozeRef.current === loadNextSnooze) loadNextSnoozeRef.current = null;
+            snoozeRefreshTimers.current.forEach((timer) => clearTimeout(timer));
+            snoozeRefreshTimers.current.clear();
+        };
+        // getInboxRequest and scheduleSnoozeRefresh use current project/auth values captured by this effect.
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [tokens?.selected_project_id, tokens?.token, tokens?.username]);
 
     // Update ref when activeChat changes
     useEffect(() => {
@@ -121,33 +196,58 @@ function ChatList({ tokens, onChatSelect, activeChat, darkMode, dbAvailable, soc
     // 1. Render from local first → 2. Sync with API (merge local + API, save to local) → 3. Re-render from local
     useEffect(() => {
         if (!tokens) return;
+        let cancelled = false;
 
         (async () => {
+            const initialContext = inboxContextRef.current;
+            const isDefaultView = !initialContext.searchQuery &&
+                initialContext.activeTab === 'All' && !initialContext.selectedLabelId;
             // 1️⃣ Load local database and render first (if available)
-            if (dbAvailable) {
+            if (dbAvailable && isDefaultView) {
                 const localChats = await dbHelper.getChats();
+                if (cancelled) return;
                 setChats(localChats);
                 if (localChats.length > 0) setIsLoading(false);
             }
 
-            // 2️⃣ Call chat list API (unfiltered "All" view); merge API response
-            // with local, save updated data to local
-            await syncWithAPI(1, false);
+            // 2️⃣ Load the active view from the project-scoped API.
+            const initialRequestId = filterRequestId.current + 1;
+            const currentContext = inboxContextRef.current;
+            const useDefaultView = !currentContext.searchQuery &&
+                currentContext.activeTab === 'All' && !currentContext.selectedLabelId;
+            if (useDefaultView) {
+                await syncWithAPI(1, false);
+            } else {
+                await fetchFilteredChats(
+                    currentContext.searchQuery,
+                    currentContext.activeTab,
+                    1,
+                    false,
+                    currentContext.selectedLabelId
+                );
+            }
+            if (cancelled || filterRequestId.current !== initialRequestId) return;
 
-            // 3️⃣ Re-fetch from local DB and re-render (single source of truth for UI)
-            if (dbAvailable) {
+            // 3️⃣ Re-fetch the unfiltered local mirror only for the default inbox.
+            if (dbAvailable && useDefaultView) {
                 const updatedChats = await dbHelper.getChats();
+                if (cancelled || filterRequestId.current !== initialRequestId) return;
                 setChats(updatedChats);
             }
 
             setIsLoading(false);
         })();
+
+        return () => {
+            cancelled = true;
+        };
     }, [tokens, dbAvailable]);
 
     useEffect(() => {
         let cancelled = false;
         const projectId = tokens?.selected_project_id || '';
         setLabelCatalog([]);
+        setLabelCatalogError('');
         setSelectedLabelId('');
         if (!projectId || !tokens?.token) return undefined;
 
@@ -171,13 +271,42 @@ function ChatList({ tokens, onChatSelect, activeChat, darkMode, dbAvailable, soc
                 }
                 setLabelCatalog(Array.isArray(response.data?.data) ? response.data.data : []);
             } catch (error) {
-                if (!cancelled) console.error('Failed to load project conversation labels:', error);
+                if (!cancelled) {
+                    console.error('Failed to load project conversation labels:', error);
+                    setLabelCatalogError(error.message || 'Could not load project labels.');
+                }
             }
         })();
 
         return () => {
             cancelled = true;
         };
+    }, [tokens?.selected_project_id, tokens?.token, tokens?.username]);
+
+    useEffect(() => {
+        let cancelled = false;
+        const projectId = tokens?.selected_project_id || '';
+        setAssignmentMembers([]);
+        setAssignmentMembersError('');
+        if (!projectId || !tokens?.token) return undefined;
+
+        (async () => {
+            try {
+                const result = await getInboxRequest('project-members', {});
+                if (!cancelled) setAssignmentMembers(Array.isArray(result.data) ? result.data : []);
+            } catch (error) {
+                if (!cancelled) {
+                    console.error('Failed to load project members for bulk assignment:', error);
+                    setAssignmentMembersError(error.message || 'Could not load project members.');
+                }
+            }
+        })();
+
+        return () => {
+            cancelled = true;
+        };
+        // getInboxRequest is stable for the current render; this effect follows auth/project changes.
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [tokens?.selected_project_id, tokens?.token, tokens?.username]);
 
     // 🔹 When socket_chats prop changes (including status updates)
@@ -289,6 +418,7 @@ function ChatList({ tokens, onChatSelect, activeChat, darkMode, dbAvailable, soc
                 number: apiChat.contact.number,
                 name: apiChat.contact.name || apiChat.contact.number,
                 is_favorite: apiChat.contact.is_favorite || false,
+                inbox_status: apiChat.inbox_status || 'open',
                 tags: Array.isArray(apiChat.contact.tags) ? apiChat.contact.tags : [],
                 labels: Array.isArray(apiChat.contact.labels) ? apiChat.contact.labels : [],
                 case_open_count: caseOpenCount,
@@ -313,6 +443,9 @@ function ChatList({ tokens, onChatSelect, activeChat, darkMode, dbAvailable, soc
 
     const syncWithAPI = async (pageToFetch = 1, append = false) => {
         if (!tokens) return;
+        const requestId = ++filterRequestId.current;
+        const projectId = tokens.selected_project_id || '';
+        if (pageToFetch === 1) setChatListError('');
 
         if (pageToFetch > 1) {
             setLoadingMore(true);
@@ -320,8 +453,6 @@ function ChatList({ tokens, onChatSelect, activeChat, darkMode, dbAvailable, soc
 
         try {
             // Use the currently selected project ID (fallback to first project if needed)
-            const projectId = tokens.selected_project_id || '';
-
             const messagePayload = {
                 project_id: projectId,
                 page: pageToFetch,
@@ -348,6 +479,7 @@ function ChatList({ tokens, onChatSelect, activeChat, darkMode, dbAvailable, soc
                 }
             );
 
+            if (requestId !== filterRequestId.current || selectedProjectIdRef.current !== projectId) return;
             if (!response.data.error && response.data.data) {
                 const apiData = response.data.data;
                 const meta = response.data.meta;
@@ -355,15 +487,24 @@ function ChatList({ tokens, onChatSelect, activeChat, darkMode, dbAvailable, soc
                 setHasMore(hasMoreFromMeta);
                 setPage(pageToFetch);
 
-                await processApiResponse(apiData, append);
+                await processApiResponse(apiData, append, () =>
+                    requestId === filterRequestId.current && selectedProjectIdRef.current === projectId
+                );
             } else {
                 setHasMore(false);
+                setChatListError(typeof response.data?.error === 'string'
+                    ? response.data.error
+                    : response.data?.error?.message || 'Could not load conversations.');
             }
         } catch (error) {
+            if (requestId !== filterRequestId.current || selectedProjectIdRef.current !== projectId) return;
             console.error('Failed to sync conversations:', error);
+            setChatListError(error.message || 'Could not load conversations.');
         } finally {
-            setIsLoading(false);
-            setLoadingMore(false);
+            if (requestId === filterRequestId.current && selectedProjectIdRef.current === projectId) {
+                setIsLoading(false);
+                setLoadingMore(false);
+            }
         }
     };
 
@@ -374,8 +515,10 @@ function ChatList({ tokens, onChatSelect, activeChat, darkMode, dbAvailable, soc
     // this path is purely for what's currently on screen.
     const fetchFilteredChats = async (search, tab, pageToFetch = 1, append = false, tagId = selectedLabelId) => {
         if (!tokens) return;
+        if (pageToFetch === 1) setChatListError('');
 
         const requestId = ++filterRequestId.current;
+        const projectId = tokens.selected_project_id || '';
         if (pageToFetch === 1) {
             setIsFiltering(true);
         } else {
@@ -383,7 +526,6 @@ function ChatList({ tokens, onChatSelect, activeChat, darkMode, dbAvailable, soc
         }
 
         try {
-            const projectId = tokens.selected_project_id || '';
             const filterValue = mapTabToFilter(tab);
 
             const messagePayload = {
@@ -394,6 +536,7 @@ function ChatList({ tokens, onChatSelect, activeChat, darkMode, dbAvailable, soc
                 filter: filterValue,
                 filter_type: filterValue,
                 type: filterValue,
+                view: filterValue,
                 ...(tagId ? { tag_id: tagId } : {})
             };
 
@@ -414,7 +557,7 @@ function ChatList({ tokens, onChatSelect, activeChat, darkMode, dbAvailable, soc
 
             // If a newer search/filter request has since started, drop this
             // stale response instead of clobbering the UI with old results.
-            if (requestId !== filterRequestId.current) return;
+            if (requestId !== filterRequestId.current || selectedProjectIdRef.current !== projectId) return;
 
             if (!response.data.error && response.data.data) {
                 const apiData = response.data.data;
@@ -435,13 +578,19 @@ function ChatList({ tokens, onChatSelect, activeChat, darkMode, dbAvailable, soc
                 }
             } else {
                 setHasMore(false);
+                setChatListError(typeof response.data?.error === 'string'
+                    ? response.data.error
+                    : response.data?.error?.message || 'Could not load conversations.');
             }
         } catch (error) {
+            if (requestId !== filterRequestId.current || selectedProjectIdRef.current !== projectId) return;
             console.error('Failed to fetch filtered chats:', error);
+            setChatListError(error.message || 'Could not load conversations.');
         } finally {
-            if (requestId === filterRequestId.current) {
+            if (requestId === filterRequestId.current && selectedProjectIdRef.current === projectId) {
                 setIsFiltering(false);
                 setLoadingMore(false);
+                setIsLoading(false);
             }
         }
     };
@@ -506,6 +655,20 @@ function ChatList({ tokens, onChatSelect, activeChat, darkMode, dbAvailable, soc
     }, [tokens, searchQuery, activeTab, selectedLabelId]);
 
     useEffect(() => {
+        let refreshTimer;
+        const unsubscribe = socketManager.onMessage((messageData) => {
+            if (messageData?.changes) return;
+            clearTimeout(refreshTimer);
+            refreshTimer = setTimeout(() => refreshVisibleChats(), 300);
+        });
+        return () => {
+            clearTimeout(refreshTimer);
+            unsubscribe();
+        };
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [tokens, searchQuery, activeTab, selectedLabelId]);
+
+    useEffect(() => {
         const handler = () => {
             if (searchQuery || activeTab !== 'All' || selectedLabelId) {
                 fetchFilteredChats(searchQuery, activeTab, 1, false, selectedLabelId);
@@ -518,14 +681,16 @@ function ChatList({ tokens, onChatSelect, activeChat, darkMode, dbAvailable, soc
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [tokens, searchQuery, activeTab, selectedLabelId]);
 
-    const processApiResponse = async (apiChats, append = false) => {
+    const processApiResponse = async (apiChats, append = false, isCurrent = () => true) => {
         try {
             // Build list from API response
             const chatListFromApi = mapApiChats(apiChats);
+            if (!isCurrent()) return;
 
             if (dbAvailable) {
                 // Get current local chats to merge (preserve local name when API returns empty)
                 const localChats = await dbHelper.getChats();
+                if (!isCurrent()) return;
                 const mergedList = chatListFromApi.map(apiChat => {
                     const local = localChats.find(c => c.number === apiChat.number);
                     const name = (apiChat.name && String(apiChat.name).trim() !== '')
@@ -535,8 +700,10 @@ function ChatList({ tokens, onChatSelect, activeChat, darkMode, dbAvailable, soc
                 });
                 await dbHelper.saveChats(mergedList);
                 const updatedChats = await dbHelper.getChats();
+                if (!isCurrent()) return;
                 setChats(updatedChats);
             } else {
+                if (!isCurrent()) return;
                 if (append) {
                     setChats(prev => {
                         const existingNumbers = new Set(prev.map(c => c.number));
@@ -549,6 +716,7 @@ function ChatList({ tokens, onChatSelect, activeChat, darkMode, dbAvailable, soc
             }
         } catch (error) {
             console.error('Error processing API response:', error);
+            setChatListError(error.message || 'Could not update the conversation list.');
         }
     };
 
@@ -719,6 +887,212 @@ function ChatList({ tokens, onChatSelect, activeChat, darkMode, dbAvailable, soc
 
     const totalUnreadCount = getTotalUnreadCount();
 
+    const toggleConversationSelection = (number) => {
+        if (selectedNumbers.includes(number)) {
+            setSelectedNumbers(selectedNumbers.filter((selected) => selected !== number));
+            setBulkActionMessage('');
+            return;
+        }
+        if (selectedNumbers.length >= 200) {
+            setBulkActionMessage('Bulk actions are limited to 200 conversations. Deselect some before adding more.');
+            return;
+        }
+        setSelectedNumbers([...selectedNumbers, number]);
+        setBulkActionMessage('');
+    };
+
+    const getInboxRequest = async (endpoint, payload) => {
+        const { data, key } = Encrypt({ project_id: tokens?.selected_project_id || '', ...payload });
+        const response = await axios.post(
+            `${API_BASE_URL}/inbox/${endpoint}`,
+            JSON.stringify({ data, key }),
+            {
+                headers: {
+                    token: tokens?.token,
+                    username: tokens?.username,
+                    'Content-Type': 'application/json'
+                }
+            }
+        );
+        if (response.data?.error) {
+            const message = typeof response.data.error === 'string'
+                ? response.data.error
+                : response.data.error?.message;
+            throw new Error(message || response.data?.msg || 'Inbox request failed');
+        }
+        return response.data;
+    };
+
+    const refreshVisibleChats = () => {
+        if (!searchQuery && activeTab === 'All' && !selectedLabelId) {
+            return syncWithAPI(1, false);
+        }
+        return fetchFilteredChats(searchQuery, activeTab, 1, false, selectedLabelId);
+    };
+    const refreshVisibleChatsRef = useRef(refreshVisibleChats);
+    refreshVisibleChatsRef.current = refreshVisibleChats;
+
+    useEffect(() => () => {
+        snoozeRefreshTimers.current.forEach((timer) => clearTimeout(timer));
+        snoozeRefreshTimers.current.clear();
+    }, []);
+
+    const scheduleSnoozeRefresh = (until) => {
+        const targetTime = new Date(until).getTime();
+        if (!Number.isFinite(targetTime)) {
+            console.error('Received an invalid snooze deadline:', until);
+            return;
+        }
+        snoozeRefreshTimers.current.forEach((timer) => clearTimeout(timer));
+        snoozeRefreshTimers.current.clear();
+        const schedule = () => {
+            const delay = Math.min(Math.max(targetTime - Date.now(), 1000), 2_000_000_000);
+            const timer = setTimeout(() => {
+                snoozeRefreshTimers.current.delete(timer);
+                if (Date.now() < targetTime) schedule();
+                else {
+                    refreshVisibleChatsRef.current();
+                    loadNextSnoozeRef.current?.();
+                }
+            }, delay);
+            snoozeRefreshTimers.current.add(timer);
+        };
+        schedule();
+    };
+
+    const downloadConversationExport = (rows) => {
+        const columns = ['number', 'name', 'message', 'message_type', 'type', 'create_date', 'assigned_to'];
+        const escapeCell = (value) => {
+            let text = value === null || value === undefined ? '' : String(value);
+            if (/^[\u0000-\u0020]*[=+\-@]/.test(text)) text = `'${text}`;
+            return `"${text.replace(/"/g, '""')}"`;
+        };
+        const csv = [
+            columns.join(','),
+            ...rows.map((row) => columns.map((column) => escapeCell(row[column])).join(','))
+        ].join('\r\n');
+        const url = URL.createObjectURL(new Blob([`\uFEFF${csv}`], { type: 'text/csv;charset=utf-8' }));
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = `conversations-${new Date().toISOString().slice(0, 10)}.csv`;
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+        setTimeout(() => URL.revokeObjectURL(url), 1000);
+    };
+
+    const runBulkAction = async () => {
+        if (!bulkAction || selectedNumbers.length === 0 || bulkActionLoading) return;
+        if (bulkAction === 'assign' && !bulkTarget.trim()) {
+            setBulkActionMessage('Enter an active project member username to assign these conversations.');
+            return;
+        }
+        if (bulkAction === 'label' && !bulkTagId) {
+            setBulkActionMessage('Choose a project label first.');
+            return;
+        }
+        const actionNames = { assign: 'assign', label: `${bulkLabelAction} the selected label on`, close: 'close', export: 'export' };
+        if (!window.confirm(`Are you sure you want to ${actionNames[bulkAction]} ${selectedNumbers.length} selected conversation(s)?`)) return;
+
+        const actionContext = { ...inboxContextRef.current };
+        setBulkActionLoading(true);
+        setBulkActionMessage('');
+        try {
+            const result = await getInboxRequest('bulk-actions', {
+                action: bulkAction,
+                numbers: selectedNumbers,
+                ...(bulkAction === 'assign' ? { target: bulkTarget.trim() } : {}),
+                ...(bulkAction === 'label' ? { tag_id: bulkTagId, label_action: bulkLabelAction } : {})
+            });
+            const currentContext = inboxContextRef.current;
+            if (currentContext.projectId !== actionContext.projectId ||
+                currentContext.activeTab !== actionContext.activeTab ||
+                currentContext.searchQuery !== actionContext.searchQuery ||
+                currentContext.selectedLabelId !== actionContext.selectedLabelId) return;
+            if (!Array.isArray(result.results) || result.results.length !== selectedNumbers.length) {
+                throw new Error('The server returned an incomplete bulk-action result. Your selection was kept.');
+            }
+            const results = result.results;
+            const selectedNumberSet = new Set(selectedNumbers);
+            if (results.some((item) =>
+                !item ||
+                !selectedNumberSet.has(item.number) ||
+                typeof item.success !== 'boolean'
+            )) {
+                throw new Error('The server returned an invalid bulk-action result. Your selection was kept.');
+            }
+            const failedNumbers = results.filter((item) => !item.success).map((item) => item.number);
+            const succeeded = results.length - failedNumbers.length;
+
+            if (bulkAction === 'export') {
+                if (!Array.isArray(result.data) || result.data.length !== succeeded) {
+                    throw new Error('The server returned an incomplete export. Please retry.');
+                }
+                const rows = result.data;
+                if (rows.length) downloadConversationExport(rows);
+            }
+            setSelectedNumbers(failedNumbers);
+            setBulkActionMessage(
+                `${succeeded} succeeded${failedNumbers.length ? `; ${failedNumbers.length} failed: ${results.filter((item) => !item.success).map((item) => `${item.number} (${item.error})`).join(', ')}` : ''}`
+            );
+            if (succeeded > 0 && bulkAction !== 'export') refreshVisibleChatsRef.current();
+        } catch (error) {
+            if (inboxContextRef.current.projectId !== actionContext.projectId) return;
+            console.error('Inbox bulk action failed:', error);
+            setBulkActionMessage(error.message || 'The bulk action failed. Your selection was kept.');
+        } finally {
+            setBulkActionLoading(false);
+        }
+    };
+
+    const openSnoozeDialog = (chat) => {
+        const localDefault = new Date(Date.now() + 60 * 60 * 1000 - new Date().getTimezoneOffset() * 60000)
+            .toISOString()
+            .slice(0, 16);
+        setSnoozeChat(chat);
+        setSnoozeMode('time');
+        setSnoozeUntil(localDefault);
+    };
+
+    const submitSnooze = async () => {
+        if (!snoozeChat || snoozeLoading) return;
+        const projectId = tokens?.selected_project_id || '';
+        let payload;
+        if (snoozeMode === 'time') {
+            const until = new Date(snoozeUntil);
+            if (!Number.isFinite(until.getTime()) || until.getTime() <= Date.now()) {
+                setBulkActionMessage('Choose a snooze time in the future.');
+                return;
+            }
+            payload = { number: snoozeChat.number, until: until.toISOString() };
+        } else {
+            payload = { number: snoozeChat.number, until_next_reply: true };
+        }
+
+        setSnoozeLoading(true);
+        try {
+            await getInboxRequest('snooze', payload);
+            if (selectedProjectIdRef.current !== projectId) return;
+            setChats((current) => current.filter((chat) => chat.number !== snoozeChat.number));
+            if (snoozeMode === 'time') loadNextSnoozeRef.current?.();
+            setSnoozeChat(null);
+            setBulkActionMessage(`${snoozeChat.name || snoozeChat.number} snoozed.`);
+            try {
+                await onChatSnoozed?.(snoozeChat.number);
+            } catch (cacheError) {
+                console.error('Snoozed conversation but could not update the local chat cache:', cacheError);
+                setBulkActionMessage('Conversation snoozed, but the local cache could not be updated. Refresh the inbox if it reappears.');
+            }
+            refreshVisibleChatsRef.current();
+        } catch (error) {
+            if (selectedProjectIdRef.current !== projectId) return;
+            console.error('Failed to snooze conversation:', error);
+            setBulkActionMessage(error.message || 'Could not snooze this conversation.');
+        } finally {
+            setSnoozeLoading(false);
+        }
+    };
+
     return (
         <>
             <div className="p-4 border-b">
@@ -727,7 +1101,7 @@ function ChatList({ tokens, onChatSelect, activeChat, darkMode, dbAvailable, soc
                         <FiSearch className="text-gray-500 dark:text-gray-400 mr-2 flex-shrink-0" />
                         <input
                             type="text"
-                            placeholder="Search"
+                            placeholder="Search names, numbers, or messages"
                             className="w-full bg-transparent focus:outline-none placeholder-gray-500 dark:placeholder-gray-400"
                             value={searchQuery}
                             onChange={(e) => setSearchQuery(e.target.value)}
@@ -795,15 +1169,16 @@ function ChatList({ tokens, onChatSelect, activeChat, darkMode, dbAvailable, soc
             </div>
 
             {/* Tabs */}
-            <div className="flex border-b" style={{ borderColor: darkMode ? '#374151' : '#e5e7eb' }}>
-                {['All', 'Unread', 'Favourites', 'Assigned'].map((tab) => {
+            <div className="flex overflow-x-auto border-b scrollbar-hide" style={{ borderColor: darkMode ? '#374151' : '#e5e7eb' }}>
+                {['All', 'My Open', 'Unassigned', 'SLA Breach', 'VIP', 'Unread', 'Favourites', 'Assigned'].map((tab) => {
                     // Show total unread count badge on "All" tab
                     const showUnreadBadge = tab === 'All' && totalUnreadCount > 0;
 
                     return (
                         <button
                             key={tab}
-                            className={`flex-1 py-3 text-sm font-medium relative flex items-center justify-center gap-2 ${activeTab === tab
+                            title={tab === 'SLA Breach' ? 'Open chats with an unanswered customer message older than one hour' : undefined}
+                            className={`flex-shrink-0 min-w-[76px] px-3 py-3 text-sm font-medium relative flex items-center justify-center gap-2 ${activeTab === tab
                                 ? darkMode
                                     ? 'text-blue-400'
                                     : 'text-blue-600'
@@ -828,6 +1203,98 @@ function ChatList({ tokens, onChatSelect, activeChat, darkMode, dbAvailable, soc
                         </button>
                     );
                 })}
+            </div>
+
+            <div className="border-b px-3 py-2 space-y-2" style={{ borderColor: darkMode ? '#374151' : '#e5e7eb' }}>
+                <div className="flex items-center gap-2">
+                    <button
+                        type="button"
+                        onClick={() => {
+                            if (chats.length > 0 && chats.every((chat) => selectedNumbers.includes(chat.number))) {
+                                setSelectedNumbers(selectedNumbers.filter((number) => !chats.some((chat) => chat.number === number)));
+                            } else {
+                                const nextSelection = [...new Set([...selectedNumbers, ...chats.map((chat) => chat.number)])];
+                                if (nextSelection.length > 200) {
+                                    setBulkActionMessage('Bulk actions are limited to 200 conversations. Deselect some before selecting this page.');
+                                    return;
+                                }
+                                setBulkActionMessage('');
+                                setSelectedNumbers(nextSelection);
+                            }
+                        }}
+                        disabled={!chats.length || bulkActionLoading}
+                        className="text-xs text-blue-600 dark:text-blue-400 disabled:opacity-50"
+                    >
+                        {chats.length > 0 && chats.every((chat) => selectedNumbers.includes(chat.number)) ? 'Deselect loaded' : 'Select loaded'}
+                    </button>
+                    <span className="text-xs text-gray-500 dark:text-gray-400">
+                        {selectedNumbers.length} selected (max 200)
+                    </span>
+                    <select
+                        value={bulkAction}
+                        onChange={(event) => { setBulkAction(event.target.value); setBulkActionMessage(''); }}
+                        className="ml-auto min-w-0 flex-1 rounded border border-gray-300 bg-white px-2 py-1.5 text-xs text-gray-800 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100"
+                        aria-label="Bulk action"
+                    >
+                        <option value="">Bulk action...</option>
+                        <option value="assign">Assign</option>
+                        <option value="label">Add/remove label</option>
+                        <option value="close">Close</option>
+                        <option value="export">Export CSV</option>
+                    </select>
+                    <button
+                        type="button"
+                        onClick={runBulkAction}
+                        disabled={!bulkAction || !selectedNumbers.length || bulkActionLoading}
+                        className="rounded bg-blue-600 px-3 py-1.5 text-xs font-medium text-white disabled:opacity-50"
+                    >
+                        {bulkActionLoading ? 'Working...' : 'Apply'}
+                    </button>
+                </div>
+                {bulkAction === 'assign' && (
+                    <>
+                        <select
+                            value={bulkTarget}
+                            onChange={(event) => setBulkTarget(event.target.value)}
+                            className="w-full rounded border border-gray-300 bg-white px-2 py-1.5 text-xs text-gray-800 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100"
+                            aria-label="Assign to project member"
+                        >
+                            <option value="">Choose an active project member...</option>
+                            {assignmentMembers.map((member) => (
+                                <option key={member.username} value={member.username}>
+                                    {member.name || member.username} ({member.username})
+                                </option>
+                            ))}
+                        </select>
+                        {assignmentMembersError && <p role="alert" className="text-xs text-red-600">{assignmentMembersError}</p>}
+                    </>
+                )}
+                {bulkAction === 'label' && (
+                    <div className="flex gap-2">
+                        <select
+                            value={bulkLabelAction}
+                            onChange={(event) => setBulkLabelAction(event.target.value)}
+                            className="rounded border border-gray-300 bg-white px-2 py-1.5 text-xs dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100"
+                            aria-label="Label operation"
+                        >
+                            <option value="add">Add</option>
+                            <option value="remove">Remove</option>
+                        </select>
+                        <select
+                            value={bulkTagId}
+                            onChange={(event) => setBulkTagId(event.target.value)}
+                            className="min-w-0 flex-1 rounded border border-gray-300 bg-white px-2 py-1.5 text-xs dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100"
+                            aria-label="Label"
+                        >
+                            <option value="">Choose a label...</option>
+                            {labelCatalog.map((label) => <option key={label.tag_id} value={label.tag_id}>{label.name}</option>)}
+                        </select>
+                        {labelCatalogError && <p role="alert" className="self-center text-xs text-red-600">{labelCatalogError}</p>}
+                    </div>
+                )}
+                {bulkActionMessage && (
+                    <p role="status" className="break-words text-xs text-gray-600 dark:text-gray-300">{bulkActionMessage}</p>
+                )}
             </div>
 
             {labelCatalog.length > 0 && (
@@ -869,6 +1336,12 @@ function ChatList({ tokens, onChatSelect, activeChat, darkMode, dbAvailable, soc
                     </div>
                 </div>
             )}
+            {chatListError && (
+                <div role="alert" className="flex items-center justify-between gap-2 border-b border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700 dark:border-red-900 dark:bg-red-950/30 dark:text-red-300">
+                    <span>{chatListError}</span>
+                    <button type="button" onClick={refreshVisibleChats} className="font-semibold underline">Retry</button>
+                </div>
+            )}
 
             {/* Chat List */}
             <div className="flex-1 overflow-y-auto scrollbar-hide" onScroll={handleScroll}>
@@ -904,6 +1377,15 @@ function ChatList({ tokens, onChatSelect, activeChat, darkMode, dbAvailable, soc
                                                     } ${darkMode ? 'hover:bg-gray-800' : 'hover:bg-gray-50'}`}
                                             >
                                                 <div className="flex items-center space-x-3">
+                                                    <input
+                                                        type="checkbox"
+                                                        checked={selectedNumbers.includes(chat.number)}
+                                                        onChange={() => toggleConversationSelection(chat.number)}
+                                                        onClick={(event) => event.stopPropagation()}
+                                                        disabled={bulkActionLoading}
+                                                        aria-label={`Select ${chat.name || chat.number}`}
+                                                        className="h-4 w-4 flex-shrink-0 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                                                    />
                                                     <div className="relative">
                                                         <div className="w-12 h-12 rounded-full flex items-center justify-center bg-brand-100 text-brand-800 font-semibold">
                                                             {(chat.name || chat.number || '?').charAt(0).toUpperCase()}
@@ -920,6 +1402,9 @@ function ChatList({ tokens, onChatSelect, activeChat, darkMode, dbAvailable, soc
                                                                 <h3 className="font-medium truncate text-gray-900 dark:text-white">
                                                                     {(chat.name || chat.number || '').startsWith("91") ? `+${chat.name || chat.number}` : (chat.name || chat.number)}
                                                                 </h3>
+                                                                {chat.inbox_status === 'closed' && (
+                                                                    <span className="rounded bg-gray-200 px-1.5 py-0.5 text-[10px] text-gray-600 dark:bg-gray-700 dark:text-gray-300">Closed</span>
+                                                                )}
                                                                         {chat.tags?.slice(0, 2).map((tag) => (
                                                                             <span
                                                                                 key={tag.tag_id}
@@ -980,6 +1465,17 @@ function ChatList({ tokens, onChatSelect, activeChat, darkMode, dbAvailable, soc
                                                                 {getMessageStatusIcon(chat.status, isLastMessageFromUser(chat))}
                                                             </div>
                                                         </div>
+                                                        <div className="mt-1 flex justify-end">
+                                                            <button
+                                                                type="button"
+                                                                onClick={(event) => { event.stopPropagation(); openSnoozeDialog(chat); }}
+                                                                className="inline-flex items-center gap-1 rounded px-2 py-1 text-[11px] text-gray-500 hover:bg-gray-200 dark:text-gray-300 dark:hover:bg-gray-700"
+                                                                aria-label={`Snooze ${chat.name || chat.number}`}
+                                                            >
+                                                                <FiClock className="h-3 w-3" />
+                                                                Snooze
+                                                            </button>
+                                                        </div>
                                                     </div>
                                                 </div>
                                             </div>
@@ -1012,6 +1508,54 @@ function ChatList({ tokens, onChatSelect, activeChat, darkMode, dbAvailable, soc
                     </div>
                 )}
             </div>
+
+            <AnimatedModal open={Boolean(snoozeChat)}>
+                {snoozeChat && (
+                    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={() => !snoozeLoading && setSnoozeChat(null)}>
+                        <div className="w-full max-w-sm rounded-2xl bg-white p-5 shadow-xl dark:bg-gray-800" onClick={(event) => event.stopPropagation()}>
+                            <h3 className="font-semibold text-gray-900 dark:text-white">Snooze conversation</h3>
+                            <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">{snoozeChat.name || snoozeChat.number}</p>
+                            <div className="mt-4 space-y-3">
+                                <label className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-200">
+                                    <input type="radio" name="snooze-mode" checked={snoozeMode === 'time'} onChange={() => setSnoozeMode('time')} />
+                                    Until a date and time
+                                </label>
+                                {snoozeMode === 'time' && (
+                                    <input
+                                        type="datetime-local"
+                                        value={snoozeUntil}
+                                        onChange={(event) => setSnoozeUntil(event.target.value)}
+                                        className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+                                        aria-label="Snooze until"
+                                    />
+                                )}
+                                <label className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-200">
+                                    <input type="radio" name="snooze-mode" checked={snoozeMode === 'reply'} onChange={() => setSnoozeMode('reply')} />
+                                    Until the next customer reply
+                                </label>
+                            </div>
+                            <div className="mt-5 flex justify-end gap-2">
+                                <button
+                                    type="button"
+                                    onClick={() => setSnoozeChat(null)}
+                                    disabled={snoozeLoading}
+                                    className="rounded-lg border border-gray-300 px-4 py-2 text-sm text-gray-700 dark:border-gray-600 dark:text-gray-200"
+                                >
+                                    Cancel
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={submitSnooze}
+                                    disabled={snoozeLoading}
+                                    className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
+                                >
+                                    {snoozeLoading ? 'Saving...' : 'Snooze'}
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                )}
+            </AnimatedModal>
 
             {/* Direct Chat Modal */}
             <AnimatedModal open={showDirectChatModal}>

@@ -221,6 +221,7 @@ export const dbHelper = {
                         number: chat.number,
                         name: safeName,
                         is_favorite: typeof chat.is_favorite === 'boolean' ? chat.is_favorite : (existing?.is_favorite || false),
+                        inbox_status: chat.inbox_status || existing?.inbox_status || 'open',
                         case_open_count: typeof chat.case_open_count === 'number' ? Math.max(0, chat.case_open_count) : (existing?.case_open_count ?? 0),
                         tags: Array.isArray(chat.tags) ? chat.tags : (existing?.tags || []),
                         wamid: chat.wamid,
@@ -258,6 +259,15 @@ export const dbHelper = {
         } catch (error) {
             console.error("❌ Error getting chats:", error);
             return [];
+        }
+    },
+
+    async deleteChat(number) {
+        try {
+            await this.db.chats.where("number").equals(number).delete();
+        } catch (error) {
+            console.error("❌ Error deleting cached chat:", error);
+            throw error;
         }
     },
 

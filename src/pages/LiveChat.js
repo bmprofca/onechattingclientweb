@@ -131,6 +131,15 @@ function LiveChat() {
         if (activeChat) setRepairVersion((v) => v + 1);
     };
 
+    const handleChatSnoozed = async (number) => {
+        if (dbAvailable) {
+            await dbHelper.deleteChat(number);
+            setChats(await dbHelper.getChats());
+        } else {
+            setChats((current) => current.filter((chat) => chat.number !== number));
+        }
+    };
+
     // Sync activeChat with URL phone parameter
     useEffect(() => {
         if (!isInitialized) return;
@@ -466,6 +475,7 @@ function LiveChat() {
                                 darkMode={darkMode}
                                 dbAvailable={dbAvailable}
                                 socket_chats={chats}
+                                onChatSnoozed={handleChatSnoozed}
                                 onRepairChats={handleRepairChats}
                                 isFullScreen={isFullScreen}
                                 onToggleFullScreen={handleToggleFullScreen}
