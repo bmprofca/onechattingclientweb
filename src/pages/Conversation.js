@@ -79,6 +79,7 @@ import { buildTemplateDisplayMessage } from '../utils/templateMessageDisplay';
 import Pagination from '../component/Pagination';
 import InteractiveMessageRenderer from '../component/Conversation/InteractiveMessageRenderer';
 import ContactMediaSection from '../component/Conversation/ContactMediaSection';
+import ContactTimelinePanel from '../component/Conversation/ContactTimelinePanel';
 import InboxProductivityTools from '../component/Conversation/InboxProductivityTools';
 import { getInteractiveSearchText, normalizeInteractiveMessage } from '../utils/interactiveMessage';
 
@@ -653,6 +654,7 @@ function Conversation({ activeChat, tokens, onBack, darkMode, dbAvailable, socke
     const [messages, setMessages] = useState([]);
     const [lastId, setLastId] = useState("0");
     const [hasMoreMessages, setHasMoreMessages] = useState(true);
+    const [pendingTimelineMessageId, setPendingTimelineMessageId] = useState(null);
     const [showHeaderMenu, setShowHeaderMenu] = useState(false);
     const [showAssignMenu, setShowAssignMenu] = useState(false);
     const [assignActionLoading, setAssignActionLoading] = useState(false);
@@ -748,6 +750,7 @@ function Conversation({ activeChat, tokens, onBack, darkMode, dbAvailable, socke
     const contactDbInitRef = useRef(false);
     const activeChatNumberRef = useRef(activeChat?.number ?? null);
     const historyRequestsRef = useRef(new Set());
+    const timelineNavigationRequestRef = useRef(0);
 
     const dispatch = useDispatch();
     const selectedFilesRef = useRef(selectedFiles);
@@ -1651,6 +1654,9 @@ function Conversation({ activeChat, tokens, onBack, darkMode, dbAvailable, socke
 
         const chatNumber = activeChat.number;
         activeChatNumberRef.current = chatNumber;
+        timelineNavigationRequestRef.current += 1;
+        setPendingTimelineMessageId(null);
+        setLoadingHistory(false);
         setMessages([]);
         setLoadingChatNumber(chatNumber);
 
@@ -1717,6 +1723,31 @@ function Conversation({ activeChat, tokens, onBack, darkMode, dbAvailable, socke
             scrollToBottomSync();
         }
     }, [messages]);
+
+    useLayoutEffect(() => {
+        if (!pendingTimelineMessageId || showContactDetails || loadingChatNumber === activeChat?.number) return;
+        const target = messages.find((message) => String(message.id) === String(pendingTimelineMessageId));
+        if (!target) return;
+
+        const messageKey = getMessageKey(target);
+        let frameId;
+        let attempts = 0;
+        const scrollToTarget = () => {
+            const node = document.getElementById(`message-${messageKey}`);
+            if (node?.scrollIntoView) {
+                setHighlightedMessageId(messageKey);
+                node.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                setPendingTimelineMessageId(null);
+                return;
+            }
+
+            attempts += 1;
+            if (attempts < 4) frameId = requestAnimationFrame(scrollToTarget);
+        };
+        frameId = requestAnimationFrame(scrollToTarget);
+
+        return () => cancelAnimationFrame(frameId);
+    }, [activeChat?.number, loadingChatNumber, messages, pendingTimelineMessageId, showContactDetails]);
 
     // Add scroll event handler for infinite scroll
     useEffect(() => {
@@ -2200,6 +2231,86 @@ function Conversation({ activeChat, tokens, onBack, darkMode, dbAvailable, socke
         } catch (error) {
         }
     };
+
+    const handleTimelineMessageClick = useCallback(async (targetMessageId) => {
+        const chatNumber = activeChat?.number;
+        if (!chatNumber || !/^\d+$/.test(String(targetMessageId))) return;
+        const navigationRequest = ++timelineNavigationRequestRef.current;
+        const targetId = String(targetMessageId);
+        const loadedMessage = messages.find((message) => String(message.id) === targetId);
+        setPendingTimelineMessageId(targetId);
+        setShowContactDetails(false);
+
+        if (loadedMessage) {
+            setLoadingHistory(false);
+            return;
+        }
+
+        setLoadingHistory(true);
+        shouldAutoScrollRef.current = false;
+        try {
+            const { data, key } = Encrypt({
+                project_id: tokens?.selected_project_id || '',
+                number: chatNumber,
+                last_id: '0',
+                target_message_id: targetId
+            });
+            const response = await axios.post(
+                `${API_BASE_URL}/message/chat-history`,
+                JSON.stringify({ data, key }),
+                {
+                    headers: {
+                        token: tokens?.token,
+                        username: tokens?.username,
+                        'Content-Type': 'application/json'
+                    }
+                }
+            );
+            if (
+                activeChatNumberRef.current !== chatNumber ||
+                navigationRequest !== timelineNavigationRequestRef.current
+            ) return;
+            const responseBody = response?.data;
+            const nestedData = responseBody?.data;
+            const history = Array.isArray(nestedData)
+                ? nestedData
+                : Array.isArray(nestedData?.data) ? nestedData.data : [];
+            if (responseBody?.success === false || responseBody?.error || history.length === 0) {
+                throw new Error(responseBody?.message || responseBody?.error?.message || responseBody?.error || 'Message not found.');
+            }
+
+            const targetMessage = history.find((message) => String(message.id) === targetId);
+            if (!targetMessage) throw new Error('Message not found in this conversation.');
+
+            const responseMeta = responseBody?.meta || {};
+            const oldestId = responseBody?.last_id ??
+                responseMeta.last_id ??
+                nestedData?.last_id ??
+                history[history.length - 1]?.id;
+            updateSendPermission(responseBody?.assigning ?? responseMeta.assigning ?? nestedData?.assigning, chatNumber);
+            await processApiResponse(history, false, oldestId, chatNumber);
+            if (
+                activeChatNumberRef.current !== chatNumber ||
+                navigationRequest !== timelineNavigationRequestRef.current
+            ) return;
+            setLastId(String(oldestId || '0'));
+            setHasMoreMessages(history.length >= 100);
+            setPendingTimelineMessageId(targetId);
+        } catch (error) {
+            if (
+                activeChatNumberRef.current === chatNumber &&
+                navigationRequest === timelineNavigationRequestRef.current
+            ) {
+                setPendingTimelineMessageId(null);
+                toast.error(error?.message || 'Could not open this conversation message.');
+            }
+        } finally {
+            if (
+                activeChatNumberRef.current === chatNumber &&
+                navigationRequest === timelineNavigationRequestRef.current
+            ) setLoadingHistory(false);
+        }
+    }, [activeChat?.number, messages, processApiResponse, tokens?.selected_project_id, tokens?.token, tokens?.username, updateSendPermission]);
 
     const markAsRead = async (number) => {
         try {
@@ -4876,8 +4987,17 @@ function Conversation({ activeChat, tokens, onBack, darkMode, dbAvailable, socke
                                     </section>
                             )}
 
-                                    {/* ——— Media & Documents ——— */}
-                                    {activeChat?.number && (
+                            {activeChat?.number && (
+                                <ContactTimelinePanel
+                                    projectId={tokens?.selected_project_id || ''}
+                                    number={activeChat.number}
+                                    tokens={tokens}
+                                    onOpenMessage={handleTimelineMessageClick}
+                                />
+                            )}
+
+                            {/* ——— Media & Documents ——— */}
+                            {activeChat?.number && (
                                         <ContactMediaSection
                                             number={activeChat.number}
                                             tokens={tokens}
