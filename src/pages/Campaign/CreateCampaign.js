@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useLocation } from 'react-router-dom';
 import { Header, Sidebar } from '../../component/Menu';
 import CampaignHeader from './components/CampaignHeader';
 import AudienceSelector from './components/AudienceSelector';
@@ -7,14 +8,18 @@ import WhatsAppPreview from './components/WhatsAppPreview';
 import CampaignSummary from './components/CampaignSummary';
 
 export default function CampaignBuilder() {
+  const location = useLocation();
+  const retargetParams = new URLSearchParams(location.search);
+  const retargetGroupId = retargetParams.get('group_id');
+  const retargetGroupName = retargetParams.get('group_name');
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [activeTab, setActiveTab] = useState('audience');
-  const [audienceType, setAudienceType] = useState(null);
+  const [audienceType, setAudienceType] = useState(retargetGroupId ? 'groups' : null);
   const [excelMapping, setExcelMapping] = useState({ name: '', phone: '' });
   const [selectedContacts, setSelectedContacts] = useState([]);
   const [selectedContactDetails, setSelectedContactDetails] = useState([]);
   const [isSelectAllContacts, setIsSelectAllContacts] = useState(false);
-  const [selectedGroups, setSelectedGroups] = useState([]);
+  const [selectedGroups, setSelectedGroups] = useState(retargetGroupId ? [retargetGroupId] : []);
   const [selectedTemplate, setSelectedTemplate] = useState(null);
   const [variableValues, setVariableValues] = useState({});
   const [variableSources, setVariableSources] = useState({});
@@ -24,7 +29,9 @@ export default function CampaignBuilder() {
   const [excelFile, setExcelFile] = useState(null);
   const [excelData, setExcelData] = useState([]);
   const [excelFileUrl, setExcelFileUrl] = useState('');
-  const [campaignName, setCampaignName] = useState('');
+  const [campaignName, setCampaignName] = useState(
+    retargetGroupName ? `Follow-up: ${retargetGroupName}`.slice(0, 100) : ''
+  );
   const [scheduleDate, setScheduleDate] = useState('');
   const [headerMediaUrl, setHeaderMediaUrl] = useState('');
   const [tokens, setTokens] = useState(null);
@@ -91,6 +98,11 @@ export default function CampaignBuilder() {
         <main className="mt-16 flex-1 overflow-y-auto px-4 py-5">
           <div className="w-full">
             <CampaignHeader activeTab={activeTab} />
+            {retargetGroupId ? (
+              <div className="mb-5 rounded-xl border border-indigo-200 bg-indigo-50 px-4 py-3 text-sm text-indigo-900">
+                Retargeting audience <strong>{retargetGroupName || 'saved group'}</strong> is preselected. Choose a template to continue.
+              </div>
+            ) : null}
 
             {/* Main Content */}
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -190,4 +202,3 @@ export default function CampaignBuilder() {
     </div>
   );
 }
-

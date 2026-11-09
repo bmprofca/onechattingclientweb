@@ -106,6 +106,8 @@ const CampaignDetails = () => {
   const [totalRecords, setTotalRecords] = useState(0);
   const [totalPages, setTotalPages] = useState(1);
   const [hasMore, setHasMore] = useState(false);
+  const [retargetingAudience, setRetargetingAudience] = useState(null);
+  const [retargetingError, setRetargetingError] = useState("");
 
   // Duplicate modal state
   const [showDuplicateModal, setShowDuplicateModal] = useState(false);
@@ -404,6 +406,48 @@ const CampaignDetails = () => {
     if (url) window.open(url, '_blank', 'noopener,noreferrer');
   };
 
+  const handleCreateRetargetingAudience = async (audience) => {
+    if (!campaignDetails?.entry_complete || !tokens?.token || !tokens?.username) return;
+
+    setRetargetingAudience(audience);
+    setRetargetingError("");
+    try {
+      const audienceLabels = {
+        delivered_not_read: 'Delivered, not read',
+        read_not_replied: 'Read, not replied',
+        clicked: 'Clicked',
+        failed: 'Failed'
+      };
+      const name = `${campaignDetails.name || 'Campaign'} - ${audienceLabels[audience]}`.slice(0, 100);
+      const response = await postEncrypted('/campaign/retargeting/audience', {
+        project_id: tokens.selected_project_id || tokens.projects?.[0]?.project_id || '',
+        campaign_id: campaignId,
+        audience,
+        name
+      });
+
+      if (response?.data?.error) {
+        throw new Error(response.data.error);
+      }
+
+      const savedGroup = response?.data?.data;
+      if (!savedGroup?.group_id) {
+        throw new Error('The saved audience response was incomplete.');
+      }
+
+      toast.success(`${savedGroup.contact_count} eligible contacts saved to "${savedGroup.name}".`);
+      const params = new URLSearchParams({
+        group_id: savedGroup.group_id,
+        group_name: savedGroup.name
+      });
+      navigate(`/create-campaign?${params.toString()}`);
+    } catch (error) {
+      setRetargetingError(error?.response?.data?.msg || error?.message || 'Failed to create a retargeting audience.');
+    } finally {
+      setRetargetingAudience(null);
+    }
+  };
+
   const openDuplicateModal = () => {
     setDuplicateName(campaignDetails?.name ? `Copy of ${campaignDetails.name}` : '');
     setDuplicateScheduleDate('');
@@ -559,6 +603,42 @@ const CampaignDetails = () => {
                   );
                 })}
               </div>
+
+              <section className="mb-5 rounded-[14px] border border-line bg-white p-4 sm:p-5">
+                <div className="flex items-start gap-3">
+                  <FiUsers className="mt-0.5 shrink-0 text-brand-600" size={18} />
+                  <div className="min-w-0">
+                    <h2 className="text-[15px] font-bold text-ink">Create audience from this report</h2>
+                    <p className="mt-1 text-xs leading-5 text-ink-500">
+                      Saved audiences exclude opted-out numbers. Clicked audiences currently include WhatsApp interactive replies; URL clicks are not tracked.
+                    </p>
+                  </div>
+                </div>
+                <div className="mt-4 grid grid-cols-1 gap-2 sm:grid-cols-2">
+                  {[
+                    { id: 'delivered_not_read', label: 'Delivered, not read' },
+                    { id: 'read_not_replied', label: 'Read, not replied' },
+                    { id: 'clicked', label: 'Clicked (interactive reply)' },
+                    { id: 'failed', label: 'Failed' }
+                  ].map((audience) => (
+                    <button
+                      key={audience.id}
+                      type="button"
+                      onClick={() => handleCreateRetargetingAudience(audience.id)}
+                      disabled={!campaignDetails?.entry_complete || Boolean(retargetingAudience)}
+                      className="flex min-h-10 items-center justify-between rounded-[10px] border border-line px-3 py-2 text-left text-sm font-semibold text-ink transition-colors hover:border-brand-300 hover:bg-brand-50 disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                      <span>{audience.label}</span>
+                      {retargetingAudience === audience.id ? <FiLoader className="animate-spin text-brand-600" size={15} /> : <FiUsers className="text-ink-400" size={15} />}
+                    </button>
+                  ))}
+                </div>
+                {retargetingError ? (
+                  <p role="alert" className="mt-3 rounded-lg bg-rose-50 px-3 py-2 text-sm text-rose-700">
+                    {retargetingError}
+                  </p>
+                ) : null}
+              </section>
 
               <div className="bg-white border border-line rounded-[14px] flex flex-col min-h-[420px]">
                 <div className="px-4 py-3.5 border-b border-[#ECEAF3] flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">

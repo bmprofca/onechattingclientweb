@@ -1,6 +1,7 @@
 import axios from 'axios';
 import { API_BASE_URL } from '../config/api';
 import { Encrypt } from '../pages/encryption/payload-encryption';
+import { isExplicitlyUnauthorized } from './http/session';
 
 // Send OTP
 export const sendOtp = async ({ mobile, purpose }) => {
@@ -800,8 +801,11 @@ export const checkSession = async () => {
     const response = await axios.request(config);
     return response.data;
   } catch (error) {
-    // If API call fails (e.g. 401), consider session expired
-    return { error: "session expired" };
+    if (isExplicitlyUnauthorized(error)) {
+      return { error: "session expired" };
+    }
+
+    throw error;
   }
 };
 

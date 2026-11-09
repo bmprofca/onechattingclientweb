@@ -12,4 +12,8 @@ export function getAuthToken() {
   return getStoredSession()?.token || '';
 }
 
+export function isExplicitlyUnauthorized(error) {
+  return error?.response?.status === 401;
+}
+
 export const UNAUTHORIZED_EVENT = 'onechatting:unauthorized';

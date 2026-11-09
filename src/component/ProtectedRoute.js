@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Navigate, useNavigate } from 'react-router-dom';
+import { Navigate } from 'react-router-dom';
 import { checkSession } from '../api/auth';
 import toast from 'react-hot-toast';
 
@@ -10,7 +10,6 @@ let lastVerifiedToken = null;
 let lastVerifiedAt = 0;
 
 const ProtectedRoute = ({ children, requiresProject = false }) => {
-  const navigate = useNavigate();
   const cachedToken = (() => {
     try { return JSON.parse(localStorage.getItem('userData'))?.token || null; } catch (e) { return null; }
   })();
@@ -52,9 +51,7 @@ const ProtectedRoute = ({ children, requiresProject = false }) => {
         }
       } catch (error) {
         console.error("Session check failed", error);
-        // On network error, we might want to be lenient or strict. 
-        // For now, let's assume valid to avoid blocking on transient errors, 
-        // unless it was an explicit auth failure handled in checkSession.
+        // A failed session-check request does not invalidate locally stored auth.
         setIsSessionValid(true);
       }
     };
