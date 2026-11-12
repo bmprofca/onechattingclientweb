@@ -13,6 +13,7 @@ import {
 } from 'react-icons/fi';
 import toast from 'react-hot-toast';
 import { getProjectQRCodes } from '../../api/qrcode';
+import { API_BASE_URL } from '../../config/api';
 
 // WhatsApp Icon SVG component
 const WhatsAppIcon = ({ size = 16, className = '' }) => (
@@ -24,10 +25,17 @@ const WhatsAppIcon = ({ size = 16, className = '' }) => (
     </svg>
 );
 
+const escapeAttribute = (value) => String(value)
+    .replace(/&/g, '&amp;')
+    .replace(/"/g, '&quot;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;');
+
 const ProjectQRModal = ({ isOpen, onClose, projectId, projectName }) => {
     const [qrList, setQrList] = useState([]);
     const [loading, setLoading] = useState(true);
     const [copied, setCopied] = useState(false);
+    const [widgetCopied, setWidgetCopied] = useState(false);
     const [selectedQrIndex, setSelectedQrIndex] = useState(0);
 
     useEffect(() => {
@@ -60,6 +68,9 @@ const ProjectQRModal = ({ isOpen, onClose, projectId, projectName }) => {
         window.location.origin
     ).replace(/\/$/, '');
     const scanUrl = currentQr ? `${portalUrl}/qr/${currentQr.qr_id}` : '';
+    const widgetCode = currentQr
+        ? `<script src="${escapeAttribute(`${API_BASE_URL}/onechatting-widget.js`)}" data-base-url="${escapeAttribute(portalUrl)}" data-qr-id="${escapeAttribute(currentQr.qr_id)}" data-message="Hi! I found you online." data-campaign="website" data-source="website"></script>`
+        : '';
 
     const handleCopyUrl = async () => {
         if (!scanUrl) return;
@@ -70,6 +81,18 @@ const ProjectQRModal = ({ isOpen, onClose, projectId, projectName }) => {
             setTimeout(() => setCopied(false), 2000);
         } catch {
             toast.error('Failed to copy link');
+        }
+    };
+
+    const handleCopyWidgetCode = async () => {
+        if (!widgetCode) return;
+        try {
+            await navigator.clipboard.writeText(widgetCode);
+            setWidgetCopied(true);
+            toast.success('Widget embed code copied!');
+            setTimeout(() => setWidgetCopied(false), 2000);
+        } catch {
+            toast.error('Failed to copy widget code');
         }
     };
 
@@ -392,6 +415,24 @@ const ProjectQRModal = ({ isOpen, onClose, projectId, projectName }) => {
                                         <FiPrinter size={14} />
                                         <span>Print</span>
                                     </button>
+                                </div>
+
+                                <div className="mt-4 w-full rounded-xl border border-gray-200 bg-gray-50 p-3 text-left">
+                                    <div className="flex items-center justify-between gap-2">
+                                        <h4 className="text-xs font-bold text-gray-800">Website chat widget</h4>
+                                        <button
+                                            type="button"
+                                            onClick={handleCopyWidgetCode}
+                                            className="flex items-center gap-1 rounded-lg bg-indigo-600 px-2.5 py-1.5 text-xs font-semibold text-white hover:bg-indigo-700"
+                                        >
+                                            {widgetCopied ? <FiCheck size={12} /> : <FiCopy size={12} />}
+                                            {widgetCopied ? 'Copied' : 'Copy embed'}
+                                        </button>
+                                    </div>
+                                    <p className="mt-1 text-[11px] leading-relaxed text-gray-500">
+                                        Add this snippet to your site. Edit the campaign, source, and prefilled message attributes to track each placement.
+                                    </p>
+                                    <pre className="mt-2 max-h-20 overflow-auto whitespace-pre-wrap break-all rounded-lg bg-white p-2 text-[10px] leading-relaxed text-gray-600">{widgetCode}</pre>
                                 </div>
                             </>
                         )}

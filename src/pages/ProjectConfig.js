@@ -6,6 +6,7 @@ import axios from 'axios';
 import { Header, Sidebar } from '../component/Menu';
 import { fetchProjectInfo } from '../store/projectSlice';
 import { Encrypt } from './encryption/payload-encryption';
+import { getOnboardingSettings, saveOnboardingSettings } from '../api/onboarding';
 import { FiLock, FiMessageSquare, FiShield, FiGitBranch, FiFileText } from 'react-icons/fi';
 import toast from 'react-hot-toast';
 
@@ -108,6 +109,13 @@ function ProjectConfig() {
     const [autoReplyLoading, setAutoReplyLoading] = useState(false);
     const [autoCaseCreateStatusLoading, setAutoCaseCreateStatusLoading] = useState(true);
     const [autoReplyStatusLoading, setAutoReplyStatusLoading] = useState(true);
+    const [onboardingLoading, setOnboardingLoading] = useState(true);
+    const [onboardingSaving, setOnboardingSaving] = useState(false);
+    const [onboardingCapabilities, setOnboardingCapabilities] = useState({ ice_breakers: false, slash_commands: false });
+    const [onboardingProvider, setOnboardingProvider] = useState('');
+    const [iceBreakersText, setIceBreakersText] = useState('');
+    const [slashCommandsText, setSlashCommandsText] = useState('');
+    const [onboardingError, setOnboardingError] = useState('');
 
     useEffect(() => {
         localStorage.setItem('sidebarMinimized', JSON.stringify(isMinimized));
@@ -258,6 +266,69 @@ function ProjectConfig() {
         return () => { cancelled = true; };
     }, [projectId, isOwner]);
 
+    useEffect(() => {
+        if (!projectId || !isOwner) {
+            setOnboardingLoading(false);
+            return undefined;
+        }
+        let cancelled = false;
+        setOnboardingLoading(true);
+        setOnboardingError('');
+        getOnboardingSettings(projectId)
+            .then((response) => {
+                if (cancelled) return;
+                const settings = response.settings || {};
+                setIceBreakersText((settings.ice_breakers || []).join('\n'));
+                setSlashCommandsText((settings.slash_commands || [])
+                    .map((item) => `${item.command}${item.description ? ` | ${item.description}` : ''}`)
+                    .join('\n'));
+                setOnboardingCapabilities(response.capabilities || { ice_breakers: false, slash_commands: false });
+                setOnboardingProvider(response.provider || 'unknown');
+            })
+            .catch((error) => {
+                if (cancelled) return;
+                setOnboardingError(error?.response?.data?.error?.message || error?.response?.data?.error || 'Could not load onboarding settings.');
+            })
+            .finally(() => {
+                if (!cancelled) setOnboardingLoading(false);
+            });
+        return () => { cancelled = true; };
+    }, [projectId, isOwner]);
+
+    const handleOnboardingSettingsSave = async () => {
+        if (!projectId || onboardingSaving) return;
+        setOnboardingSaving(true);
+        setOnboardingError('');
+        try {
+            const slashCommands = slashCommandsText
+                .split(/\r?\n/)
+                .map((line) => line.trim())
+                .filter(Boolean)
+                .map((line) => {
+                    const separator = line.indexOf('|');
+                    return {
+                        command: (separator === -1 ? line : line.slice(0, separator)).trim(),
+                        description: separator === -1 ? '' : line.slice(separator + 1).trim(),
+                    };
+                });
+            const response = await saveOnboardingSettings({
+                project_id: projectId,
+                ice_breakers: iceBreakersText.split(/\r?\n/).map((line) => line.trim()).filter(Boolean),
+                slash_commands: slashCommands,
+            });
+            setIceBreakersText((response.settings.ice_breakers || []).join('\n'));
+            setSlashCommandsText((response.settings.slash_commands || [])
+                .map((item) => `${item.command}${item.description ? ` | ${item.description}` : ''}`)
+                .join('\n'));
+            toast.success('Onboarding prompts saved.');
+        } catch (error) {
+            const message = error?.response?.data?.error?.message || error?.response?.data?.error || 'Could not save onboarding settings.';
+            setOnboardingError(message);
+            toast.error(message);
+        } finally {
+            setOnboardingSaving(false);
+        }
+    };
 
     const handleAutoCaseCreateChange = async (checked) => {
         if (!projectId) return;
@@ -476,6 +547,74 @@ function ProjectConfig() {
                     </div>
 
                     <div className="space-y-4">
+                        <section className="oc-card p-5">
+                            <div className="flex flex-wrap items-start justify-between gap-3">
+                                <div>
+                                    <h2 className="text-[15px] font-bold text-ink">WhatsApp onboarding prompts</h2>
+                                    <p className="mt-1 max-w-2xl text-sm text-ink-500">
+                                        Configure optional ice-breakers and slash commands for supported WhatsApp providers.
+                                    </p>
+                                </div>
+                                {onboardingLoading ? (
+                                    <span className="inline-block h-5 w-5 border-2 border-line border-t-brand-600 rounded-full animate-spin" aria-label="Loading onboarding prompts" />
+                                ) : (
+                                    <span className="rounded-full bg-surface-soft px-3 py-1 text-xs font-semibold text-ink-500">
+                                        Provider: {onboardingProvider || 'unavailable'}
+                                    </span>
+                                )}
+                            </div>
+                            {!onboardingLoading && !onboardingCapabilities.ice_breakers && (
+                                <p className="mt-4 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800" role="status">
+                                    This provider does not support WhatsApp onboarding prompts. These controls are disabled.
+                                </p>
+                            )}
+                            {!onboardingLoading && onboardingProvider === 'aisensy' && (
+                                <p className="mt-4 rounded-lg border border-sky-200 bg-sky-50 px-3 py-2 text-sm text-sky-800" role="status">
+                                    Prompts are saved in OneChatting. The <a href="https://aisensy.stoplight.io/" target="_blank" rel="noreferrer" className="font-semibold underline">AiSensy API docs</a> do not currently document an endpoint to publish these settings to WhatsApp.
+                                </p>
+                            )}
+                            {onboardingError && (
+                                <p className="mt-4 text-sm text-rose-700" role="alert">{onboardingError}</p>
+                            )}
+                            <div className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-2">
+                                <label className="block text-sm font-semibold text-ink">
+                                    Ice-breakers (one per line, up to 4)
+                                    <textarea
+                                        value={iceBreakersText}
+                                        onChange={(event) => setIceBreakersText(event.target.value)}
+                                        disabled={onboardingLoading || onboardingSaving || !onboardingCapabilities.ice_breakers}
+                                        maxLength={400}
+                                        rows={5}
+                                        placeholder={'Ask about pricing\nTalk to support'}
+                                        className="mt-2 w-full rounded-lg border border-line bg-white p-3 text-sm font-normal text-ink disabled:cursor-not-allowed disabled:bg-surface-soft"
+                                    />
+                                </label>
+                                <label className="block text-sm font-semibold text-ink">
+                                    Slash commands (one per line: /command | description)
+                                    <textarea
+                                        value={slashCommandsText}
+                                        onChange={(event) => setSlashCommandsText(event.target.value)}
+                                        disabled={onboardingLoading || onboardingSaving || !onboardingCapabilities.slash_commands}
+                                        maxLength={1200}
+                                        rows={5}
+                                        placeholder={'/pricing | View plans\n/support | Contact our team'}
+                                        className="mt-2 w-full rounded-lg border border-line bg-white p-3 text-sm font-normal text-ink disabled:cursor-not-allowed disabled:bg-surface-soft"
+                                    />
+                                </label>
+                            </div>
+                            <div className="mt-3 flex items-center justify-between gap-3">
+                                <p className="text-xs text-ink-400">Ice-breakers are limited to 80 characters; commands support up to 10 entries.</p>
+                                <button
+                                    type="button"
+                                    onClick={handleOnboardingSettingsSave}
+                                    disabled={onboardingLoading || onboardingSaving || !onboardingCapabilities.ice_breakers}
+                                    className="oc-btn-primary h-10 px-4 disabled:cursor-not-allowed disabled:opacity-50"
+                                >
+                                    {onboardingSaving ? 'Saving…' : 'Save prompts'}
+                                </button>
+                            </div>
+                        </section>
+
                         <section className="oc-card p-5">
                             <div className="flex items-start justify-between gap-4">
                                 <div>

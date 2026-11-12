@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import {
     FiAlertCircle,
@@ -6,6 +6,7 @@ import {
 } from 'react-icons/fi';
 import toast, { Toaster } from 'react-hot-toast';
 import { validateQRCode, processScanAction } from '../api/qrcode';
+import { buildWhatsAppMessage } from '../utils/qrcode';
 
 // WhatsApp Icon SVG component
 const WhatsAppIcon = ({ size = 24, className = '' }) => (
@@ -32,10 +33,14 @@ const QRLanding = () => {
     const [redirectCountdown, setRedirectCountdown] = useState(2);
 
     useEffect(() => {
+        let cancelled = false;
+        let redirectTimeout;
+        let countdownInterval;
+
         if (!qr_id) {
             setError('Invalid QR code link');
             setLoadingProject(false);
-            return;
+            return undefined;
         }
 
         const initScan = async () => {
@@ -46,6 +51,7 @@ const QRLanding = () => {
                 // Validate QR Code from backend
                 const valRes = await validateQRCode(qr_id);
 
+                if (cancelled) return;
                 if (valRes.error) {
                     setError(valRes.error);
                     setLoadingProject(false);
@@ -69,11 +75,12 @@ const QRLanding = () => {
                 setPhoneNumber(cleanPhone);
 
                 // Extract or generate custom message
-                const msg =
+                const defaultMessage =
                     valRes.custom_message ||
                     valRes.qr_code?.custom_message ||
                     valRes.message ||
                     `Hi, I scanned your QR code to connect with ${valRes.project?.project_name || 'you'} [Ref: ${qr_id}]`;
+                const msg = buildWhatsAppMessage(defaultMessage, new URLSearchParams(window.location.search));
 
                 setCustomMessage(msg);
 
@@ -101,11 +108,16 @@ const QRLanding = () => {
                         mobile: session?.mobile,
                         email: session?.email,
                         firm_name: session?.firm_name,
-                    }).catch(() => {});
+                    }).catch((scanError) => {
+                        console.error('Failed to record QR scan action:', scanError);
+                    });
 
                     // Auto-redirect to WhatsApp after brief animation
                     setRedirectCountdown(3);
-                    setTimeout(() => {
+                    countdownInterval = setInterval(() => {
+                        setRedirectCountdown((countdown) => Math.max(0, countdown - 1));
+                    }, 1000);
+                    redirectTimeout = setTimeout(() => {
                         window.location.href = waLink;
                     }, 3000);
                 } else {
@@ -113,14 +125,20 @@ const QRLanding = () => {
                     setError('This project does not have a WhatsApp number assigned yet. Please contact support.');
                 }
             } catch (err) {
+                if (cancelled) return;
                 console.error('Scan init error:', err);
                 setError('Failed to connect to QR service. Please try scanning again.');
             } finally {
-                setLoadingProject(false);
+                if (!cancelled) setLoadingProject(false);
             }
         };
 
         initScan();
+        return () => {
+            cancelled = true;
+            clearTimeout(redirectTimeout);
+            clearInterval(countdownInterval);
+        };
     }, [qr_id]);
 
     const handleCopyMessage = async () => {

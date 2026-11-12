@@ -1,12 +1,13 @@
 import axios from 'axios';
 import { API_BASE_URL } from '../config/api';
 import { Encrypt } from '../pages/encryption/payload-encryption';
+import { unwrapQRCodeResponse } from '../utils/qrcode';
 
 // Public: Validate QR Code on scan
 export const validateQRCode = async (qr_id) => {
     try {
         const response = await axios.get(`${API_BASE_URL}/qrcode/validate/${qr_id}`);
-        return response.data;
+        return unwrapQRCodeResponse(response.data);
     } catch (error) {
         console.error('Error validating QR code:', error);
         return { error: 'Failed to validate QR code. Please try again.' };
@@ -21,7 +22,7 @@ export const processScanAction = async (payload) => {
                 'Content-Type': 'application/json',
             },
         });
-        return response.data;
+        return unwrapQRCodeResponse(response.data);
     } catch (error) {
         console.error('Error processing scan action:', error);
         return { error: 'Network error processing QR code action' };
@@ -62,5 +63,5 @@ export const getProjectQRCodes = async ({ project_id }) => {
     };
 
     const response = await axios.request(config);
-    return response.data;
+    return unwrapQRCodeResponse(response.data);
 };
