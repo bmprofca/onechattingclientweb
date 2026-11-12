@@ -35,6 +35,7 @@ const ProjectQRModal = ({ isOpen, onClose, projectId, projectName }) => {
     const [qrList, setQrList] = useState([]);
     const [loading, setLoading] = useState(true);
     const [copied, setCopied] = useState(false);
+    const [landingCopied, setLandingCopied] = useState(false);
     const [widgetCopied, setWidgetCopied] = useState(false);
     const [selectedQrIndex, setSelectedQrIndex] = useState(0);
 
@@ -68,19 +69,33 @@ const ProjectQRModal = ({ isOpen, onClose, projectId, projectName }) => {
         window.location.origin
     ).replace(/\/$/, '');
     const scanUrl = currentQr ? `${portalUrl}/qr/${currentQr.qr_id}` : '';
+    const hasWhatsAppLink = Boolean(currentQr?.whatsapp_url);
+    const qrValue = currentQr?.whatsapp_url || scanUrl;
     const widgetCode = currentQr
         ? `<script src="${escapeAttribute(`${API_BASE_URL}/onechatting-widget.js`)}" data-base-url="${escapeAttribute(portalUrl)}" data-qr-id="${escapeAttribute(currentQr.qr_id)}" data-message="Hi! I found you online." data-campaign="website" data-source="website"></script>`
         : '';
 
     const handleCopyUrl = async () => {
-        if (!scanUrl) return;
+        if (!qrValue) return;
         try {
-            await navigator.clipboard.writeText(scanUrl);
+            await navigator.clipboard.writeText(qrValue);
             setCopied(true);
-            toast.success('QR Scan link copied to clipboard!');
+            toast.success(hasWhatsAppLink ? 'WhatsApp link copied to clipboard!' : 'QR landing link copied!');
             setTimeout(() => setCopied(false), 2000);
         } catch {
             toast.error('Failed to copy link');
+        }
+    };
+
+    const handleCopyLandingUrl = async () => {
+        if (!scanUrl) return;
+        try {
+            await navigator.clipboard.writeText(scanUrl);
+            setLandingCopied(true);
+            toast.success('OneChatting landing link copied!');
+            setTimeout(() => setLandingCopied(false), 2000);
+        } catch {
+            toast.error('Failed to copy landing link');
         }
     };
 
@@ -360,7 +375,7 @@ const ProjectQRModal = ({ isOpen, onClose, projectId, projectName }) => {
                                 <div className="p-4 bg-white rounded-2xl shadow-md border-2 border-emerald-500/30 inline-block mb-3">
                                     <QRCodeCanvas
                                         id={`client-qr-canvas-${currentQr.qr_id}`}
-                                        value={scanUrl}
+                                        value={qrValue}
                                         size={210}
                                         level="H"
                                         includeMargin={true}
@@ -369,7 +384,11 @@ const ProjectQRModal = ({ isOpen, onClose, projectId, projectName }) => {
 
                                 <div className="flex items-center gap-1.5 text-xs text-emerald-700 dark:text-emerald-400 font-medium mb-3">
                                     <WhatsAppIcon size={14} />
-                                    <span>Scans automatically open WhatsApp chat</span>
+                                    <span>
+                                        {hasWhatsAppLink
+                                            ? 'WhatsApp QR scanner opens the chat directly'
+                                            : 'Assign this QR to a project with a WhatsApp number to enable direct scanning'}
+                                    </span>
                                 </div>
 
                                 {/* URL Copy Input */}
@@ -377,7 +396,7 @@ const ProjectQRModal = ({ isOpen, onClose, projectId, projectName }) => {
                                     <input
                                         type="text"
                                         readOnly
-                                        value={scanUrl}
+                                        value={qrValue}
                                         className="bg-transparent text-xs text-gray-700 dark:text-gray-300 flex-1 px-2 outline-none select-all font-mono truncate"
                                     />
                                     <button
@@ -385,7 +404,16 @@ const ProjectQRModal = ({ isOpen, onClose, projectId, projectName }) => {
                                         className="flex items-center gap-1 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-medium transition-colors shadow-sm"
                                     >
                                         {copied ? <FiCheck size={13} /> : <FiCopy size={13} />}
-                                        {copied ? 'Copied' : 'Copy'}
+                                        {copied ? 'Copied' : hasWhatsAppLink ? 'Copy WhatsApp link' : 'Copy QR link'}
+                                    </button>
+                                </div>
+                                <div className="flex justify-end -mt-2 mb-4">
+                                    <button
+                                        type="button"
+                                        onClick={handleCopyLandingUrl}
+                                        className="text-xs text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 underline"
+                                    >
+                                        {landingCopied ? 'Landing link copied' : 'Copy OneChatting landing link'}
                                     </button>
                                 </div>
 
