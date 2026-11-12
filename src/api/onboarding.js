@@ -1,6 +1,5 @@
 import axios from "axios";
 import { API_BASE_URL } from "../config/api";
-import { Encrypt } from "../pages/encryption/payload-encryption";
 
 function getSession() {
     try {
@@ -32,10 +31,9 @@ export async function getOnboardingSettings(projectId) {
 
 export async function saveOnboardingSettings(payload) {
     const session = getSession();
-    const encrypted = Encrypt(payload);
     const response = await axios.put(
         `${API_BASE_URL}/onboarding/settings`,
-        JSON.stringify(encrypted),
+        payload,
         { headers: authHeaders(session) }
     );
     return response.data.data || response.data;
