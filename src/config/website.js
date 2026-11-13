@@ -13,5 +13,6 @@ export const LEGAL_LINKS = [
   { label: 'Terms & Conditions', path: '/terms' },
   { label: 'Refund Policy', path: '/refund-policy' },
   { label: 'Business Policy', path: '/business-policy' },
+  { label: 'Acceptable Use', path: '/acceptable-use' },
   { label: 'Contact', path: '/contact' },
 ];
