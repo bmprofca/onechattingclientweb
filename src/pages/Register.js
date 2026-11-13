@@ -228,8 +228,10 @@ const Register = () => {
                 <p className="text-xs leading-relaxed text-ink-500">
                   By creating an account, you agree to our{' '}
                   <a href={websiteUrl('/terms')} target="_blank" rel="noopener noreferrer" className="font-semibold text-brand-800">Terms</a>
-                  {' '}and{' '}
-                  <a href={websiteUrl('/privacy-policy')} target="_blank" rel="noopener noreferrer" className="font-semibold text-brand-800">Privacy Policy</a>.
+                  {', '}
+                  <a href={websiteUrl('/privacy-policy')} target="_blank" rel="noopener noreferrer" className="font-semibold text-brand-800">Privacy Policy</a>
+                  {', and '}
+                  <a href={websiteUrl('/acceptable-use')} target="_blank" rel="noopener noreferrer" className="font-semibold text-brand-800">Acceptable Use Policy</a>.
                 </p>
                 <div className="flex items-center gap-3">
                   <button type="button" onClick={prevStep} className="oc-btn-ghost h-[50px] px-4">
