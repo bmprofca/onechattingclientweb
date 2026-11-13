@@ -1324,7 +1324,11 @@ function ChatList({ tokens, onChatSelect, activeChat, darkMode, dbAvailable, soc
                             </span>
                             <button
                                 type="button"
-                                onClick={() => setShowBulkActions(false)}
+                                onClick={() => {
+                                    setSelectedNumbers([]);
+                                    setShowBulkActions(false);
+                                    setBulkActionMessage('');
+                                }}
                                 aria-label="Collapse bulk actions"
                                 title="Collapse bulk actions"
                                 className="inline-flex items-center gap-1 rounded-lg px-2 py-1.5 text-xs font-medium text-gray-600 transition-colors hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:text-gray-300 dark:hover:bg-gray-700"
