@@ -300,6 +300,7 @@ const CampaignDetails = () => {
     if (key === 'excel') return { label: 'Excel upload', phrase: 'an Excel upload' };
     if (key === 'contact') return { label: 'Contacts', phrase: 'contacts' };
     if (key === 'group') return { label: 'Contact group', phrase: 'a contact group' };
+    if (key === 'segment') return { label: 'Dynamic segment', phrase: 'a dynamic segment' };
     if (key === 'sheet' || key === 'sheets') return { label: 'Google Sheet', phrase: 'a Google Sheet' };
     return source ? { label: String(source), phrase: String(source) } : null;
   };

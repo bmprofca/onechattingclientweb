@@ -20,6 +20,7 @@ export default function CampaignBuilder() {
   const [selectedContactDetails, setSelectedContactDetails] = useState([]);
   const [isSelectAllContacts, setIsSelectAllContacts] = useState(false);
   const [selectedGroups, setSelectedGroups] = useState(retargetGroupId ? [retargetGroupId] : []);
+  const [selectedSegmentId, setSelectedSegmentId] = useState('');
   const [selectedTemplate, setSelectedTemplate] = useState(null);
   const [variableValues, setVariableValues] = useState({});
   const [variableSources, setVariableSources] = useState({});
@@ -121,6 +122,9 @@ export default function CampaignBuilder() {
                     setIsSelectAllContacts={setIsSelectAllContacts}
                     selectedGroups={selectedGroups}
                     setSelectedGroups={setSelectedGroups}
+                    projectId={tokens?.selected_project_id || tokens?.projects?.[0]?.project_id || ''}
+                    selectedSegmentId={selectedSegmentId}
+                    setSelectedSegmentId={setSelectedSegmentId}
                     excelMapping={excelMapping}
                     setExcelMapping={setExcelMapping}
                     sheetLink={sheetLink}
@@ -177,6 +181,7 @@ export default function CampaignBuilder() {
                   selectedContacts={selectedContacts}
                   isSelectAllContacts={isSelectAllContacts}
                   selectedGroups={selectedGroups}
+                  selectedSegmentId={selectedSegmentId}
                   excelMapping={excelMapping}
                   sheetLink={sheetLink}
                   selectedTemplate={selectedTemplate}

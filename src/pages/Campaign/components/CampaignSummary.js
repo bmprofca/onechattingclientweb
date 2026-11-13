@@ -15,6 +15,7 @@ export default function CampaignSummary({
   selectedContacts,
   isSelectAllContacts = false,
   selectedGroups,
+  selectedSegmentId = '',
   excelMapping,
   sheetLink,
   selectedTemplate,
@@ -343,6 +344,42 @@ export default function CampaignSummary({
       return;
     }
 
+    if (audienceType === 'segment') {
+      try {
+        if (!selectedSegmentId) {
+          alert('Please select a dynamic segment.');
+          return;
+        }
+        const formattedComponents = buildFormattedComponents((varName, source) => {
+          if (source?.type === 'contact' && source.key) {
+            return `{{${String(source.key).replace(/^contact\./, '')}}}`;
+          }
+          return variableValues[varName] || '';
+        });
+        const payload = {
+          segment_id: selectedSegmentId,
+          name: campaignName,
+          template_id: selectedTemplate.id,
+          project_id: tokens?.selected_project_id || tokens?.projects?.[0]?.project_id || '',
+          component: formattedComponents,
+          ...(isScheduled && scheduleDate ? { schedule_date: formatScheduleDate(scheduleDate) } : {}),
+        };
+        const { data, key } = Encrypt(payload);
+        const response = await axios.post(
+          `${campaignCreateUrl}/segment`,
+          JSON.stringify({ data, key }),
+          { headers: { token: tokens.token, username: tokens.username, 'Content-Type': 'application/json' } }
+        );
+        if (response?.data?.error) throw new Error(response.data.message || response.data.error);
+        toast.success(`Segment campaign "${campaignName}" created successfully!`);
+        setTimeout(() => navigate('/campaigns'), 2000);
+      } catch (error) {
+        console.error('Failed to create dynamic-segment campaign:', error);
+        alert(error?.response?.data?.error || error?.message || 'Failed to create segment campaign');
+      }
+      return;
+    }
+
     // Handle Excel and Google Sheet campaigns (same logic, different endpoints)
     if (audienceType === 'excel' || audienceType === 'sheet') {
       try {
@@ -482,7 +519,7 @@ export default function CampaignSummary({
     sheetLink,
     selectedTemplate,
     variableValues,
-    { isSelectAllContacts }
+    { isSelectAllContacts, selectedSegmentId }
   );
 
   return (
@@ -493,7 +530,7 @@ export default function CampaignSummary({
         <div>
           <div className="text-sm text-gray-500">Audience</div>
           <div className="font-medium text-gray-800">
-            {getAudienceSummary(audienceType, selectedContacts, selectedGroups, excelMapping, sheetLink, { isSelectAllContacts })}
+            {getAudienceSummary(audienceType, selectedContacts, selectedGroups, excelMapping, sheetLink, { isSelectAllContacts, selectedSegmentId })}
           </div>
         </div>
 

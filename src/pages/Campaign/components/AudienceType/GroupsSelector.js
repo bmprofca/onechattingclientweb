@@ -1,6 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { API_BASE_URL } from '../../../../config/api';
-import { Users, Check, Loader2 } from 'lucide-react';
+import { Users, Check, Loader2, Eye, X } from 'lucide-react';
 import axios from 'axios';
 import { Encrypt } from '../../../encryption/payload-encryption';
 
@@ -22,6 +22,13 @@ export default function GroupsSelector({ selectedGroups, setSelectedGroups }) {
   const [groups, setGroups] = useState([]);
   const [loading, setLoading] = useState(true);
   const [tokens, setTokens] = useState(null);
+  const [previewOpen, setPreviewOpen] = useState(false);
+  const [previewLoading, setPreviewLoading] = useState(false);
+  const [previewError, setPreviewError] = useState('');
+  const [previewData, setPreviewData] = useState(null);
+  const [previewPage, setPreviewPage] = useState(1);
+  const previewRequestId = useRef(0);
+  const projectId = tokens?.selected_project_id || tokens?.projects?.[0]?.project_id || '';
 
   // Load auth tokens from storage
   useEffect(() => {
@@ -54,8 +61,6 @@ export default function GroupsSelector({ selectedGroups, setSelectedGroups }) {
   // Load groups from API
   useEffect(() => {
     if (!tokens?.token || !tokens?.username) return;
-
-    const projectId = tokens.selected_project_id || tokens.projects?.[0]?.project_id || '';
 
     const loadGroups = async () => {
       try {
@@ -128,11 +133,71 @@ export default function GroupsSelector({ selectedGroups, setSelectedGroups }) {
   }, [tokens?.token, tokens?.username, tokens?.selected_project_id, tokens?.projects]);
 
   const handleToggleGroup = (groupId) => {
+    previewRequestId.current += 1;
+    setPreviewOpen(false);
+    setPreviewLoading(false);
+    setPreviewData(null);
+    setPreviewError('');
     setSelectedGroups(prev =>
       prev.includes(groupId)
         ? prev.filter(id => id !== groupId)
         : [...prev, groupId]
     );
+  };
+
+  const loadSelectedContacts = async (pageNo = 1) => {
+    if (!tokens?.token || !tokens?.username || !projectId || selectedGroups.length === 0) return;
+    const requestId = ++previewRequestId.current;
+    try {
+      setPreviewLoading(true);
+      setPreviewError('');
+      const payload = {
+        project_id: projectId,
+        group_ids: selectedGroups,
+        page_no: pageNo,
+        limit: 25,
+      };
+      const { data, key } = Encrypt(payload);
+      const response = await axios.post(
+        `${API_BASE_URL}/contact/group-campaign-preview`,
+        JSON.stringify({ data, key }),
+        {
+          headers: {
+            token: tokens.token,
+            username: tokens.username,
+            'Content-Type': 'application/json',
+          },
+        }
+      );
+      if (response?.data?.error) {
+        throw new Error(typeof response.data.error === 'string' ? response.data.error : 'Unable to preview selected contacts');
+      }
+      if (requestId === previewRequestId.current) {
+        setPreviewData({
+          contacts: response.data?.data || [],
+          meta: response.data?.meta || { total_records: 0, total_pages: 0 },
+        });
+        setPreviewPage(pageNo);
+      }
+    } catch (error) {
+      if (requestId === previewRequestId.current) {
+        setPreviewError(error?.response?.data?.error || error.message || 'Unable to preview selected contacts');
+      }
+    } finally {
+      if (requestId === previewRequestId.current) setPreviewLoading(false);
+    }
+  };
+
+  const togglePreview = () => {
+    if (previewOpen) {
+      previewRequestId.current += 1;
+      setPreviewOpen(false);
+      setPreviewLoading(false);
+      return;
+    }
+    setPreviewOpen(true);
+    setPreviewData(null);
+    loadSelectedContacts(1);
   };
 
   if (loading) {
@@ -163,36 +228,140 @@ export default function GroupsSelector({ selectedGroups, setSelectedGroups }) {
     );
   }
 
+  const selectedGroupNames = selectedGroups
+    .map(id => groups.find(group => group.id === id)?.name)
+    .filter(Boolean);
+  const selectedGroupSummary = selectedGroupNames.length > 2
+    ? `${selectedGroupNames.slice(0, 2).join(', ')} + ${selectedGroupNames.length - 2} more`
+    : selectedGroupNames.join(', ');
+
   return (
     <div className="space-y-3">
       <div className="flex items-center justify-between mb-4">
-        <h3 className="font-semibold text-gray-700">Select Groups ({selectedGroups.length} selected)</h3>
-      </div>
-      {groups.map(group => (
-        <div
-          key={group.id}
-          onClick={() => handleToggleGroup(group.id)}
-          className={`p-4 rounded-lg border-2 cursor-pointer transition-all ${selectedGroups.includes(group.id)
-              ? 'border-indigo-500 bg-indigo-50'
-              : 'border-gray-200 hover:border-indigo-300'
-            }`}
-        >
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className={`w-10 h-10 ${group.color} rounded-full flex items-center justify-center`}>
-                <Users className="w-5 h-5 text-white" />
-              </div>
-              <div>
-                <div className="font-medium text-gray-800">{group.name}</div>
-                <div className="text-sm text-gray-500">{group.count} contacts</div>
-              </div>
-            </div>
-            {selectedGroups.includes(group.id) && (
-              <Check className="w-6 h-6 text-indigo-600" />
-            )}
-          </div>
+        <div>
+          <h3 className="font-semibold text-gray-700">Select Groups</h3>
+          <p className="text-sm text-gray-500">Choose one or more groups for this campaign.</p>
         </div>
-      ))}
+      </div>
+      {selectedGroups.length > 0 && (
+        <div className="mb-4 flex items-center justify-between gap-3 rounded-xl border border-indigo-200 bg-white p-3 shadow-sm">
+          <div className="min-w-0">
+            <p className="text-sm font-semibold text-gray-800">{selectedGroups.length} groups selected</p>
+            <p className="truncate text-xs text-gray-500" title={selectedGroupNames.join(', ')}>
+              {selectedGroupSummary || 'Selected groups'}
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={togglePreview}
+            disabled={!projectId || previewLoading}
+            className="inline-flex shrink-0 items-center gap-2 rounded-lg bg-indigo-600 px-3 py-2 text-sm font-medium text-white hover:bg-indigo-700 disabled:opacity-50"
+          >
+            <Eye size={16} />
+            {previewOpen ? 'Hide preview' : 'Preview audience'}
+          </button>
+        </div>
+      )}
+      <div className="max-h-[65vh] space-y-3 overflow-y-auto overscroll-contain pr-1 scrollbar-hide">
+        {groups.map(group => (
+          <div
+            key={group.id}
+            onClick={() => handleToggleGroup(group.id)}
+            className={`p-4 rounded-lg border-2 cursor-pointer transition-all ${selectedGroups.includes(group.id)
+                ? 'border-indigo-500 bg-indigo-50'
+                : 'border-gray-200 hover:border-indigo-300'
+              }`}
+          >
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className={`w-10 h-10 ${group.color} rounded-full flex items-center justify-center`}>
+                  <Users className="w-5 h-5 text-white" />
+                </div>
+                <div>
+                  <div className="font-medium text-gray-800">{group.name}</div>
+                  <div className="text-sm text-gray-500">{group.count} contacts</div>
+                </div>
+              </div>
+              {selectedGroups.includes(group.id) && <Check className="w-6 h-6 text-indigo-600" />}
+            </div>
+          </div>
+        ))}
+      </div>
+      {previewOpen && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+          onClick={(event) => {
+            if (event.target === event.currentTarget) togglePreview();
+          }}
+        >
+          <section
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="selected-group-preview-title"
+            className="w-full max-w-2xl rounded-2xl bg-white p-5 shadow-2xl"
+          >
+            <div className="mb-4 flex items-start justify-between gap-4">
+              <div className="min-w-0">
+                <h3 id="selected-group-preview-title" className="text-lg font-semibold text-gray-900">Selected campaign audience</h3>
+                <p className="mt-1 truncate text-sm text-gray-500" title={selectedGroupNames.join(', ')}>
+                  {selectedGroupSummary}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={togglePreview}
+                className="rounded-lg p-2 text-gray-500 hover:bg-gray-100"
+                aria-label="Close preview"
+              >
+                <X size={20} />
+              </button>
+            </div>
+            {previewError && <p role="alert" className="mb-3 text-sm text-red-600">{previewError}</p>}
+            {previewLoading && !previewData && (
+              <div className="flex items-center justify-center gap-2 py-10 text-sm text-gray-500">
+                <Loader2 className="h-5 w-5 animate-spin" />
+                Loading selected contacts…
+              </div>
+            )}
+            {previewData && (
+              <>
+                <p className="mb-3 text-sm font-medium text-gray-800">
+                  {Number(previewData.meta.total_records || 0).toLocaleString()} unique contacts
+                </p>
+                {previewData.contacts.length === 0 ? (
+                  <p className="rounded-lg bg-gray-50 p-6 text-center text-sm text-gray-500">The selected groups have no contacts.</p>
+                ) : (
+                  <ul className="max-h-[55vh] divide-y overflow-y-auto rounded-lg border scrollbar-hide">
+                    {previewData.contacts.map((contact) => (
+                      <li key={contact.contact_id} className="px-3 py-2">
+                        <p className="text-sm font-medium text-gray-800">{contact.name || 'Unnamed contact'}</p>
+                        <p className="text-xs text-gray-600">{contact.number || 'No number'}{contact.email ? ` · ${contact.email}` : ''}</p>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+                {previewData.meta.total_pages > 1 && (
+                  <div className="mt-3 flex items-center justify-between text-sm">
+                    <button
+                      type="button"
+                      onClick={() => loadSelectedContacts(previewPage - 1)}
+                      disabled={previewLoading || previewPage <= 1}
+                      className="text-indigo-700 disabled:opacity-50"
+                    >Previous</button>
+                    <span>Page {previewPage} of {previewData.meta.total_pages}</span>
+                    <button
+                      type="button"
+                      onClick={() => loadSelectedContacts(previewPage + 1)}
+                      disabled={previewLoading || previewPage >= previewData.meta.total_pages}
+                      className="text-indigo-700 disabled:opacity-50"
+                    >Next</button>
+                  </div>
+                )}
+              </>
+            )}
+          </section>
+        </div>
+      )}
     </div>
   );
 }

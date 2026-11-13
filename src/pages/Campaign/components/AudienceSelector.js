@@ -1,9 +1,10 @@
 import React from 'react';
-import { Users, FileSpreadsheet, Link2 } from 'lucide-react';
+import { Users, FileSpreadsheet, Link2, Filter } from 'lucide-react';
 import ContactsSelector from './AudienceType/ContactsSelector';
 import ExcelUpload from './AudienceType/ExcelUpload';
 import GoogleSheet from './AudienceType/GoogleSheet';
 import GroupsSelector from './AudienceType/GroupsSelector';
+import DynamicSegmentsSelector from './AudienceType/DynamicSegmentsSelector';
 
 export default function AudienceSelector({
   audienceType,
@@ -15,6 +16,9 @@ export default function AudienceSelector({
   setIsSelectAllContacts,
   selectedGroups,
   setSelectedGroups,
+  projectId,
+  selectedSegmentId,
+  setSelectedSegmentId,
   excelMapping,
   setExcelMapping,
   sheetLink,
@@ -83,6 +87,19 @@ export default function AudienceSelector({
           <Users className={`w-8 h-8 mb-3 ${audienceType === 'groups' ? 'text-indigo-600' : 'text-gray-400'}`} />
           <div className="font-semibold text-gray-800">Contact Groups</div>
           <div className="text-sm text-gray-500 mt-1">Select predefined groups</div>
+        </button>
+
+        <button
+          onClick={() => setAudienceType('segment')}
+          className={`p-6 rounded-xl border-2 transition-all ${
+            audienceType === 'segment'
+              ? 'border-indigo-500 bg-indigo-50 shadow-md'
+              : 'border-gray-200 hover:border-indigo-300'
+          }`}
+        >
+          <Filter className={`w-8 h-8 mb-3 ${audienceType === 'segment' ? 'text-indigo-600' : 'text-gray-400'}`} />
+          <div className="font-semibold text-gray-800">Dynamic Segment</div>
+          <div className="text-sm text-gray-500 mt-1">Use a saved, live audience</div>
         </button>
       </div>
 
@@ -172,6 +189,14 @@ export default function AudienceSelector({
         <GroupsSelector
           selectedGroups={selectedGroups}
           setSelectedGroups={setSelectedGroups}
+        />
+      )}
+
+      {audienceType === 'segment' && (
+        <DynamicSegmentsSelector
+          projectId={projectId}
+          selectedSegmentId={selectedSegmentId}
+          setSelectedSegmentId={setSelectedSegmentId}
         />
       )}
     </div>

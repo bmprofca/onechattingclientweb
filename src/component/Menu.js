@@ -740,6 +740,7 @@ const SidebarView = ({ mobileMenuOpen, setMobileMenuOpen, isMinimized, setIsMini
       key: 'audience', title: 'Audience', items: [
         { key: 'contact', title: 'Contacts', icon: <FiUsers size={18} />, path: '/contact' },
         { key: 'contact-group', title: 'Groups', icon: <FiFolder size={18} />, path: '/contact-group' },
+        { key: 'dynamic-segments', title: 'Dynamic segments', icon: <FiUsers size={18} />, path: '/dynamic-segments' },
       ]
     },
     {

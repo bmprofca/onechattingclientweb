@@ -4,6 +4,7 @@ import SearchableSelect from '../../component/SearchableSelect';
 import { FiGitBranch, FiMessageSquare, FiType, FiGitMerge, FiFlag, FiStopCircle, FiSave, FiUploadCloud, FiPower, FiPlus, FiTrash2, FiMove, FiCornerUpLeft, FiCornerUpRight } from 'react-icons/fi';
 import toast from 'react-hot-toast';
 import { createFlow, getFlow, getFlowStatus, listFlows, publishFlow, toggleFlow, updateFlowDraft, validateFlow } from '../../api/flowBuilder';
+import { listDynamicSegments } from '../../api/dynamicSegments';
 
 const palette = [
   { type: 'message', label: 'Message', icon: FiMessageSquare, defaults: { text: 'Thanks for contacting us.', interactive: false, interactiveType: 'list', items: [{ id: 'option_1', title: 'Yes' }, { id: 'option_2', title: 'No' }] } },
@@ -28,6 +29,7 @@ export default function Flow() {
   const [connectionDrag, setConnectionDrag] = useState(null);
   const [zoom, setZoom] = useState(1);
   const [flows, setFlows] = useState([]);
+  const [segments, setSegments] = useState([]);
   const [enabled, setEnabled] = useState(false);
   const [busy, setBusy] = useState(false);
   const canvasRef = useRef(null);
@@ -88,6 +90,22 @@ export default function Flow() {
     setProjectId(user.selected_project_id || user.projects?.[0]?.project_id || '');
   }, []);
   useEffect(() => { if (projectId) loadFlows(); }, [projectId]);
+  useEffect(() => {
+    let active = true;
+    if (!projectId) {
+      setSegments([]);
+      return () => { active = false; };
+    }
+    listDynamicSegments(projectId)
+      .then((result) => {
+        if (result.error) throw new Error(result.error);
+        if (active) setSegments(result.data || []);
+      })
+      .catch((error) => {
+        if (active) toast.error(error?.response?.data?.error || 'Unable to load dynamic segments');
+      });
+    return () => { active = false; };
+  }, [projectId]);
 
   const openFlow = async (id) => {
     const result = await getFlow(projectId, id);
@@ -234,6 +252,21 @@ export default function Flow() {
         <div className="w-full max-w-[1320px] px-4 sm:px-7 py-7">
           <div className="flex flex-wrap items-center justify-between gap-4 mb-5"><div><h1 className="text-[26px] leading-tight font-extrabold tracking-tight text-ink dark:text-white flex items-center gap-2"><FiGitBranch className="text-indigo-600" /> Flow Builder</h1><p className="text-sm text-slate-500 mt-1">Click a node to edit it. Drag from the library or use Add, then use Connect to link steps.</p></div><div className="flex gap-2"><button onClick={save} disabled={busy} className="btn-primary"><FiSave /> Save draft</button><button onClick={publish} disabled={busy} className="btn-secondary"><FiUploadCloud /> Publish</button><button onClick={toggle} disabled={!flowId} className="btn-secondary"><FiPower /> {enabled ? 'Enabled' : 'Enable'}</button></div></div>
           <div className="flex gap-3 mb-4 overflow-x-auto">{flows.map((flow) => <button key={flow.flow_id} onClick={() => openFlow(flow.flow_id)} className={`px-3 py-2 rounded-lg text-sm whitespace-nowrap ${flow.flow_id === flowId ? 'bg-indigo-600 text-white' : 'bg-white text-slate-600 border'}`}>{flow.name}</button>)}<button onClick={() => { setFlowId(null); setFlowName('New Flow'); resetGraphHistory(emptyGraph()); setSelectedId('start'); setConnectFrom(null); }} className="px-3 py-2 rounded-lg border border-dashed text-indigo-600 whitespace-nowrap"><FiPlus className="inline" /> New flow</button></div>
+          <label className="mb-4 flex max-w-xl flex-col gap-1 text-sm font-medium text-slate-700">
+            Flow audience
+            <select
+              value={graph.audience_segment_id || ''}
+              onChange={(event) => commitGraph((current) => ({
+                ...current,
+                audience_segment_id: event.target.value || null,
+              }))}
+              className="rounded-lg border border-slate-200 bg-white px-3 py-2"
+            >
+              <option value="">All contacts</option>
+              {segments.map((segment) => <option key={segment.segment_id} value={segment.segment_id}>{segment.name}</option>)}
+            </select>
+            <span className="text-xs font-normal text-slate-500">A segment restriction is checked before a new conversation enters this flow.</span>
+          </label>
           <div className="bg-white dark:bg-gray-800 rounded-2xl border border-slate-200 shadow-sm overflow-hidden"><div className="flex flex-wrap items-center justify-between gap-3 p-3 border-b"><div className="flex items-center gap-3"><input value={flowName} onChange={(event) => setFlowName(event.target.value)} className="font-semibold bg-transparent outline-none px-2 py-1" /><span className="text-xs text-slate-400">{enabled ? 'Live' : 'Draft mode'}</span></div><div className="flex items-center gap-1"><span className="mr-2 text-[10px] text-slate-400">Edit history</span><button type="button" title="Undo (Ctrl/Cmd+Z)" aria-label="Undo" onClick={undo} disabled={!past.length} className="rounded-lg border border-slate-200 p-2 text-slate-600 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-30"><FiCornerUpLeft /></button><button type="button" title="Redo (Ctrl/Cmd+Shift+Z)" aria-label="Redo" onClick={redo} disabled={!future.length} className="rounded-lg border border-slate-200 p-2 text-slate-600 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-30"><FiCornerUpRight /></button></div></div>
             <div className="flow-builder-layout grid grid-cols-1 lg:grid-cols-[220px_minmax(0,1fr)_300px] min-h-[620px]">
               <aside className="order-2 lg:order-1 border-b lg:border-b-0 lg:border-r bg-slate-50/90 p-4"><div className="flex items-center justify-between mb-1"><p className="text-xs font-bold uppercase tracking-wider text-slate-500">Add tools</p><span className="text-[10px] text-slate-400">Drag or click</span></div><p className="text-xs text-slate-400 leading-5 mb-4">Build your conversation by adding steps to the canvas.</p>{palette.map((item) => { const Icon = item.icon; return <button key={item.type} type="button" draggable onDragStart={(event) => { event.dataTransfer.effectAllowed = 'copy'; event.dataTransfer.setData('flow-node', item.type); }} onClick={() => addNode(item)} className="w-full flex items-center gap-3 p-3 mb-2 bg-white border border-slate-200 rounded-xl cursor-grab text-left hover:border-indigo-400 hover:shadow-sm transition"><span className="p-2 rounded-lg bg-indigo-50 text-indigo-600"><Icon /></span><span><span className="block text-sm font-semibold text-slate-700">{item.label}</span><span className="block text-[10px] text-slate-400">Click to add</span></span></button>; })}<div className="mt-5 rounded-xl border border-dashed border-slate-300 bg-white/70 p-3 text-xs text-slate-500"><strong className="text-slate-700">Tip:</strong> Select a node, then choose <span className="font-semibold text-indigo-600">Connect from here</span>.</div></aside>

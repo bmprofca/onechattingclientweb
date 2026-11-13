@@ -145,6 +145,7 @@ const CampaignList = () => {
                     // Get audience source (contact, group, excel, sheet)
                     const audienceSource = campaign.source === 'contact' ? 'Contacts' :
                         campaign.source === 'group' ? 'Contact Groups' :
+                            campaign.source === 'segment' ? 'Dynamic Segment' :
                             campaign.source === 'excel' ? 'Excel Upload' :
                                 campaign.source === 'sheet' ? 'Google Sheet' :
                                     'Custom';

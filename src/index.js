@@ -33,6 +33,7 @@ import CampaignDetails from './pages/Campaign/CampaignDetails.js';
 import AutoReply from './pages/Automation/AutoReply';
 import Flow from './pages/Automation/Flow';
 import FlowList from './pages/Automation/FlowList';
+import DynamicSegments from './pages/DynamicSegments';
 import OpenCaseList from './pages/OpenCaseList';
 import ScannedUsers from './pages/ScannedUsers';
 import MyProfile from './pages/MyProfile.js';
@@ -181,6 +182,11 @@ root.render(
           <Route path="/contact-group-list" element={
             <ProtectedRoute requiresProject={true}>
               <ContactGroupList />
+            </ProtectedRoute>
+          } />
+          <Route path="/dynamic-segments" element={
+            <ProtectedRoute requiresProject={true}>
+              <DynamicSegments />
             </ProtectedRoute>
           } />
           {/* Protected routes that require project - Automation */}
