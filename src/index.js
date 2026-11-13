@@ -44,6 +44,7 @@ import AgentConfig from './pages/AgentConfig';
 import ContextConfig from './pages/ContextConfig';
 import DeveloperAccess from './pages/DeveloperAccess';
 import Support from './pages/Support';
+import Reports from './pages/Reports';
 import ProtectedRoute from './component/ProtectedRoute';
 import { ShellProvider } from './component/Menu';
 import { ThemeProvider } from './theme/ThemeContext';
@@ -91,6 +92,11 @@ root.render(
           <Route path="/dasboard" element={
             <ProtectedRoute>
               <Dashboard />
+            </ProtectedRoute>
+          } />
+          <Route path="/reports" element={
+            <ProtectedRoute requiresProject={true}>
+              <Reports />
             </ProtectedRoute>
           } />
           <Route path='scanned-users' element={

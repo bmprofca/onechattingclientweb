@@ -8,7 +8,7 @@ import {
   FiLogOut, FiList, FiCpu, FiMessageSquare, FiUsers,
   FiLock, FiX, FiMaximize2, FiMinimize2,
   FiGrid, FiFolder, FiFileText, FiSend, FiUserCheck, FiSliders, FiCode, FiLayers, FiBookmark,
-  FiSun, FiMoon, FiMonitor, FiCheck, FiShoppingBag
+  FiSun, FiMoon, FiMonitor, FiCheck, FiShoppingBag, FiBarChart2
 } from 'react-icons/fi';
 import { useTheme } from '../theme/ThemeContext';
 
@@ -752,6 +752,7 @@ const SidebarView = ({ mobileMenuOpen, setMobileMenuOpen, isMinimized, setIsMini
     {
       key: 'management', title: 'Management', ownerOnly: true, items: [
         { key: 'agents', title: 'Agents', icon: <FiUserCheck size={18} />, path: '/agent-management' },
+        { key: 'reports', title: 'Reports', icon: <FiBarChart2 size={18} />, path: '/reports' },
         { key: 'permissions', title: 'Permissions', icon: <FiLock size={18} />, path: '/permission-list' },
         { key: 'configuration', title: 'Configuration', icon: <FiSliders size={18} />, path: '/project-config' },
         { key: 'developer', title: 'Developer access', icon: <FiCode size={18} />, path: '/developer-access' },
