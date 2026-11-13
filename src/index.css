@@ -170,6 +170,8 @@ code, kbd, pre, samp { font-family: 'IBM Plex Mono', ui-monospace, monospace; }
 :where(.dark) .bg-indigo-50\/50,
 :where(.dark) .bg-violet-50,
 :where(.dark) .bg-purple-50 { background-color: rgba(108,92,231,0.16); }
+:where(.dark) .bg-brand-50\/60 { background-color: rgba(108,92,231,0.22); }
+:where(.dark) .bg-brand-50\/70 { background-color: rgba(108,92,231,0.26); }
 :where(.dark) .bg-brand-100,
 :where(.dark) .bg-indigo-100,
 :where(.dark) .bg-brand-200,

@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { API_BASE_URL } from '../config/api';
 import { useNavigate } from 'react-router-dom';
 import { toServerTimestamp, parseServerDate } from '../utils/dateTime';
-import { FiSearch, FiStar, FiImage, FiVideo, FiFile, FiMusic, FiUser, FiCheck, FiClock, FiAlertCircle, FiMoreVertical, FiMessageCircle, FiRefreshCw, FiDelete, FiTrash2, FiChevronLeft, FiChevronRight, FiX, FiBriefcase, FiMaximize2, FiMinimize2, FiLayers } from 'react-icons/fi';
+import { FiSearch, FiStar, FiImage, FiVideo, FiFile, FiMusic, FiUser, FiCheck, FiCheckSquare, FiClock, FiAlertCircle, FiMoreVertical, FiMessageCircle, FiRefreshCw, FiDelete, FiTrash2, FiChevronLeft, FiChevronRight, FiChevronDown, FiFilter, FiX, FiBriefcase, FiMaximize2, FiMinimize2, FiLayers } from 'react-icons/fi';
 import axios from 'axios';
 import { Encrypt } from './encryption/payload-encryption';
 import { dbHelper } from './db';
@@ -38,7 +38,6 @@ const mapTabToFilter = (tab) => {
         case 'My Open': return 'my_open';
         case 'Unassigned': return 'unassigned';
         case 'SLA Breach': return 'sla_breach';
-        case 'VIP': return 'vip';
         case 'Unread': return 'unread';
         case 'Favourites': return 'favourites';
         case 'Assigned': return 'assigned';
@@ -54,11 +53,13 @@ function ChatList({ tokens, onChatSelect, activeChat, darkMode, dbAvailable, soc
     const [hasMore, setHasMore] = useState(true);
     const [loadingMore, setLoadingMore] = useState(false);
     const [activeTab, setActiveTab] = useState('All');
+    const [showInboxFilters, setShowInboxFilters] = useState(false);
     const [labelCatalog, setLabelCatalog] = useState([]);
     const [labelCatalogError, setLabelCatalogError] = useState('');
     const [assignmentMembers, setAssignmentMembers] = useState([]);
     const [assignmentMembersError, setAssignmentMembersError] = useState('');
-    const [selectedLabelId, setSelectedLabelId] = useState('');
+    const [selectedTagId, setSelectedTagId] = useState('');
+    const [selectedTagType, setSelectedTagType] = useState('');
     const [searchQuery, setSearchQuery] = useState('');
     const [selectedNumbers, setSelectedNumbers] = useState([]);
     const [bulkAction, setBulkAction] = useState('');
@@ -81,9 +82,11 @@ function ChatList({ tokens, onChatSelect, activeChat, darkMode, dbAvailable, soc
         projectId: tokens?.selected_project_id || '',
         activeTab,
         searchQuery,
-        selectedLabelId
+        selectedTagId,
+        selectedTagType
     };
     const [showSettingsMenu, setShowSettingsMenu] = useState(false);
+    const [showBulkActions, setShowBulkActions] = useState(false);
     const [showDirectChatModal, setShowDirectChatModal] = useState(false);
     const [showRepairChatsModal, setShowRepairChatsModal] = useState(false);
     const [showMediaGalleryModal, setShowMediaGalleryModal] = useState(false);
@@ -99,10 +102,11 @@ function ChatList({ tokens, onChatSelect, activeChat, darkMode, dbAvailable, soc
 
     useEffect(() => {
         setSelectedNumbers([]);
+        setShowBulkActions(false);
         setBulkTarget('');
         setBulkTagId('');
         setBulkActionMessage('');
-    }, [activeTab, searchQuery, selectedLabelId, tokens?.selected_project_id]);
+    }, [activeTab, searchQuery, selectedTagId, selectedTagType, tokens?.selected_project_id]);
 
     useEffect(() => {
         setChats([]);
@@ -201,7 +205,7 @@ function ChatList({ tokens, onChatSelect, activeChat, darkMode, dbAvailable, soc
         (async () => {
             const initialContext = inboxContextRef.current;
             const isDefaultView = !initialContext.searchQuery &&
-                initialContext.activeTab === 'All' && !initialContext.selectedLabelId;
+                initialContext.activeTab === 'All' && !initialContext.selectedTagId;
             // 1️⃣ Load local database and render first (if available)
             if (dbAvailable && isDefaultView) {
                 const localChats = await dbHelper.getChats();
@@ -214,7 +218,7 @@ function ChatList({ tokens, onChatSelect, activeChat, darkMode, dbAvailable, soc
             const initialRequestId = filterRequestId.current + 1;
             const currentContext = inboxContextRef.current;
             const useDefaultView = !currentContext.searchQuery &&
-                currentContext.activeTab === 'All' && !currentContext.selectedLabelId;
+                currentContext.activeTab === 'All' && !currentContext.selectedTagId;
             if (useDefaultView) {
                 await syncWithAPI(1, false);
             } else {
@@ -223,7 +227,8 @@ function ChatList({ tokens, onChatSelect, activeChat, darkMode, dbAvailable, soc
                     currentContext.activeTab,
                     1,
                     false,
-                    currentContext.selectedLabelId
+                    currentContext.selectedTagId,
+                    currentContext.selectedTagType
                 );
             }
             if (cancelled || filterRequestId.current !== initialRequestId) return;
@@ -248,7 +253,8 @@ function ChatList({ tokens, onChatSelect, activeChat, darkMode, dbAvailable, soc
         const projectId = tokens?.selected_project_id || '';
         setLabelCatalog([]);
         setLabelCatalogError('');
-        setSelectedLabelId('');
+        setSelectedTagId('');
+        setSelectedTagType('');
         if (!projectId || !tokens?.token) return undefined;
 
         (async () => {
@@ -267,13 +273,13 @@ function ChatList({ tokens, onChatSelect, activeChat, darkMode, dbAvailable, soc
                 );
                 if (cancelled) return;
                 if (response.data?.success === false || response.data?.error) {
-                    throw new Error(response.data?.message || response.data?.error?.message || 'Could not load labels');
+                    throw new Error(response.data?.message || response.data?.error?.message || 'Could not load project tags');
                 }
                 setLabelCatalog(Array.isArray(response.data?.data) ? response.data.data : []);
             } catch (error) {
                 if (!cancelled) {
-                    console.error('Failed to load project conversation labels:', error);
-                    setLabelCatalogError(error.message || 'Could not load project labels.');
+                    console.error('Failed to load project tags:', error);
+                    setLabelCatalogError(error.message || 'Could not load project tags.');
                 }
             }
         })();
@@ -508,12 +514,17 @@ function ChatList({ tokens, onChatSelect, activeChat, darkMode, dbAvailable, soc
         }
     };
 
-    // Realtime search/filter: hits the API directly with the current search
-    // text and active tab, and renders straight from the response. This is
-    // NOT saved back into the local cache — the local cache stays a mirror
-    // of the unfiltered "All" list (kept fresh by syncWithAPI above), while
-    // this path is purely for what's currently on screen.
-    const fetchFilteredChats = async (search, tab, pageToFetch = 1, append = false, tagId = selectedLabelId) => {
+    // Realtime search/filter hits the API directly with the current search,
+    // status, and tag/label selection. Results are not saved to the local
+    // cache, which remains a mirror of the unfiltered "All" list.
+    const fetchFilteredChats = async (
+        search,
+        tab,
+        pageToFetch = 1,
+        append = false,
+        tagId = selectedTagId,
+        tagType = selectedTagType
+    ) => {
         if (!tokens) return;
         if (pageToFetch === 1) setChatListError('');
 
@@ -537,7 +548,7 @@ function ChatList({ tokens, onChatSelect, activeChat, darkMode, dbAvailable, soc
                 filter_type: filterValue,
                 type: filterValue,
                 view: filterValue,
-                ...(tagId ? { tag_id: tagId } : {})
+                ...(tagId ? { tag_id: tagId, tag_type: tagType } : {})
             };
 
             const { data, key } = Encrypt(messagePayload);
@@ -599,8 +610,8 @@ function ChatList({ tokens, onChatSelect, activeChat, darkMode, dbAvailable, soc
     const loadMoreChats = () => {
         if (isLoading || isFiltering || loadingMore || !hasMore) return;
         const nextPage = page + 1;
-        if (searchQuery || activeTab !== 'All' || selectedLabelId) {
-            fetchFilteredChats(searchQuery, activeTab, nextPage, true, selectedLabelId);
+        if (searchQuery || activeTab !== 'All' || selectedTagId) {
+            fetchFilteredChats(searchQuery, activeTab, nextPage, true, selectedTagId, selectedTagType);
         } else {
             syncWithAPI(nextPage, true);
         }
@@ -635,15 +646,15 @@ function ChatList({ tokens, onChatSelect, activeChat, darkMode, dbAvailable, soc
 
         return () => clearTimeout(handler);
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [searchQuery, activeTab, selectedLabelId, tokens]);
+    }, [searchQuery, activeTab, selectedTagId, selectedTagType, tokens]);
 
     // Refresh chat list when cases are edited/created elsewhere
     useEffect(() => {
         const handler = () => {
             // Re-sync to refresh case_open_count + latest chat data for
             // whatever view (search/filter) is currently active.
-            if (searchQuery || activeTab !== 'All' || selectedLabelId) {
-                fetchFilteredChats(searchQuery, activeTab, 1, false, selectedLabelId);
+            if (searchQuery || activeTab !== 'All' || selectedTagId) {
+                fetchFilteredChats(searchQuery, activeTab, 1, false, selectedTagId, selectedTagType);
             } else {
                 syncWithAPI(1, false);
             }
@@ -652,7 +663,7 @@ function ChatList({ tokens, onChatSelect, activeChat, darkMode, dbAvailable, soc
         return () => window.removeEventListener('case_updated', handler);
         // Intentionally depends on tokens so sync uses latest auth
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [tokens, searchQuery, activeTab, selectedLabelId]);
+    }, [tokens, searchQuery, activeTab, selectedTagId, selectedTagType]);
 
     useEffect(() => {
         let refreshTimer;
@@ -666,12 +677,12 @@ function ChatList({ tokens, onChatSelect, activeChat, darkMode, dbAvailable, soc
             unsubscribe();
         };
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [tokens, searchQuery, activeTab, selectedLabelId]);
+    }, [tokens, searchQuery, activeTab, selectedTagId, selectedTagType]);
 
     useEffect(() => {
         const handler = () => {
-            if (searchQuery || activeTab !== 'All' || selectedLabelId) {
-                fetchFilteredChats(searchQuery, activeTab, 1, false, selectedLabelId);
+            if (searchQuery || activeTab !== 'All' || selectedTagId) {
+                fetchFilteredChats(searchQuery, activeTab, 1, false, selectedTagId, selectedTagType);
             } else {
                 syncWithAPI(1, false);
             }
@@ -679,7 +690,7 @@ function ChatList({ tokens, onChatSelect, activeChat, darkMode, dbAvailable, soc
         window.addEventListener('conversation_labels_updated', handler);
         return () => window.removeEventListener('conversation_labels_updated', handler);
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [tokens, searchQuery, activeTab, selectedLabelId]);
+    }, [tokens, searchQuery, activeTab, selectedTagId, selectedTagType]);
 
     const processApiResponse = async (apiChats, append = false, isCurrent = () => true) => {
         try {
@@ -889,7 +900,9 @@ function ChatList({ tokens, onChatSelect, activeChat, darkMode, dbAvailable, soc
 
     const toggleConversationSelection = (number) => {
         if (selectedNumbers.includes(number)) {
-            setSelectedNumbers(selectedNumbers.filter((selected) => selected !== number));
+            const nextSelection = selectedNumbers.filter((selected) => selected !== number);
+            setSelectedNumbers(nextSelection);
+            setShowBulkActions(false);
             setBulkActionMessage('');
             return;
         }
@@ -898,6 +911,7 @@ function ChatList({ tokens, onChatSelect, activeChat, darkMode, dbAvailable, soc
             return;
         }
         setSelectedNumbers([...selectedNumbers, number]);
+        setShowBulkActions(true);
         setBulkActionMessage('');
     };
 
@@ -924,10 +938,10 @@ function ChatList({ tokens, onChatSelect, activeChat, darkMode, dbAvailable, soc
     };
 
     const refreshVisibleChats = () => {
-        if (!searchQuery && activeTab === 'All' && !selectedLabelId) {
+        if (!searchQuery && activeTab === 'All' && !selectedTagId) {
             return syncWithAPI(1, false);
         }
-        return fetchFilteredChats(searchQuery, activeTab, 1, false, selectedLabelId);
+        return fetchFilteredChats(searchQuery, activeTab, 1, false, selectedTagId, selectedTagType);
     };
     const refreshVisibleChatsRef = useRef(refreshVisibleChats);
     refreshVisibleChatsRef.current = refreshVisibleChats;
@@ -1008,7 +1022,8 @@ function ChatList({ tokens, onChatSelect, activeChat, darkMode, dbAvailable, soc
             if (currentContext.projectId !== actionContext.projectId ||
                 currentContext.activeTab !== actionContext.activeTab ||
                 currentContext.searchQuery !== actionContext.searchQuery ||
-                currentContext.selectedLabelId !== actionContext.selectedLabelId) return;
+                currentContext.selectedTagId !== actionContext.selectedTagId ||
+                currentContext.selectedTagType !== actionContext.selectedTagType) return;
             if (!Array.isArray(result.results) || result.results.length !== selectedNumbers.length) {
                 throw new Error('The server returned an incomplete bulk-action result. Your selection was kept.');
             }
@@ -1032,6 +1047,7 @@ function ChatList({ tokens, onChatSelect, activeChat, darkMode, dbAvailable, soc
                 if (rows.length) downloadConversationExport(rows);
             }
             setSelectedNumbers(failedNumbers);
+            if (!failedNumbers.length) setShowBulkActions(false);
             setBulkActionMessage(
                 `${succeeded} succeeded${failedNumbers.length ? `; ${failedNumbers.length} failed: ${results.filter((item) => !item.success).map((item) => `${item.number} (${item.error})`).join(', ')}` : ''}`
             );
@@ -1093,34 +1109,69 @@ function ChatList({ tokens, onChatSelect, activeChat, darkMode, dbAvailable, soc
         }
     };
 
+    const activeTag = labelCatalog.find((tag) => String(tag.tag_id) === String(selectedTagId));
+    const activeTagSummary = selectedTagId
+        ? `${selectedTagType === 'conversation' ? 'Label' : 'Tag'}: ${activeTag?.name || 'Selected'}`
+        : '';
+    const activeFilterCount = Number(activeTab !== 'All') + Number(Boolean(selectedTagId));
+    const filterSummary = [
+        activeTab !== 'All' ? activeTab : '',
+        activeTagSummary
+    ].filter(Boolean).join(' · ') || 'All conversations';
+
     return (
         <>
-            <div className="p-4 border-b">
+            <div className="border-b border-gray-200 bg-white px-3 py-3 dark:border-gray-700 dark:bg-gray-900">
                 <div className="flex items-center gap-2">
-                    <div className="flex flex-1 items-center px-4 py-2 rounded-lg bg-gray-100 dark:bg-gray-700">
+                    <div className="flex min-w-0 flex-1 items-center rounded-xl border border-gray-200 bg-gray-50 px-3 py-2.5 transition-colors focus-within:border-blue-400 focus-within:ring-2 focus-within:ring-blue-500/20 dark:border-gray-700 dark:bg-gray-800">
                         <FiSearch className="text-gray-500 dark:text-gray-400 mr-2 flex-shrink-0" />
                         <input
                             type="text"
-                            placeholder="Search names, numbers, or messages"
-                            className="w-full bg-transparent focus:outline-none placeholder-gray-500 dark:placeholder-gray-400"
+                            placeholder="Search conversations"
+                            aria-label="Search names, numbers, or messages"
+                            className="w-full min-w-0 bg-transparent text-sm text-gray-900 placeholder-gray-500 focus:outline-none dark:text-white dark:placeholder-gray-400"
                             value={searchQuery}
                             onChange={(e) => setSearchQuery(e.target.value)}
                         />
                         {isFiltering && (
-                            <FiRefreshCw className="w-4 h-4 text-gray-400 animate-spin flex-shrink-0 ml-2" />
+                            <FiRefreshCw aria-label="Searching" className="ml-2 h-4 w-4 flex-shrink-0 animate-spin text-gray-400" />
+                        )}
+                        {!isFiltering && searchQuery && (
+                            <button
+                                type="button"
+                                onClick={() => setSearchQuery('')}
+                                aria-label="Clear search"
+                                className="ml-2 rounded-full p-1 text-gray-500 transition-colors hover:bg-gray-200 hover:text-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:text-gray-400 dark:hover:bg-gray-700 dark:hover:text-white"
+                            >
+                                <FiX className="h-4 w-4" />
+                            </button>
                         )}
                     </div>
                     <div className="relative" ref={settingsMenuRef}>
                         <button
                             type="button"
                             onClick={() => setShowSettingsMenu((p) => !p)}
-                            className="p-2.5 rounded-lg bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-600 dark:text-gray-300 transition-colors"
-                            title="Menu"
+                            className="rounded-xl border border-gray-200 bg-gray-50 p-2.5 text-gray-600 transition-colors hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700"
+                            title="Inbox tools"
+                            aria-label="Inbox tools"
+                            aria-expanded={showSettingsMenu}
                         >
                             <FiMoreVertical className="w-5 h-5" />
                         </button>
                         {showSettingsMenu && (
-                            <div className="absolute right-0 mt-1 w-52 py-1 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 shadow-lg z-50">
+                            <div aria-label="Inbox tools" className="absolute right-0 z-50 mt-1 w-52 rounded-xl border border-gray-200 bg-white py-1 shadow-lg dark:border-gray-600 dark:bg-gray-800">
+                                <button
+                                    type="button"
+                                    onClick={() => {
+                                        setShowSettingsMenu(false);
+                                        setShowBulkActions((isOpen) => !isOpen);
+                                    }}
+                                    aria-pressed={showBulkActions}
+                                    className="flex w-full items-center gap-2 px-4 py-2.5 text-left text-sm text-gray-700 hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-gray-700"
+                                >
+                                    <FiCheckSquare className="h-4 w-4" />
+                                    <span>{showBulkActions ? 'Hide bulk actions' : 'Bulk actions'}</span>
+                                </button>
                                 <button
                                     type="button"
                                     onClick={() => { setShowSettingsMenu(false); setShowDirectChatModal(true); }}
@@ -1168,174 +1219,225 @@ function ChatList({ tokens, onChatSelect, activeChat, darkMode, dbAvailable, soc
                 </div>
             </div>
 
-            {/* Tabs */}
-            <div className="flex overflow-x-auto border-b scrollbar-hide" style={{ borderColor: darkMode ? '#374151' : '#e5e7eb' }}>
-                {['All', 'My Open', 'Unassigned', 'SLA Breach', 'VIP', 'Unread', 'Favourites', 'Assigned'].map((tab) => {
-                    // Show total unread count badge on "All" tab
-                    const showUnreadBadge = tab === 'All' && totalUnreadCount > 0;
+            <div className="border-b border-gray-200 px-3 py-2 dark:border-gray-700">
+                <button
+                    type="button"
+                    onClick={() => setShowInboxFilters((isOpen) => !isOpen)}
+                    aria-expanded={showInboxFilters}
+                    aria-controls="chat-list-filter-panel"
+                    className="flex w-full items-center gap-2 rounded-lg px-2 py-2 text-left transition-colors hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:hover:bg-gray-800"
+                >
+                    <FiFilter className="h-4 w-4 flex-shrink-0 text-gray-500 dark:text-gray-400" />
+                    <span className="text-sm font-medium text-gray-800 dark:text-gray-100">Filters</span>
+                    {activeFilterCount > 0 && (
+                        <span className="flex h-5 min-w-[20px] items-center justify-center rounded-full bg-blue-600 px-1.5 text-[10px] font-semibold text-white">
+                            {activeFilterCount}
+                        </span>
+                    )}
+                    <span className="ml-auto min-w-0 truncate text-xs text-gray-500 dark:text-gray-400">{filterSummary}</span>
+                    <FiChevronDown className={`h-4 w-4 flex-shrink-0 text-gray-500 transition-transform dark:text-gray-400 ${showInboxFilters ? 'rotate-180' : ''}`} />
+                </button>
+                {showInboxFilters && (
+                    <div id="chat-list-filter-panel" className="mt-2 space-y-3 rounded-xl border border-gray-200 bg-gray-50 p-3 dark:border-gray-700 dark:bg-gray-800/60">
+                        <div className="grid grid-cols-2 gap-3">
+                            <label className="block min-w-0">
+                                <span className="mb-1 block text-xs font-medium text-gray-600 dark:text-gray-300">Status</span>
+                                <SearchableSelect
+                                    value={activeTab}
+                                    onChange={(event) => setActiveTab(event.target.value)}
+                                    ariaLabel="Filter by status"
+                                    emptyText="No matching status"
+                                    options={[
+                                        { value: 'All', label: 'All conversations' },
+                                        { value: 'My Open', label: 'My Open' },
+                                        { value: 'Unassigned', label: 'Unassigned' },
+                                        { value: 'SLA Breach', label: 'SLA Breach' },
+                                        { value: 'Unread', label: `Unread${totalUnreadCount > 0 ? ` (${totalUnreadCount > 99 ? '99+' : totalUnreadCount})` : ''}` },
+                                        { value: 'Favourites', label: 'Favourites' },
+                                        { value: 'Assigned', label: 'Assigned' }
+                                    ]}
+                                    className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100"
+                                />
+                            </label>
+                            <label className="block min-w-0">
+                                <span className="mb-1 block text-xs font-medium text-gray-600 dark:text-gray-300">Tag or conversation label</span>
+                                <SearchableSelect
+                                    value={selectedTagId ? `${selectedTagType}:${selectedTagId}` : ''}
+                                    onChange={(event) => {
+                                        const value = event.target.value;
+                                        if (!value) {
+                                            setSelectedTagId('');
+                                            setSelectedTagType('');
+                                            return;
+                                        }
+                                        const separatorIndex = value.indexOf(':');
+                                        setSelectedTagType(value.slice(0, separatorIndex));
+                                        setSelectedTagId(value.slice(separatorIndex + 1));
+                                    }}
+                                    ariaLabel="Filter by tag or conversation label"
+                                    placeholder="All tags and conversation labels"
+                                    emptyText="No matching tags or conversation labels"
+                                    options={[
+                                        { value: '', label: 'All tags and conversation labels' },
+                                        ...labelCatalog.flatMap((tag) => [
+                                            { value: `contact:${tag.tag_id}`, label: `Tag: ${tag.name}` },
+                                            { value: `conversation:${tag.tag_id}`, label: `Label: ${tag.name}` }
+                                        ])
+                                    ]}
+                                    className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100"
+                                />
+                            </label>
+                        </div>
+                        {labelCatalogError && <p role="alert" className="text-xs text-red-600 dark:text-red-400">{labelCatalogError}</p>}
+                        {activeFilterCount > 0 && (
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    setActiveTab('All');
+                                    setSelectedTagId('');
+                                    setSelectedTagType('');
+                                }}
+                                className="text-xs font-medium text-blue-600 hover:underline focus:outline-none focus:ring-2 focus:ring-blue-500 dark:text-blue-400"
+                            >
+                                Clear filters
+                            </button>
+                        )}
+                    </div>
+                )}
+            </div>
 
-                    return (
+            {showBulkActions && (
+                <div className="border-b border-gray-200 px-3 py-3 dark:border-gray-700">
+                <div className="rounded-2xl border border-gray-200 bg-gray-50/80 p-3 shadow-sm dark:border-gray-700 dark:bg-gray-800/50">
+                    <div className="mb-3 flex items-center justify-between gap-2">
+                        <div className="min-w-0">
+                            <h2 className="text-sm font-semibold text-gray-900 dark:text-white">Bulk actions</h2>
+                            <p className="mt-0.5 text-[11px] text-gray-500 dark:text-gray-400">Choose conversations, then an action.</p>
+                        </div>
+                        <div className="flex flex-shrink-0 items-center gap-2">
+                            <span className={`rounded-full px-2.5 py-1 text-[10px] font-semibold ${
+                                selectedNumbers.length
+                                    ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/50 dark:text-blue-300'
+                                    : 'bg-white text-gray-500 dark:bg-gray-700 dark:text-gray-300'
+                            }`}>
+                                {selectedNumbers.length} / 200 selected
+                            </span>
+                            <button
+                                type="button"
+                                onClick={() => setShowBulkActions(false)}
+                                aria-label="Collapse bulk actions"
+                                title="Collapse bulk actions"
+                                className="inline-flex items-center gap-1 rounded-lg px-2 py-1.5 text-xs font-medium text-gray-600 transition-colors hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:text-gray-300 dark:hover:bg-gray-700"
+                            >
+                                <FiChevronDown className="h-4 w-4 rotate-180" />
+                                <span>Collapse</span>
+                            </button>
+                        </div>
+                    </div>
+                    <div className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2">
                         <button
-                            key={tab}
-                            title={tab === 'SLA Breach' ? 'Open chats with an unanswered customer message older than one hour' : undefined}
-                            className={`flex-shrink-0 min-w-[76px] px-3 py-3 text-sm font-medium relative flex items-center justify-center gap-2 ${activeTab === tab
-                                ? darkMode
-                                    ? 'text-blue-400'
-                                    : 'text-blue-600'
-                                : darkMode
-                                    ? 'text-gray-400'
-                                    : 'text-gray-500'
-                                }`}
-                            onClick={() => setActiveTab(tab)}
+                            type="button"
+                            onClick={() => {
+                                if (chats.length > 0 && chats.every((chat) => selectedNumbers.includes(chat.number))) {
+                                    const nextSelection = selectedNumbers.filter((number) => !chats.some((chat) => chat.number === number));
+                                    setSelectedNumbers(nextSelection);
+                                    setShowBulkActions(false);
+                                } else {
+                                    const nextSelection = [...new Set([...selectedNumbers, ...chats.map((chat) => chat.number)])];
+                                    if (nextSelection.length > 200) {
+                                        setBulkActionMessage('Bulk actions are limited to 200 conversations. Deselect some before selecting this page.');
+                                        return;
+                                    }
+                                    setBulkActionMessage('');
+                                    setSelectedNumbers(nextSelection);
+                                    setShowBulkActions(true);
+                                }
+                            }}
+                            disabled={!chats.length || bulkActionLoading}
+                            className="inline-flex items-center justify-center gap-1.5 rounded-lg border border-gray-200 bg-white px-2.5 py-2 text-xs font-medium text-gray-700 transition-colors hover:border-gray-300 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:cursor-not-allowed disabled:opacity-50 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-gray-700"
                         >
-                            <span>{tab}</span>
-                            {showUnreadBadge && (
-                                <span className="min-w-[20px] h-5 px-1.5 rounded-full bg-brand-600 text-white text-xs font-semibold flex items-center justify-center">
-                                    {totalUnreadCount > 99 ? '99+' : totalUnreadCount}
-                                </span>
-                            )}
-                            {activeTab === tab && (
-                                <div
-                                    className={`absolute bottom-0 left-1/2 transform -translate-x-1/2 w-1/2 h-1 rounded-full ${darkMode ? 'bg-blue-400' : 'bg-blue-600'
-                                        }`}
-                                ></div>
+                            {chats.length > 0 && chats.every((chat) => selectedNumbers.includes(chat.number)) ? (
+                                <>
+                                    <FiX className="h-3.5 w-3.5" />
+                                    Deselect loaded
+                                </>
+                            ) : (
+                                <>
+                                    <FiCheck className="h-3.5 w-3.5" />
+                                    Select loaded
+                                </>
                             )}
                         </button>
-                    );
-                })}
-            </div>
-
-            <div className="border-b px-3 py-2 space-y-2" style={{ borderColor: darkMode ? '#374151' : '#e5e7eb' }}>
-                <div className="flex items-center gap-2">
-                    <button
-                        type="button"
-                        onClick={() => {
-                            if (chats.length > 0 && chats.every((chat) => selectedNumbers.includes(chat.number))) {
-                                setSelectedNumbers(selectedNumbers.filter((number) => !chats.some((chat) => chat.number === number)));
-                            } else {
-                                const nextSelection = [...new Set([...selectedNumbers, ...chats.map((chat) => chat.number)])];
-                                if (nextSelection.length > 200) {
-                                    setBulkActionMessage('Bulk actions are limited to 200 conversations. Deselect some before selecting this page.');
-                                    return;
-                                }
-                                setBulkActionMessage('');
-                                setSelectedNumbers(nextSelection);
-                            }
-                        }}
-                        disabled={!chats.length || bulkActionLoading}
-                        className="text-xs text-blue-600 dark:text-blue-400 disabled:opacity-50"
-                    >
-                        {chats.length > 0 && chats.every((chat) => selectedNumbers.includes(chat.number)) ? 'Deselect loaded' : 'Select loaded'}
-                    </button>
-                    <span className="text-xs text-gray-500 dark:text-gray-400">
-                        {selectedNumbers.length} selected (max 200)
-                    </span>
-                    <select
-                        value={bulkAction}
-                        onChange={(event) => { setBulkAction(event.target.value); setBulkActionMessage(''); }}
-                        className="ml-auto min-w-0 flex-1 rounded border border-gray-300 bg-white px-2 py-1.5 text-xs text-gray-800 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100"
-                        aria-label="Bulk action"
-                    >
-                        <option value="">Bulk action...</option>
-                        <option value="assign">Assign</option>
-                        <option value="label">Add/remove label</option>
-                        <option value="close">Close</option>
-                        <option value="export">Export CSV</option>
-                    </select>
-                    <button
-                        type="button"
-                        onClick={runBulkAction}
-                        disabled={!bulkAction || !selectedNumbers.length || bulkActionLoading}
-                        className="rounded bg-blue-600 px-3 py-1.5 text-xs font-medium text-white disabled:opacity-50"
-                    >
-                        {bulkActionLoading ? 'Working...' : 'Apply'}
-                    </button>
-                </div>
-                {bulkAction === 'assign' && (
-                    <>
-                        <select
-                            value={bulkTarget}
-                            onChange={(event) => setBulkTarget(event.target.value)}
-                            className="w-full rounded border border-gray-300 bg-white px-2 py-1.5 text-xs text-gray-800 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100"
-                            aria-label="Assign to project member"
+                        <SearchableSelect
+                            value={bulkAction}
+                            onChange={(event) => { setBulkAction(event.target.value); setBulkActionMessage(''); }}
+                            ariaLabel="Bulk action"
+                            placeholder="Choose an action..."
+                            searchable={false}
+                            options={[
+                                { value: 'assign', label: 'Assign' },
+                                { value: 'label', label: 'Add/remove tag' },
+                                { value: 'close', label: 'Close' },
+                                { value: 'export', label: 'Export CSV' }
+                            ]}
+                            className="h-9 min-w-0 flex-1 rounded-lg border border-gray-200 bg-white px-2.5 text-xs text-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100"
+                        />
+                        <button
+                            type="button"
+                            onClick={runBulkAction}
+                            disabled={!bulkAction || !selectedNumbers.length || bulkActionLoading}
+                            className="h-9 rounded-lg bg-blue-600 px-3 text-xs font-semibold text-white shadow-sm transition-colors hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 dark:focus:ring-offset-gray-900"
                         >
-                            <option value="">Choose an active project member...</option>
-                            {assignmentMembers.map((member) => (
-                                <option key={member.username} value={member.username}>
-                                    {member.name || member.username} ({member.username})
-                                </option>
-                            ))}
-                        </select>
-                        {assignmentMembersError && <p role="alert" className="text-xs text-red-600">{assignmentMembersError}</p>}
-                    </>
-                )}
-                {bulkAction === 'label' && (
-                    <div className="flex gap-2">
-                        <select
-                            value={bulkLabelAction}
-                            onChange={(event) => setBulkLabelAction(event.target.value)}
-                            className="rounded border border-gray-300 bg-white px-2 py-1.5 text-xs dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100"
-                            aria-label="Label operation"
-                        >
-                            <option value="add">Add</option>
-                            <option value="remove">Remove</option>
-                        </select>
-                        <select
-                            value={bulkTagId}
-                            onChange={(event) => setBulkTagId(event.target.value)}
-                            className="min-w-0 flex-1 rounded border border-gray-300 bg-white px-2 py-1.5 text-xs dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100"
-                            aria-label="Label"
-                        >
-                            <option value="">Choose a label...</option>
-                            {labelCatalog.map((label) => <option key={label.tag_id} value={label.tag_id}>{label.name}</option>)}
-                        </select>
-                        {labelCatalogError && <p role="alert" className="self-center text-xs text-red-600">{labelCatalogError}</p>}
+                            {bulkActionLoading ? 'Working...' : 'Apply'}
+                        </button>
                     </div>
-                )}
-                {bulkActionMessage && (
-                    <p role="status" className="break-words text-xs text-gray-600 dark:text-gray-300">{bulkActionMessage}</p>
-                )}
-            </div>
-
-            {labelCatalog.length > 0 && (
-                <div className="border-b px-3 py-2" aria-label="Filter conversations by label">
-                    <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">Conversation labels</p>
-                    <div className="flex gap-2 overflow-x-auto scrollbar-hide">
-                    <button
-                        type="button"
-                        onClick={() => setSelectedLabelId('')}
-                        className={`flex-shrink-0 rounded-full border px-3 py-1 text-xs font-medium ${
-                            selectedLabelId
-                                ? 'border-gray-300 text-gray-600 dark:border-gray-600 dark:text-gray-300'
-                                : 'border-blue-500 bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300'
-                        }`}
-                        aria-pressed={!selectedLabelId}
-                    >
-                        All labels
-                    </button>
-                    {labelCatalog.map((label) => {
-                        const selected = selectedLabelId === label.tag_id;
-                        const color = label.color || '#6366f1';
-                        return (
-                            <button
-                                key={label.tag_id}
-                                type="button"
-                                onClick={() => setSelectedLabelId(selected ? '' : label.tag_id)}
-                                className="flex-shrink-0 rounded-full border px-3 py-1 text-xs font-medium"
-                                style={{
-                                    borderColor: selected ? color : `${color}80`,
-                                    backgroundColor: selected ? `${color}20` : 'transparent',
-                                    color
-                                }}
-                                aria-pressed={selected}
-                            >
-                                {label.name}
-                            </button>
-                        );
-                    })}
-                    </div>
+                    {bulkAction === 'assign' && (
+                        <>
+                            <SearchableSelect
+                                value={bulkTarget}
+                                onChange={(event) => setBulkTarget(event.target.value)}
+                                ariaLabel="Assign to project member"
+                                placeholder="Choose an active project member..."
+                                options={assignmentMembers.map((member) => ({
+                                    value: member.username,
+                                    label: `${member.name || member.username} (${member.username})`
+                                }))}
+                                className="mt-2 w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-xs text-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100"
+                            />
+                            {assignmentMembersError && <p role="alert" className="text-xs text-red-600">{assignmentMembersError}</p>}
+                        </>
+                    )}
+                    {bulkAction === 'label' && (
+                        <div className="mt-2 flex gap-2">
+                            <SearchableSelect
+                                value={bulkLabelAction}
+                                onChange={(event) => setBulkLabelAction(event.target.value)}
+                                ariaLabel="Tag operation"
+                                searchable={false}
+                                options={[
+                                    { value: 'add', label: 'Add' },
+                                    { value: 'remove', label: 'Remove' }
+                                ]}
+                                className="rounded-lg border border-gray-200 bg-white px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100"
+                            />
+                            <SearchableSelect
+                                value={bulkTagId}
+                                onChange={(event) => setBulkTagId(event.target.value)}
+                                ariaLabel="Contact tag"
+                                placeholder="Choose a contact tag..."
+                                options={labelCatalog.map((label) => ({ value: label.tag_id, label: label.name }))}
+                                className="min-w-0 flex-1 rounded-lg border border-gray-200 bg-white px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100"
+                            />
+                            {labelCatalogError && <p role="alert" className="self-center text-xs text-red-600">{labelCatalogError}</p>}
+                        </div>
+                    )}
+                    {bulkActionMessage && (
+                        <p role="status" className="mt-2 break-words rounded-lg bg-white px-3 py-2 text-xs text-gray-600 dark:bg-gray-700 dark:text-gray-300">{bulkActionMessage}</p>
+                    )}
                 </div>
+            </div>
             )}
+
             {chatListError && (
                 <div role="alert" className="flex items-center justify-between gap-2 border-b border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700 dark:border-red-900 dark:bg-red-950/30 dark:text-red-300">
                     <span>{chatListError}</span>

@@ -22,6 +22,7 @@ export default function SearchableSelect({
   disabled = false,
   className = '',
   id,
+  ariaLabel,
   searchable = true,
   emptyText = 'No matches',
 }) {
@@ -159,7 +160,7 @@ export default function SearchableSelect({
           </div>
         </div>
       )}
-      <ul className="max-h-60 overflow-y-auto py-1" role="listbox" aria-labelledby={controlId}>
+      <ul className="max-h-60 overflow-y-auto py-1 scrollbar-hide" role="listbox" aria-labelledby={controlId}>
         {filtered.length === 0 ? (
           <li className="px-3 py-2 text-sm text-gray-500 dark:text-gray-400">{emptyText}</li>
         ) : (
@@ -203,6 +204,7 @@ export default function SearchableSelect({
         type="button"
         name={name}
         disabled={disabled}
+        aria-label={ariaLabel}
         aria-haspopup="listbox"
         aria-expanded={open}
         onClick={() => !disabled && setOpen((current) => !current)}
