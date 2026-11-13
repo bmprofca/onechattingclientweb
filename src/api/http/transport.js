@@ -1,5 +1,10 @@
 import axios, { AxiosHeaders } from 'axios';
-import { API_BASE_URL } from '../../config/api';
+import {
+  API_UNAVAILABLE_EVENT,
+  isApiRequest,
+  isUnavailableApiError,
+  markApiUnavailable,
+} from './availability';
 import {
   PLAIN_PAYLOAD_KEY,
   isPlainObject,
@@ -9,11 +14,12 @@ import {
 } from './contract';
 import { getAuthToken, UNAUTHORIZED_EVENT } from './session';
 
-const isApiRequest = (config) => {
-  const url = String(config?.url || '');
-  const base = String(config?.baseURL || '');
-  return url.startsWith(API_BASE_URL) || (!/^https?:\/\//i.test(url) && base.startsWith(API_BASE_URL));
-};
+function notifyApiUnavailable(error) {
+  if (typeof window !== 'undefined' && isUnavailableApiError(error)) {
+    markApiUnavailable();
+    window.dispatchEvent(new Event(API_UNAVAILABLE_EVENT));
+  }
+}
 
 /** Unwrap the Encrypt() marker so the body is sent as plain JSON. */
 function toPlainBody(data) {
@@ -73,6 +79,7 @@ export function installTransport(instance = axios) {
     (error) => {
       const response = error?.response;
       notifyUnauthorized(response?.status);
+      notifyApiUnavailable(error);
       if (!response || !isApiRequest(error.config) || error.config?.apiNative) return Promise.reject(error);
       if (isApiEnvelope(response.data) && response.data.success === false) {
         // Existing screens read HTTP 200 with { error: "message" }.

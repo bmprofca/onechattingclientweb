@@ -48,6 +48,7 @@ import Reports from './pages/Reports';
 import ProtectedRoute from './component/ProtectedRoute';
 import { ShellProvider } from './component/Menu';
 import { ThemeProvider } from './theme/ThemeContext';
+import ApiUnavailableBoundary from './component/ApiUnavailableBoundary';
 
 
 // API transport for every axios request to the OneChatting API (must run before any request)
@@ -83,6 +84,7 @@ root.render(
           }}
         />
         <ShellProvider>
+        <ApiUnavailableBoundary>
         <Routes>
           <Route path="/" element={
             <ProtectedRoute>
@@ -249,6 +251,7 @@ root.render(
           {/* Add more routes as needed */}
           <Route path="*" element={<Error_404 />} />
         </Routes>
+        </ApiUnavailableBoundary>
         </ShellProvider>
       </BrowserRouter>
     </ThemeProvider>
